@@ -61,5 +61,16 @@ class DrillValidation(unittest.TestCase):
             run(api.post_spot({"text": "too short"}))
 
 
+class SpotLength(unittest.TestCase):
+    def test_a_full_opponent_speech_fits(self):
+        speech = "word " * 1500  # about 7,500 characters, a full NC
+        out = engine.clean({"tool": "spot", "message": "Find the fallacies in this argument:\n\n" + speech})
+        self.assertTrue(out["message"].endswith("word "))
+
+    def test_other_tools_keep_the_short_cap(self):
+        with self.assertRaises(ValueError):
+            engine.clean({"tool": "coach", "message": "x" * 5000})
+
+
 if __name__ == "__main__":
     unittest.main()

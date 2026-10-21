@@ -156,7 +156,8 @@ def clean(p):
     out["side"] = _pick(p.get("side"), ("aff", "neg"), "side", "aff")
     out["student_side"] = _pick(p.get("student_side"), ("aff", "neg"), "side", "aff")
     out["section"] = _s(p.get("section"), 60, "Section")
-    out["message"] = _s(p.get("message"), 4000, "Message")
+    # "Spot fallacies" sends a whole opponent speech or pasted argument as the message.
+    out["message"] = _s(p.get("message"), 13000 if p.get("tool") == "spot" else 4000, "Message")
     case = p.get("case") or {}
     if not isinstance(case, dict) or len(case) > 12:
         raise ValueError("Bad case.")
