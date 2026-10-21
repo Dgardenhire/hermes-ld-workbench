@@ -244,7 +244,7 @@ def backup():
 def import_backup(data):
     """Add every case in a backup as a new case. Returns the number added."""
     if not isinstance(data, dict) or data.get("format") != BACKUP_FORMAT or not isinstance(data.get("cases"), list):
-        raise ValueError("That file is not an LD Workbench backup.")
+        raise ValueError("That file is not a Debate Workbench backup.")
     added = 0
     for item in data["cases"][:CASE_LIMIT]:
         if not isinstance(item, dict):

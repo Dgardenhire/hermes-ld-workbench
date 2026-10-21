@@ -1,4 +1,4 @@
-// LD Workbench, desktop half ("Tournament Room"). SOURCE: desktop/plugin.js is built from this file and the
+// Debate Workbench, desktop half ("Tournament Room"). SOURCE: desktop/plugin.js is built from this file and the
 // shared hermes-ui-kit by `node ../../../products/hermes-ui-kit/scripts/build.mjs .` (esbuild). Edit here, then build.
 //
 // The built file is one ES module that imports only '@hermes/plugin-sdk', 'react' and 'react/jsx-runtime'.
@@ -1205,10 +1205,10 @@ function DebatePage() {
   const view = useValue($view)
   useEffect(() => { load() }, [])
   let body
-  if (err && !st) body = jsx(Failure, { title: 'The workbench could not load', body: `${errText(err)} Check that LD Workbench is turned on in Capabilities, Plugins, then try again.`, error: err, onRetry: load })
+  if (err && !st) body = jsx(Failure, { title: 'The workbench could not load', body: `${errText(err)} Check that Debate Workbench is turned on in Capabilities, Plugins, then try again.`, error: err, onRetry: load })
   else if (!st || !cfg) body = jsx(Thinking, { label: 'Opening the workbench' })
   else body = jsxs(Fragment, { children: [jsx(Header, {}), view === 'room' ? jsx(Room, {}) : view === 'fallacies' ? jsx(Fallacies, {}) : view === 'printbrief' ? jsx(PrintBriefing, {}) : view === 'print' ? jsx(PrintView, {}) : jsx(Bench, {})] })
-  return jsx('div', { className: 'hk hk-page ldw', role: 'region', 'aria-label': 'LD Workbench', children: jsx('div', { className: 'ldw-inner', children: body }) })
+  return jsx('div', { className: 'hk hk-page ldw', role: 'region', 'aria-label': 'Debate Workbench', children: jsx('div', { className: 'ldw-inner', children: body }) })
 }
 
 /* ------------------------------------------------------------------ styles -- */
@@ -1460,7 +1460,7 @@ const CSS = `
 
 export default {
   id: PLUGIN_ID,
-  name: 'LD Workbench',
+  name: 'Debate Workbench',
   register(ctx) {
     api = ctx
     installStyles(ctx, PLUGIN_ID, CSS)

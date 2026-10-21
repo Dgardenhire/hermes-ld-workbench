@@ -1,4 +1,4 @@
-# LD Workbench for Hermes
+# Debate Workbench for Hermes
 
 Practice Lincoln-Douglas debate inside the Hermes desktop app.
 
@@ -16,17 +16,19 @@ It uses the AI model you already set up in Hermes. It never writes your case for
 
 **Fallacies.** A guide to 15 common mistakes in reasoning, each with a plain definition, an example, and what to do about it in a round. A practice drill gives you a short argument; you pick the fallacy it commits (or "No fallacy"), see whether you were right and why, and keep a score for the session. You can also paste any argument and have it checked. In the Tournament Room, a "Spot fallacies" button sits under every speech the opponent gives.
 
+**Topic briefing.** When you start on a new resolution, a briefing maps the topic for both sides: the background, the words that matter, what each side has to prove, the arguments you'll hear most, common values and criteria, what judges look for, and where to start reading. Facts it is not sure of are marked "check this". It is saved, so it opens instantly the next time.
+
 **My cases.** Keep as many cases as you want. Each one has its own name, resolution, side, sections and coach notes. Make a new one, copy one, or delete one. Save any case as a Word document or a text file, or print it. Save a backup file of every case, and load it on another computer.
 
 **Bring in your case.** Paste a case you already wrote, or upload it as a Word document or text file. The workbench sorts your words into the sections without changing a single word, then the coach reviews it.
 
 ## How to install it
 
-You need the Hermes desktop app, version 0.22 or newer, with a model already set up. LD Workbench uses that model. Nothing goes to anyone else.
+You need the Hermes desktop app, version 0.22 or newer, with a model already set up. Debate Workbench uses that model.
 
 1. In Hermes Desktop, click **Capabilities**, then **Plugins**, then **Install from Git**.
 2. Paste `https://github.com/Dgardenhire/hermes-ld-workbench` and confirm. Keep both parts selected: the agent plugin and the desktop plugin.
-3. In **Capabilities**, then **Plugins**, find **LD Workbench** and switch it on.
+3. In **Capabilities**, then **Plugins**, find **Debate Workbench** and switch it on.
 4. Click **Debate** in the left sidebar.
 
 Prefer the terminal? Run `hermes plugins install Dgardenhire/hermes-ld-workbench --enable`, then do steps 3 and 4.
@@ -37,7 +39,15 @@ The full manual, with pictures: https://linchpin.studio/hermes/ld-workbench/manu
 
 ## Where your work is saved
 
-Your cases, coach notes, rounds and ballots are saved by Hermes on your own computer, in a folder named `plugin-data/ld-workbench` inside your Hermes folder. Nothing is sent anywhere except to the AI model you chose in Hermes, which reads your case when you ask for help.
+Your cases, coach notes, rounds, ballots and topic briefings are saved by Hermes on your own computer, in a folder named `plugin-data/ld-workbench` inside your Hermes folder. There are no accounts and no tracking.
+
+## What leaves your computer
+
+- **Your AI model.** When you use the coach, a helper, the briefing, a round or a ballot, the text it needs (your case, your speeches, the resolution) goes to the AI model you chose in Hermes, through Hermes. Debate Workbench has no keys of its own.
+- **A topic source link.** If you add a link to the topic source, Debate Workbench opens that one public web page to read its text. It only opens public addresses, and it keeps the first 30,000 characters.
+- **Dictation.** The **Speak instead of type** button uses the speech recognition built into the Hermes app, where the app provides it. Depending on your computer, that service may send your audio to its maker (for example Google) to turn it into text. If you never press it, nothing is recorded.
+
+Nothing else is sent anywhere.
 
 ## The coaching rule
 
@@ -45,7 +55,7 @@ The coach helps and pushes. It explains ideas, lays out choices, and points to w
 
 ## For developers
 
-- The method (every prompt, the round format, the judges) is in `ld_method.py`, copied from the LD Workbench web app. Keep the two in sync.
+- The method (every prompt, the round format, the judges) is in `ld_method.py`, copied from the web app at linchpin.studio/debate. Keep the two in sync.
 - The backend is `dashboard/plugin_api.py`. All model calls go through Hermes's plugin model access (`PluginLlm`), so they use the user's own model and keys.
 - The page is built from `desktop/src/plugin.js` with the shared Hermes UI kit: `node <path-to>/hermes-ui-kit/scripts/build.mjs .`
 - Tests: `/usr/bin/python3 -m unittest discover -s tests`

@@ -303,7 +303,7 @@ def fetch_public(url, hops=4):
         raw_sock = socket.create_connection((ip, port), timeout=20)
         conn.sock = conn._context.wrap_socket(raw_sock, server_hostname=u.hostname) if u.scheme == "https" else raw_sock
         path = (u.path or "/") + (f"?{u.query}" if u.query else "")
-        conn.request("GET", path, headers={"Host": u.netloc, "User-Agent": "Mozilla/5.0 (LD Workbench topic reader)"})
+        conn.request("GET", path, headers={"Host": u.netloc, "User-Agent": "Mozilla/5.0 (Debate Workbench topic reader)"})
         r = conn.getresponse()
         if r.status in (301, 302, 303, 307, 308) and r.getheader("Location"):
             url = urllib.parse.urljoin(url, r.getheader("Location"))

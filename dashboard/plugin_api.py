@@ -1,4 +1,4 @@
-"""Backend routes for LD Workbench. Mounted by Hermes at /api/plugins/ld-workbench/.
+"""Backend routes for Debate Workbench. Mounted by Hermes at /api/plugins/ld-workbench/.
 
 The page (desktop/plugin.js) reaches these through ctx.rest. Every model call runs here, through
 Hermes's plugin LLM facade (``PluginLlm(plugin_id="ld-workbench")``), so it uses the user's own model
@@ -30,7 +30,7 @@ def _load_package():
         spec = importlib.util.spec_from_file_location(package_name, root / "__init__.py",
                                                       submodule_search_locations=[str(root)])
         if spec is None or spec.loader is None:
-            raise RuntimeError("Could not load the LD Workbench package")
+            raise RuntimeError("Could not load the Debate Workbench package")
         package = importlib.util.module_from_spec(spec)
         sys.modules[package_name] = package
         spec.loader.exec_module(package)
@@ -217,7 +217,7 @@ async def post_backup_import(body: dict):
         try:
             data = json.loads(text)
         except ValueError:
-            raise ValueError("That file is not an LD Workbench backup.")
+            raise ValueError("That file is not a Debate Workbench backup.")
         added = library.import_backup(data)
         return {"added": added} | _workbench()
     except Exception as e:

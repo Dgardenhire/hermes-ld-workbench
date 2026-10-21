@@ -1,7 +1,7 @@
-# LD Workbench for Hermes. name is the registry key; label is the display name.
+# Debate Workbench for Hermes. name is the registry key; label is the display name.
 manifest_version: 2
 name: ld-workbench
-label: LD Workbench
+label: Debate Workbench
 version: 0.1.0
 description: Practice Lincoln-Douglas debate. Build your own case with a coach that asks hard questions, then debate a full NSDA practice round against an AI opponent and get a judge's ballot. Uses your own Hermes model. It never writes your case for you.
 author: Damon Gardenhire

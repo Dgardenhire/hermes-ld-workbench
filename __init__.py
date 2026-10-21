@@ -1,4 +1,4 @@
-"""LD Workbench for Hermes (``ld-workbench``).
+"""Debate Workbench for Hermes (``ld-workbench``).
 
 The Hermes version of the Lincoln-Douglas Workbench web app. The modules:
 

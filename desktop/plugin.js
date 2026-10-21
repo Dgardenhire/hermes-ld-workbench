@@ -1929,10 +1929,10 @@ function DebatePage() {
     load();
   }, []);
   let body;
-  if (err && !st) body = jsx3(Failure, { title: "The workbench could not load", body: `${errText(err)} Check that LD Workbench is turned on in Capabilities, Plugins, then try again.`, error: err, onRetry: load });
+  if (err && !st) body = jsx3(Failure, { title: "The workbench could not load", body: `${errText(err)} Check that Debate Workbench is turned on in Capabilities, Plugins, then try again.`, error: err, onRetry: load });
   else if (!st || !cfg) body = jsx3(Thinking, { label: "Opening the workbench" });
   else body = jsxs3(Fragment, { children: [jsx3(Header, {}), view === "room" ? jsx3(Room, {}) : view === "fallacies" ? jsx3(Fallacies, {}) : view === "printbrief" ? jsx3(PrintBriefing, {}) : view === "print" ? jsx3(PrintView, {}) : jsx3(Bench, {})] });
-  return jsx3("div", { className: "hk hk-page ldw", role: "region", "aria-label": "LD Workbench", children: jsx3("div", { className: "ldw-inner", children: body }) });
+  return jsx3("div", { className: "hk hk-page ldw", role: "region", "aria-label": "Debate Workbench", children: jsx3("div", { className: "ldw-inner", children: body }) });
 }
 var CSS = `
 .ldw{--ldw-serif:Georgia,"Source Serif 4","Times New Roman",ui-serif,serif;--ldw-gap:22px}
@@ -2176,7 +2176,7 @@ var CSS = `
 `;
 var plugin_default = {
   id: PLUGIN_ID,
-  name: "LD Workbench",
+  name: "Debate Workbench",
   register(ctx) {
     api = ctx;
     installStyles(ctx, PLUGIN_ID, CSS);
