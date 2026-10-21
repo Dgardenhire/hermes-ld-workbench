@@ -14,7 +14,6 @@ from __future__ import annotations
 
 import asyncio
 import base64
-import html
 import http.client
 import ipaddress
 import json
@@ -23,6 +22,7 @@ import re
 import socket
 import ssl
 import urllib.parse
+from html.parser import HTMLParser
 
 try:
     from . import ld_method as M
@@ -266,7 +266,7 @@ async def run_judge(p, model):
     return ballot
 
 
-# ---------- topic source: the web app's pinned-IP, public-only reader (unchanged) ----------
+# ---------- topic source: the web app's pinned-IP, public-only reader and its linear page-text extractor (unchanged) ----------
 def checked_ip(host):
     """Resolve once and return one public address, or None if any address is not public."""
     try:
@@ -318,19 +318,51 @@ def fetch_public(url, hops=4):
     raise RuntimeError("That link redirects too many times.")
 
 
+class PageText(HTMLParser):
+    """Visible text of a page in one linear pass (no backtracking regexes on untrusted HTML)."""
+    SKIP = {"script", "style", "noscript", "svg", "nav", "footer", "header", "template"}
+    BREAK = {"p", "div", "br", "li", "h1", "h2", "h3", "h4", "h5", "h6", "tr", "section", "article"}
+
+    def __init__(self):
+        super().__init__(convert_charrefs=True)
+        self.parts, self.title, self._skip, self._in_title = [], "", 0, False
+
+    def handle_starttag(self, tag, attrs):
+        if tag in self.SKIP:
+            self._skip += 1
+        elif tag == "title":
+            self._in_title = True
+        elif tag in self.BREAK:
+            self.parts.append("\n")
+
+    def handle_endtag(self, tag):
+        if tag in self.SKIP and self._skip:
+            self._skip -= 1
+        elif tag == "title":
+            self._in_title = False
+        elif tag in self.BREAK:
+            self.parts.append("\n")
+
+    def handle_data(self, data):
+        if self._in_title:
+            self.title += data
+        elif not self._skip:
+            self.parts.append(data)
+
+
 def run_source(p):
     url = str(p.get("url") or "").strip()[:2000]
     url, ctype, raw = fetch_public(url)
     u = urllib.parse.urlparse(url)
     if "pdf" in ctype or url.lower().endswith(".pdf"):
         raise RuntimeError("That link is a PDF, which the workbench cannot read yet. Open it, copy the text, and paste it in instead.")
-    page = raw.decode("utf-8", errors="replace")
-    title = re.search(r"<title[^>]*>(.*?)</title>", page, re.S | re.I)
-    page = re.sub(r"(?is)<(script|style|noscript|svg|nav|footer|header)[^>]*>.*?</\1>", " ", page)
-    text = html.unescape(re.sub(r"<[^>]+>", " ", page))
-    text = re.sub(r"[ \t\r\f\v]+", " ", text)
+    page = raw.decode("utf-8", errors="replace")[:1_500_000]
+    reader = PageText()
+    reader.feed(page)
+    reader.close()
+    text = re.sub(r"[ \t\r\f\v]+", " ", "".join(reader.parts))
     text = re.sub(r"\n\s*\n+", "\n\n", text).strip()
-    return {"url": url, "title": html.unescape(title.group(1).strip())[:200] if title else u.hostname, "text": text[:30000]}
+    return {"url": url, "title": (reader.title.strip() or u.hostname)[:200], "text": text[:30000]}
 
 
 async def run_source_async(p):

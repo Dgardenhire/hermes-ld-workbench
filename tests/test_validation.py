@@ -50,3 +50,18 @@ class Validation(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class PageTextReader(unittest.TestCase):
+    def test_skips_hidden_parts_and_is_linear(self):
+        import time
+        r = engine.PageText()
+        r.feed("<title>Topic</title><script>x()</script><p>Keep</p>" + "<style>" * 50000 + "a" * 200000)
+        r.close()
+        self.assertEqual(r.title, "Topic")
+        self.assertIn("Keep", "".join(r.parts))
+        t = time.time()
+        r2 = engine.PageText()
+        r2.feed("<script>" + "</scrip " * 100000)
+        r2.close()
+        self.assertLess(time.time() - t, 5)
