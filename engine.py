@@ -325,7 +325,7 @@ class PageText(HTMLParser):
 
     def __init__(self):
         super().__init__(convert_charrefs=True)
-        self.parts, self.title, self._skip, self._in_title = [], "", 0, False
+        self.parts, self._title, self._skip, self._in_title, self._size = [], [], 0, False, 0
 
     def handle_starttag(self, tag, attrs):
         if tag in self.SKIP:
@@ -343,11 +343,17 @@ class PageText(HTMLParser):
         elif tag in self.BREAK:
             self.parts.append("\n")
 
+    @property
+    def title(self):
+        return "".join(self._title)[:200]
+
     def handle_data(self, data):
         if self._in_title:
-            self.title += data
-        elif not self._skip:
+            if sum(map(len, self._title)) < 400:
+                self._title.append(data)
+        elif not self._skip and self._size < 40000:  # only the first 30,000 characters are used
             self.parts.append(data)
+            self._size += len(data)
 
 
 def run_source(p):
