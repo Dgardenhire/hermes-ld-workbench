@@ -472,7 +472,6 @@ function renderText(text) {
   return jsx3("div", { className: "ldw-prose", children: blocks });
 }
 var Thinking = ({ label }) => jsxs3("div", { className: "ldw-thinking", role: "status", children: [jsx3("span", { className: "hk-spinner" }), label] });
-var Label = ({ children, accent }) => jsx3("div", { className: cls("ldw-label", accent && "ldw-accent"), children });
 var SECTION_HINTS = {
   "Resolution analysis": "What is the resolution really asking? What would have to be true for your side to win?",
   Definitions: "Only the terms that matter. Where does each definition come from?",
@@ -512,15 +511,100 @@ var SECTION_TOOLS = {
   Blocks: ["attack", "coach"],
   "Other material": ["coach", "notes"]
 };
-var PANEL_TOOLS = ["coach", "explain", "stress", "attack", "logic", "sources", "notes", "review"];
 var PATH = [
-  { title: "Understand the resolution", desc: "What it asks, and what each key word means", sections: ["Resolution analysis", "Definitions"], tool: "breakdown" },
-  { title: "Build the framework", desc: "Your value and the criterion that measures it", sections: ["Value", "Criterion"], tool: "values" },
-  { title: "Write contentions", desc: "Two or three reasons, each with claim, warrant, impact", sections: ["Contention 1", "Contention 2"], tool: "arguments" },
-  { title: "Find evidence", desc: "Where to look, and what will survive a challenge", sections: ["Contention 1", "Contention 2", "Contention 3"], tool: "sources", min: 40 },
-  { title: "Prepare blocks", desc: "The attacks coming, and your answers", sections: ["Blocks"], tool: "attack" },
-  { title: "Review and test", desc: "Full review, then a practice round", sections: [], tool: "review" }
+  { title: "Understand the resolution", short: "Resolution", desc: "What it asks, and what each key word means", sections: ["Resolution analysis", "Definitions"], tool: "breakdown" },
+  { title: "Build the framework", short: "Framework", desc: "Your value and the criterion that measures it", sections: ["Value", "Criterion"], tool: "values" },
+  { title: "Write contentions", short: "Contentions", desc: "Two or three reasons, each with claim, warrant, impact", sections: ["Contention 1", "Contention 2"], tool: "arguments" },
+  { title: "Find evidence", short: "Evidence", desc: "Where to look, and what will survive a challenge", sections: ["Contention 1", "Contention 2", "Contention 3"], tool: "sources", min: 40 },
+  { title: "Prepare blocks", short: "Blocks", desc: "The attacks coming, and your answers", sections: ["Blocks"], tool: "attack" },
+  { title: "Review and test", short: "Review", desc: "Full review, then a practice round", sections: [], tool: "review" }
 ];
+function Menu({ label, icon, items, align = "start", trigger, variant = "secondary", size = "sm", ariaLabel, title }) {
+  const [open, setOpen] = useState3(false);
+  const wrap = useRef2(null);
+  const list = useRef2(null);
+  const focusTrigger = () => {
+    const b = wrap.current && wrap.current.querySelector('[aria-haspopup="menu"]');
+    if (b) b.focus();
+  };
+  const close = (refocus) => {
+    setOpen(false);
+    if (refocus) focusTrigger();
+  };
+  useEffect2(() => {
+    if (!open) return void 0;
+    const away = (e) => {
+      if (wrap.current && !wrap.current.contains(e.target)) setOpen(false);
+    };
+    document.addEventListener("mousedown", away);
+    const first = list.current && list.current.querySelector("[role=menuitem]:not([disabled])");
+    if (first) first.focus();
+    return () => document.removeEventListener("mousedown", away);
+  }, [open]);
+  const onKey = (e) => {
+    const all = [...list.current.querySelectorAll("[role=menuitem]:not([disabled])")];
+    const i = all.indexOf(document.activeElement);
+    if (e.key === "Escape") {
+      e.preventDefault();
+      e.stopPropagation();
+      close(true);
+    } else if (e.key === "ArrowDown") {
+      e.preventDefault();
+      (all[i + 1] || all[0]).focus();
+    } else if (e.key === "ArrowUp") {
+      e.preventDefault();
+      (all[i - 1] || all[all.length - 1]).focus();
+    } else if (e.key === "Home") {
+      e.preventDefault();
+      all[0] && all[0].focus();
+    } else if (e.key === "End") {
+      e.preventDefault();
+      all[all.length - 1] && all[all.length - 1].focus();
+    } else if (e.key === "Tab") setOpen(false);
+  };
+  const pick = (it) => {
+    close(true);
+    it.onSelect && it.onSelect();
+  };
+  const triggerProps = {
+    "aria-haspopup": "menu",
+    "aria-expanded": open,
+    "aria-label": ariaLabel,
+    title,
+    onClick: () => setOpen((v) => !v),
+    onKeyDown: (e) => {
+      if (e.key === "ArrowDown" && !open) {
+        e.preventDefault();
+        setOpen(true);
+      }
+    }
+  };
+  return jsxs3("div", { className: "ldw-menu-wrap", ref: wrap, children: [
+    trigger ? trigger(triggerProps) : jsx3(Button2, {
+      variant,
+      size,
+      ...triggerProps,
+      children: jsxs3(Fragment, { children: [icon ? jsx3(Codicon3, { name: icon }) : null, label, jsx3(Codicon3, { name: "chevron-down", className: "ldw-caret" })] })
+    }),
+    open ? jsx3("div", { className: "ldw-menu", "data-align": align, role: "menu", ref: list, onKeyDown: onKey, children: items.filter(Boolean).map((it, i) => {
+      if (it.divider) return jsx3("div", { className: "ldw-menu-sep", role: "separator" }, i);
+      if (it.heading) return jsx3("div", { className: "ldw-menu-head", children: it.heading }, i);
+      return jsxs3("button", {
+        type: "button",
+        role: "menuitem",
+        className: "ldw-menu-item",
+        disabled: it.disabled,
+        "data-danger": it.danger ? "" : void 0,
+        "aria-current": it.current ? "true" : void 0,
+        onClick: () => pick(it),
+        children: [
+          jsx3(Codicon3, { name: it.current ? "check" : it.icon || "blank", className: "ldw-menu-icon" }),
+          jsxs3("span", { className: "ldw-menu-text", children: [jsx3("span", { children: it.label }), it.meta ? jsx3("span", { className: "ldw-menu-meta", children: it.meta }) : null] })
+        ]
+      }, i);
+    }) }) : null
+  ] });
+}
 function stops() {
   return ($cfg.get() || {}).round || [];
 }
@@ -577,18 +661,39 @@ function useCountdown(seconds, key) {
     const id = setInterval(() => setLeft((v) => v - 1), 1e3);
     return () => clearInterval(id);
   }, [running]);
-  return { left, running, start: () => setRunning(true), pause: () => setRunning(false) };
+  return { left, running, total: seconds, start: () => setRunning(true), pause: () => setRunning(false) };
 }
-function ClockPanel({ big, label, fraction, rows, actions, over }) {
+function ClockPanel({ big, label, fraction, rows = [], primary, clock, prep, over, extra }) {
   return jsxs3("section", { className: "ldw-panel ldw-clock", "aria-label": "Clock", children: [
-    jsx3(Label, { children: "Clock" }),
     jsxs3("div", { className: "ldw-watch", children: [
       jsx3("div", { className: cls("ldw-watch-time", over && "ldw-over"), role: "timer", "aria-live": "off", children: big }),
-      jsx3(Label, { accent: true, children: label })
+      jsxs3("div", { className: "ldw-watch-sub", children: [
+        jsx3("span", { className: "ldw-mono ldw-accent", children: label }),
+        clock ? jsx3("button", {
+          type: "button",
+          className: "ldw-iconbtn",
+          onClick: clock.running ? clock.pause : clock.start,
+          "aria-label": clock.running ? "Pause clock" : clock.left === clock.total ? "Start clock" : "Resume clock",
+          title: clock.running ? "Pause clock" : clock.left === clock.total ? "Start clock" : "Resume clock",
+          children: jsx3(Codicon3, { name: clock.running ? "debug-pause" : "play" })
+        }) : null
+      ] })
     ] }),
     jsx3("div", { className: "ldw-bar", children: jsx3("span", { style: { width: `${Math.max(0, Math.min(1, fraction || 0)) * 100}%` } }) }),
-    jsx3("dl", { className: "ldw-rows", children: rows.map(([k, v]) => jsxs3(Fragment, { children: [jsx3("dt", { children: k }), jsx3("dd", { children: v })] }, k)) }),
-    jsx3("div", { className: "ldw-clock-actions", children: actions })
+    prep ? jsxs3("div", { className: "ldw-preprow", children: [
+      jsx3("span", { children: "Prep left" }),
+      jsx3("b", { className: "ldw-num", children: mmss(prep.left) }),
+      jsx3("button", {
+        type: "button",
+        className: "hk-link",
+        onClick: prep.toggle,
+        disabled: !prep.running && prep.left <= 0,
+        children: prep.running ? "Stop prep" : prep.left > 0 ? "Use prep" : "None left"
+      })
+    ] }) : null,
+    rows.length ? jsx3("dl", { className: "ldw-rows", children: rows.map(([k, v]) => jsxs3(Fragment, { children: [jsx3("dt", { children: k }), jsx3("dd", { children: v })] }, k)) }) : null,
+    primary || null,
+    extra || null
   ] });
 }
 var BigButton = ({ primary, icon, children, ...rest2 }) => jsx3(Button2, {
@@ -597,14 +702,10 @@ var BigButton = ({ primary, icon, children, ...rest2 }) => jsx3(Button2, {
   ...rest2,
   children: jsxs3(Fragment, { children: [icon ? jsx3(Codicon3, { name: icon }) : null, children] })
 });
-function PrepButton({ prep }) {
-  return jsx3(BigButton, {
-    icon: prep.running ? "debug-pause" : "watch",
-    onClick: prep.toggle,
-    disabled: !prep.running && prep.left <= 0,
-    children: prep.running ? "Stop prep" : prep.left > 0 ? "Use prep" : "No prep left"
-  });
-}
+var StageHead = ({ title, sub }) => jsxs3("div", { className: "ldw-stagehead", children: [
+  jsx3("h2", { className: "ldw-h2", children: title }),
+  sub ? jsx3("span", { className: "ldw-meta", children: sub }) : null
+] });
 function useDictation(onText) {
   const SR = typeof window !== "undefined" && (window.SpeechRecognition || window.webkitSpeechRecognition);
   const [on, setOn] = useState3(false);
@@ -691,18 +792,15 @@ function StudentSpeech({ r, stop }) {
     jsx3(ClockPanel, {
       big: mmss(clock.left),
       over: clock.left < 0,
-      label: `${stop.id} · Your speech`,
+      label: `${stop.id} · your speech`,
       fraction: 1 - clock.left / target,
-      rows: [["Prep left", mmss(prep.left)], ["Pace", pace], ["Spoken length", `about ${mmss(spoken)}`]],
-      actions: [
-        jsx3(BigButton, { key: "f", primary: true, icon: "arrow-right", onClick: finish, loading: busy, children: "Finish speech" }),
-        clock.running ? jsx3(BigButton, { key: "c", icon: "debug-pause", onClick: clock.pause, children: "Pause clock" }) : jsx3(BigButton, { key: "c", icon: "play", onClick: clock.start, children: clock.left === target ? "Start clock" : "Resume clock" }),
-        jsx3(PrepButton, { key: "p", prep }),
-        dict ? jsx3(BigButton, { key: "d", icon: dict.on ? "debug-pause" : "mic", onClick: dict.toggle, children: dict.on ? "Stop speaking" : "Speak instead of type" }) : null
-      ]
+      clock,
+      prep,
+      rows: [["Pace", pace], ["Spoken length", `about ${mmss(spoken)}`]],
+      primary: jsx3(BigButton, { primary: true, icon: "arrow-right", onClick: finish, loading: busy, children: "Finish speech" })
     }),
     jsxs3("section", { className: "ldw-panel ldw-stage", "aria-label": "Your speech", children: [
-      jsx3(Label, { children: `Your ${stop.id} · ${stop.name}` }),
+      jsx3(StageHead, { title: `Your ${stop.id}`, sub: stop.name }),
       jsx3("p", { className: "ldw-goal", children: ($cfg.get().speech_goals || {})[stop.id] }),
       jsx3(Textarea, {
         className: "ldw-speechbox",
@@ -713,7 +811,10 @@ function StudentSpeech({ r, stop }) {
       }),
       err ? jsx3(Notice, { tone: "bad", children: err }) : null,
       dict && dict.err ? jsx3(Notice, { tone: "warn", children: dict.err }) : null,
-      jsx3("div", { className: "ldw-meta", children: `${words(text)} words · about ${mmss(spoken)} spoken at ${WPM} words a minute` })
+      jsxs3("div", { className: "ldw-row-between", children: [
+        jsx3("span", { className: "ldw-meta", children: `${words(text)} words · about ${mmss(spoken)} spoken at ${WPM} words a minute` }),
+        dict ? jsxs3("button", { type: "button", className: "hk-link", onClick: dict.toggle, children: [jsx3(Codicon3, { name: dict.on ? "debug-pause" : "mic" }), dict.on ? "Stop speaking" : "Speak instead of type"] }) : null
+      ] })
     ] })
   ] });
 }
@@ -743,16 +844,14 @@ function OpponentSpeech({ r, stop }) {
   return jsxs3(Fragment, { children: [
     jsx3(ClockPanel, {
       big: mmss(prep.left),
-      label: `${stop.id} · Opponent · your prep`,
+      label: `${stop.id} · opponent · your prep`,
       fraction: 1 - prep.left / (($cfg.get().prep_minutes || 4) * 60),
-      rows: [["Speech time", mmss(stop.minutes * 60)], ["Prep left", mmss(prep.left)]],
-      actions: [
-        jsx3(BigButton, { key: "n", primary: true, icon: "arrow-right", disabled: !pending, loading: busy, onClick: next, children: "Continue" }),
-        jsx3(PrepButton, { key: "p", prep })
-      ]
+      prep,
+      rows: [["Speech time", mmss(stop.minutes * 60)]],
+      primary: jsx3(BigButton, { primary: true, icon: "arrow-right", disabled: !pending, loading: busy, onClick: next, children: "Continue" })
     }),
     jsxs3("section", { className: "ldw-panel ldw-stage", "aria-label": "Opponent's speech", children: [
-      jsx3(Label, { children: `Opponent's ${stop.id} · ${stop.name}` }),
+      jsx3(StageHead, { title: `Opponent's ${stop.id}`, sub: stop.name }),
       err ? jsx3(Failure, { title: "The opponent could not speak", body: err, onRetry: ask }) : null,
       !pending && !err ? jsx3(Thinking, { label: "Your opponent is writing the speech" }) : null,
       pending ? jsxs3(Fragment, { children: [
@@ -781,13 +880,14 @@ function SpotSpeech({ r, id }) {
   return jsxs3("div", { className: "hk-stack", children: [
     !text ? jsx3("div", { children: jsx3(Button2, {
       variant: "secondary",
+      size: "sm",
       loading: busy,
       onClick: go,
       children: jsxs3(Fragment, { children: [jsx3(Codicon3, { name: "search" }), "Spot fallacies"] })
     }) }) : null,
     busy ? jsx3(Thinking, { label: "Looking for fallacies" }) : null,
     err ? jsx3(Notice, { tone: "bad", children: err }) : null,
-    text ? jsxs3("div", { className: "ldw-helper", children: [jsx3(Label, { accent: true, children: "Fallacies found" }), jsx3("div", { className: "ldw-helper-body", children: renderText(text) })] }) : null
+    text ? jsxs3("div", { className: "ldw-helper", children: [jsx3("h3", { className: "ldw-h3", children: "Fallacies found" }), jsx3("div", { className: "ldw-helper-body", children: renderText(text) })] }) : null
   ] });
 }
 function CrossEx({ r, stop }) {
@@ -836,17 +936,19 @@ function CrossEx({ r, stop }) {
     jsx3(ClockPanel, {
       big: mmss(clock.left),
       over: clock.left < 0,
-      label: `${studentAsks ? "You ask" : "Opponent asks"} · cross-ex`,
+      label: `CX · ${studentAsks ? "you ask" : "opponent asks"}`,
       fraction: 1 - clock.left / (stop.minutes * 60),
-      rows: [["Prep left", mmss(prep.left)], ["Exchanges", String(log.length)]],
-      actions: [jsx3(BigButton, { key: "e", primary: true, icon: "arrow-right", onClick: end, children: "End cross-ex" }), jsx3(PrepButton, { key: "p", prep })]
+      clock,
+      prep,
+      rows: [["Exchanges", String(log.length)]],
+      primary: jsx3(BigButton, { primary: true, icon: "arrow-right", onClick: end, children: "End cross-ex" })
     }),
     jsxs3("section", { className: "ldw-panel ldw-stage", "aria-label": "Cross-examination", children: [
-      jsx3(Label, { children: `Cross-examination · ${studentAsks ? "you ask the questions" : "the opponent questions you"}` }),
+      jsx3(StageHead, { title: "Cross-examination", sub: studentAsks ? "You ask the questions" : "The opponent questions you" }),
       jsx3("p", { className: "ldw-goal", children: studentAsks ? "Ask short questions that set up your next speech: pin down a definition, expose a missing warrant, get a concession on framework. Do not argue; ask." : "Answer honestly and briefly. Do not give a speech. Your answers are binding and the opponent will use them." }),
       jsxs3("div", { className: "ldw-cx", ref: box, children: [
         ...log.map((t, i) => jsxs3("div", { className: "ldw-cx-turn", "data-q": t.q ? "1" : "0", "data-you": t.who === r.side ? "1" : "0", children: [
-          jsx3(Label, { children: `${t.who === r.side ? "You" : "Opponent"} · ${t.q ? "question" : "answer"}` }),
+          jsx3("span", { className: "ldw-who", children: `${t.who === r.side ? "You" : "Opponent"}, ${t.q ? "question" : "answer"}` }),
           jsx3("p", { children: t.text })
         ] }, i)),
         busy ? jsx3(Thinking, { label: studentAsks ? "The opponent is answering" : "The opponent is thinking" }) : null
@@ -874,7 +976,7 @@ function PaperBallot({ b, roundNo }) {
   const [open, setOpen] = useState3(false);
   if (!b) {
     return jsxs3("section", { className: "ldw-panel ldw-side", "aria-label": "Last ballot", children: [
-      jsx3(Label, { children: "Last ballot" }),
+      jsx3("h2", { className: "ldw-h3", children: "Last ballot" }),
       jsx3(Empty, { icon: "law", title: "No ballot yet", body: "Finish a round and the judge's ballot lands here, with the lines that decided it and three drills." })
     ] });
   }
@@ -882,7 +984,7 @@ function PaperBallot({ b, roundNo }) {
   const first = (b.decisive || [])[0];
   const reason = clip(b.reason, 220);
   return jsxs3("section", { className: "ldw-panel ldw-side", "aria-label": "Last ballot", children: [
-    jsx3(Label, { children: `Last ballot · Round ${b.round_no || roundNo || ""}` }),
+    jsx3("h2", { className: "ldw-h3", children: `Last ballot · round ${b.round_no || roundNo || ""}` }),
     jsxs3("article", { className: "ldw-paper", children: [
       jsxs3("div", { className: "ldw-paper-top", children: [jsx3("span", { children: "Lincoln-Douglas ballot" }), jsx3("span", { children: b.judge })] }),
       jsxs3("div", { className: "ldw-paper-line", children: [
@@ -897,7 +999,7 @@ function PaperBallot({ b, roundNo }) {
     ] }),
     jsx3(BigButton, { icon: open ? "chevron-up" : "checklist", onClick: () => setOpen((v) => !v), "aria-expanded": open, children: open ? "Hide the drills" : "Run the drills" }),
     open ? jsx3("div", { className: "ldw-drills", children: (b.drills || []).map((d, i) => jsxs3("div", { className: "ldw-drill", children: [
-      jsx3("h3", { className: "hk-h3", children: `${i + 1}. ${d.name}` }),
+      jsx3("h3", { className: "ldw-h3", children: `${i + 1}. ${d.name}` }),
       jsx3("p", { className: "ldw-why", children: d.why }),
       jsx3("p", { children: d.how })
     ] }, i)) }) : null
@@ -922,48 +1024,37 @@ function FullBallot({ r, onRedo, onFlowHit }) {
   };
   const mine = r.transcript.filter((t) => t.speaker === "student").map((t) => t.id);
   return jsxs3("section", { className: "ldw-panel ldw-stage ldw-ballot", "aria-label": "Ballot", children: [
-    jsx3(Label, { children: `${b.judge} · ballot ${r.ballots.length} for this round` }),
-    jsx3("h2", { className: "ldw-verdict", children: `${won ? "You won" : "You lost"}. Decision: ${b.decision === "aff" ? "Affirmative" : "Negative"}` }),
+    jsxs3("div", { className: "ldw-row-between", children: [
+      jsx3(StageHead, { title: `${won ? "You won" : "You lost"}. Decision: ${b.decision === "aff" ? "Affirmative" : "Negative"}`, sub: `${b.judge} · ballot ${r.ballots.length} for this round` }),
+      jsxs3("div", { className: "hk-actions", children: [
+        jsx3(Menu, { label: busy ? "Judging..." : "Ask another judge", icon: "law", align: "end", items: Object.entries(judges).filter(([k]) => k !== b.judge_key).map(([k, j]) => ({ label: `Ask the ${j.label.toLowerCase()}`, meta: j.summary, disabled: !!busy, onSelect: () => ask(k) })) }),
+        jsx3(Menu, { label: "Redo a speech", icon: "refresh", align: "end", items: mine.map((id) => ({ label: `Redo your ${id}`, disabled: !!busy, onSelect: () => onRedo(id) })) })
+      ] })
+    ] }),
+    busy ? jsx3(Thinking, { label: `The ${judges[busy].label.toLowerCase()} is writing a ballot` }) : null,
+    err ? jsx3(Notice, { tone: "bad", children: err }) : null,
     jsxs3("div", { className: "ldw-ballot-grid", children: [
       jsxs3("div", { className: "hk-stack", children: [
-        jsx3("h3", { className: "hk-h3", children: "Reason for decision" }),
+        jsx3("h3", { className: "ldw-h3", children: "Reason for decision" }),
         renderText(b.reason),
-        jsx3("h3", { className: "hk-h3", children: "Framework" }),
+        jsx3("h3", { className: "ldw-h3", children: "Framework" }),
         jsx3("p", { children: b.framework }),
-        jsx3("h3", { className: "hk-h3", children: "The lines that decided it" }),
+        jsx3("h3", { className: "ldw-h3", children: "The lines that decided it" }),
         jsx3("p", { className: "ldw-meta", children: "Check these against what was actually said. Click one to find it on the flow." }),
         ...(b.decisive || []).map((d, i) => jsxs3("button", { type: "button", className: "ldw-decisive", onClick: () => onFlowHit(d.speech), children: [
-          jsx3(Label, { accent: true, children: d.speech }),
+          jsx3("span", { className: "ldw-mono ldw-accent", children: d.speech }),
           jsx3("span", { children: d.line }),
           jsx3("em", { children: d.effect })
         ] }, i)),
-        jsx3("h3", { className: "hk-h3", children: "Did you own your case?" }),
+        jsx3("h3", { className: "ldw-h3", children: "Did you own your case?" }),
         jsx3("p", { children: b.ownership })
       ] }),
       jsxs3("div", { className: "hk-stack", children: [
-        jsx3("h3", { className: "hk-h3", children: "What worked" }),
+        jsx3("h3", { className: "ldw-h3", children: "What worked" }),
         jsx3("ul", { className: "ldw-list", children: (b.strengths || []).map((s, i) => jsx3("li", { children: s }, i)) }),
-        jsx3("h3", { className: "hk-h3", children: "Your three drills" }),
+        jsx3("h3", { className: "ldw-h3", children: "Your three drills" }),
         ...(b.drills || []).map((d, i) => jsxs3("div", { className: "ldw-drill", children: [jsx3("strong", { children: d.name }), jsx3("p", { className: "ldw-why", children: d.why }), jsx3("p", { children: d.how })] }, i))
       ] })
-    ] }),
-    err ? jsx3(Notice, { tone: "bad", children: err }) : null,
-    jsxs3("div", { className: "hk-actions", children: [
-      ...Object.entries(judges).filter(([k]) => k !== b.judge_key).map(([k, j]) => jsx3(Button2, {
-        key: k,
-        variant: "secondary",
-        loading: busy === k,
-        disabled: !!busy,
-        onClick: () => ask(k),
-        children: jsxs3(Fragment, { children: [jsx3(Codicon3, { name: "law" }), `Ask the ${j.label.toLowerCase()}`] })
-      })),
-      ...mine.map((id) => jsx3(Button2, {
-        key: `redo-${id}`,
-        variant: "secondary",
-        disabled: !!busy,
-        onClick: () => onRedo(id),
-        children: jsxs3(Fragment, { children: [jsx3(Codicon3, { name: "refresh" }), `Redo your ${id}`] })
-      }))
     ] })
   ] });
 }
@@ -993,17 +1084,15 @@ function Redo({ r, id, onDone }) {
     jsx3(ClockPanel, {
       big: mmss(clock.left),
       over: clock.left < 0,
-      label: `${id} · Redo`,
+      label: `${id} · redo`,
       fraction: 1 - clock.left / (stop.minutes * 60),
+      clock,
       rows: [["Spoken length", `about ${mmss(words(text) / WPM * 60)}`]],
-      actions: [
-        jsx3(BigButton, { key: "s", primary: true, icon: "arrow-right", loading: busy, onClick: submit, children: "Submit the redo" }),
-        clock.running ? jsx3(BigButton, { key: "c", icon: "debug-pause", onClick: clock.pause, children: "Pause clock" }) : jsx3(BigButton, { key: "c", icon: "play", onClick: clock.start, children: "Start clock" }),
-        jsx3(BigButton, { key: "x", icon: "close", disabled: busy, onClick: onDone, children: "Cancel" })
-      ]
+      primary: jsx3(BigButton, { primary: true, icon: "arrow-right", loading: busy, onClick: submit, children: "Submit the redo" }),
+      extra: jsx3("button", { type: "button", className: "hk-link ldw-center", disabled: busy, onClick: onDone, children: "Cancel the redo" })
     }),
     jsxs3("section", { className: "ldw-panel ldw-stage", "aria-label": "Redo a speech", children: [
-      jsx3(Label, { children: `Redo · ${stop.name}` }),
+      jsx3(StageHead, { title: `Redo your ${id}`, sub: stop.name }),
       jsx3("p", { className: "ldw-goal", children: "Same round, same opponent. Fix what the ballot named, then the same judge rules again on the new version." }),
       jsx3(Textarea, { className: "ldw-speechbox", "aria-label": `New ${id}`, value: text, onChange: (e) => setText(e.target.value) }),
       busy ? jsx3(Thinking, { label: "The judge is reading the new version" }) : null,
@@ -1021,9 +1110,9 @@ function Judging({ r }) {
     go();
   }, [r.round_no]);
   return jsxs3(Fragment, { children: [
-    jsx3(ClockPanel, { big: "0:00", label: "Round over", fraction: 1, rows: [["Prep left", mmss(r.prep)]], actions: [] }),
+    jsx3(ClockPanel, { big: "0:00", label: "Round over", fraction: 1, rows: [["Prep left", mmss(r.prep)]] }),
     jsxs3("section", { className: "ldw-panel ldw-stage", "aria-label": "Judging", children: [
-      jsx3(Label, { children: "The ballot" }),
+      jsx3(StageHead, { title: "The ballot" }),
       err ? jsx3(Failure, { title: "The judge could not finish", body: err, onRetry: go }) : jsx3(Thinking, { label: "The judge is writing the ballot" })
     ] })
   ] });
@@ -1057,13 +1146,12 @@ function Setup() {
       label: "Prep for the whole round",
       fraction: 0,
       rows: [["Full round", "about 45 minutes"], ["Speech times", "NSDA"]],
-      actions: [jsx3(BigButton, { key: "s", primary: true, icon: "play", loading: busy, disabled: !chosen, onClick: start, children: "Start the round" })]
+      primary: jsx3(BigButton, { primary: true, icon: "play", loading: busy, disabled: !chosen, onClick: start, children: "Start the round" })
     }),
     jsxs3("section", { className: "ldw-panel ldw-stage", "aria-label": "Set up a round", children: [
-      jsx3(Label, { children: "New practice round" }),
-      jsx3("h2", { className: "hk-h2", children: "Choose a case, an opponent and a judge" }),
+      jsx3(StageHead, { title: "New practice round", sub: "Choose a case, an opponent and a judge" }),
       jsx3("p", { className: "ldw-goal", children: "You debate the side your case is written for, and it loads into your constructive. The AI debates the other side and cross-examines you. Your answers in cross-examination are binding: the opponent will use them." }),
-      jsx3("div", { className: "ldw-field-label", children: "Case" }),
+      jsx3("h3", { className: "ldw-h3", children: "Case" }),
       cases.length ? jsx3("ul", { className: "ldw-pick", role: "listbox", "aria-label": "Case for this round", children: cases.map((c) => jsx3("li", { children: jsxs3("button", {
         type: "button",
         role: "option",
@@ -1076,13 +1164,13 @@ function Setup() {
           jsxs3("span", { className: "hk-grow", children: [jsx3("strong", { children: c.name }), jsx3("span", { className: "ldw-meta", children: ` · ${c.words} words · ${c.resolution || "no resolution yet"}` })] })
         ]
       }) }, c.id)) }) : null,
-      jsx3("div", { className: "ldw-field-label", children: "Opponent" }),
+      jsx3("h3", { className: "ldw-h3", children: "Opponent" }),
       jsx3(SegmentedControl, { value: level, onChange: setLevel, options: [{ id: "novice", label: "Novice" }, { id: "jv", label: "JV" }, { id: "varsity", label: "Varsity" }] }),
       jsx3("p", { className: "ldw-meta", children: "Start one level below where you compete, then move up." }),
-      jsx3("div", { className: "ldw-field-label", children: "Judge" }),
+      jsx3("h3", { className: "ldw-h3", children: "Judge" }),
       jsx3(SegmentedControl, { value: judge, onChange: setJudge, options: Object.entries(cfg.judges).map(([k, j]) => ({ id: k, label: j.label })) }),
       jsx3("p", { className: "ldw-meta", children: cfg.judges[judge].summary }),
-      chosen && !words(READ_SECTIONS.map(() => "").join("")) && !chosen.words ? jsx3(Notice, { tone: "warn", children: "This case is empty. You can still debate, but you will write your constructive from scratch." }) : null,
+      chosen && !chosen.words ? jsx3(Notice, { tone: "warn", children: "This case is empty. You can still debate, but you will write your constructive from scratch." }) : null,
       err ? jsx3(Notice, { tone: "bad", children: err }) : null
     ] })
   ] });
@@ -1090,7 +1178,7 @@ function Setup() {
 function Flow({ r, hit }) {
   const cols = stops().filter((s) => s.kind === "speech");
   return jsxs3("section", { className: "ldw-panel ldw-flow", "aria-label": "Flow", children: [
-    jsx3(Label, { children: "Flow" }),
+    jsx3("h2", { className: "ldw-h3", children: "Flow" }),
     jsx3("div", { className: "ldw-flow-scroll", children: jsxs3("table", { children: [
       jsx3("thead", { children: jsx3("tr", { children: cols.map((s) => jsxs3("th", { scope: "col", children: [s.id, jsx3("span", { children: `${speakerOf(s, r.side) === "student" ? "You" : "Opponent"} · ${s.side}` })] }, s.id)) }) }),
       jsx3("tbody", { children: jsx3("tr", { children: cols.map((s) => {
@@ -1107,8 +1195,7 @@ function Room() {
   const [showFlow, setShowFlow] = useState3(false);
   const [redo, setRedo] = useState3(null);
   const [hit, setHit] = useState3(null);
-  const [confirmNew, setConfirmNew] = useState3(false);
-  const cfg = $cfg.get();
+  const [confirmEnd, setConfirmEnd] = useState3(false);
   const missing = r ? r.transcript.filter((t) => !r.flow[t.id]).length : 0;
   useEffect2(() => {
     if (!missing) return void 0;
@@ -1120,6 +1207,7 @@ function Room() {
     setHit(id);
     setTimeout(() => setHit(null), 2400);
   };
+  const newRound = () => post("round/new").then(() => setRound(null));
   const stop = currentStop(r);
   let floor;
   if (!r) floor = jsx3(Setup, {});
@@ -1132,7 +1220,7 @@ function Room() {
         label: "Round over",
         fraction: 1,
         rows: [["Prep left", mmss(r.prep)], ["Ballots", String(r.ballots.length)]],
-        actions: [jsx3(BigButton, { key: "n", primary: true, icon: "add", onClick: () => post("round/new").then(() => setRound(null)), children: "New round" })]
+        primary: jsx3(BigButton, { primary: true, icon: "add", onClick: newRound, children: "New round" })
       }),
       jsx3(FullBallot, { r, onRedo: setRedo, onFlowHit: flowHit })
     ] });
@@ -1140,29 +1228,22 @@ function Room() {
   else if (speakerOf(stop, r.side) === "student") floor = jsx3(StudentSpeech, { r, stop }, `${r.round_no}-${stop.id}`);
   else floor = jsx3(OpponentSpeech, { r, stop }, `${r.round_no}-${stop.id}`);
   const last = r && r.ballots.length ? r.ballots[r.ballots.length - 1] : st.history && st.history.last;
-  const tools = r ? jsxs3("div", { className: "hk-actions", children: [
-    jsx3(Button2, {
-      variant: "secondary",
-      size: "sm",
-      onClick: () => setShowFlow((v) => !v),
-      "aria-pressed": showFlow,
-      children: jsxs3(Fragment, { children: [jsx3(Codicon3, { name: "list-flat" }), showFlow ? "Hide flow" : "Show flow"] })
-    }),
-    confirmNew ? jsxs3(Fragment, { children: [
-      jsx3("span", { className: "ldw-meta", children: "End this round? It will be cleared." }),
-      jsx3(Button2, { variant: "secondary", size: "sm", onClick: () => {
-        setConfirmNew(false);
-        post("round/new").then(() => setRound(null));
-      }, children: "End it" }),
-      jsx3(Button2, { variant: "secondary", size: "sm", onClick: () => setConfirmNew(false), children: "Keep going" })
-    ] }) : r.phase !== "ballot" ? jsx3(Button2, { variant: "secondary", size: "sm", onClick: () => setConfirmNew(true), children: jsxs3(Fragment, { children: [jsx3(Codicon3, { name: "close" }), "End round"] }) }) : null
+  const roundMenu = r ? jsx3(Menu, { label: "Round", icon: "list-flat", align: "end", items: [
+    { label: showFlow || r.phase === "ballot" ? "Hide the flow" : "Show the flow", icon: "list-flat", disabled: r.phase === "ballot", onSelect: () => setShowFlow((v) => !v) },
+    r.phase !== "ballot" ? { label: "End this round", icon: "close", danger: true, onSelect: () => setConfirmEnd(true) } : null
   ] }) : null;
   return jsxs3(Fragment, { children: [
-    tools,
+    roundMenu ? jsx3("div", { className: "ldw-row-end", children: roundMenu }) : null,
+    confirmEnd ? jsx3(Notice, { tone: "warn", children: "End this round? It will be cleared.", action: jsxs3("div", { className: "hk-actions", children: [
+      jsx3(Button2, { size: "sm", variant: "secondary", className: "ldw-danger", onClick: () => {
+        setConfirmEnd(false);
+        newRound();
+      }, children: "End it" }),
+      jsx3(Button2, { size: "sm", variant: "secondary", onClick: () => setConfirmEnd(false), children: "Keep going" })
+    ] }) }) : null,
     jsx3(Board, { r }),
     jsxs3("div", { className: "ldw-floor", children: [floor, jsx3(PaperBallot, { b: last, roundNo: st.history && st.history.count })] }),
-    r && (showFlow || r.phase === "ballot") ? jsx3(Flow, { r, hit }) : null,
-    !r && cfg ? null : null
+    r && (showFlow || r.phase === "ballot") ? jsx3(Flow, { r, hit }) : null
   ] });
 }
 var local = {};
@@ -1182,6 +1263,8 @@ function saveSection(caseId, key, text) {
   }, 600);
 }
 var $coach = atom({ busy: null, focus: null, err: null });
+var $bench = atom({ msg: null, importOpen: false, sourceOpen: false, renaming: false, confirmDelete: false });
+var benchSet = (patch) => $bench.set({ ...$bench.get(), ...patch });
 async function runTool(c, tool, section, message, underSection) {
   if ($coach.get().busy) return;
   $coach.set({ ...$coach.get(), busy: { tool, section: underSection ? section : null }, err: null, pendingMessage: message || null });
@@ -1194,81 +1277,97 @@ async function runTool(c, tool, section, message, underSection) {
     $coach.set({ ...$coach.get(), busy: null, pendingMessage: null });
   }
 }
-function Library({ wb }) {
-  const [confirm, setConfirm] = useState3(null);
-  const [msg, setMsg] = useState3(null);
-  const [busy, setBusy] = useState3(false);
+async function flushLocal(c) {
+  await Promise.all(Object.entries(local[c.id] || {}).map(([key, text]) => post(`cases/${c.id}`, { section: { key, text } })));
+}
+async function benchAct(fn, done) {
+  benchSet({ msg: null });
+  try {
+    const out = await fn();
+    if (out && out.case) setWorkbench(out);
+    if (done) done(out);
+  } catch (e) {
+    benchSet({ msg: { tone: "bad", text: errText(e) } });
+  }
+}
+async function pickSave(title, name, filter) {
+  if (!(api.os && typeof api.os.pickSavePath === "function")) return { path: null };
+  const path = await api.os.pickSavePath({ title, defaultPath: name, filters: [filter] });
+  return path === null ? null : { path };
+}
+function CaseSwitcher({ wb }) {
+  const c = wb.case;
   const fileRef = useRef2(null);
-  const act = async (fn, after) => {
-    setBusy(true);
-    setMsg(null);
-    try {
-      const out = await fn();
-      if (out) setWorkbench(out);
-      if (after) after(out);
-    } catch (e) {
-      setMsg({ tone: "bad", text: errText(e) });
-    } finally {
-      setBusy(false);
-    }
-  };
+  const bench = useValue($bench);
+  const [name, setName] = useState3(c.name);
+  useEffect2(() => {
+    setName(c.name);
+  }, [c.id, c.name]);
   const saveBackup = async () => {
-    let path = null;
-    if (api.os && typeof api.os.pickSavePath === "function") {
-      path = await api.os.pickSavePath({ title: "Save a backup of every case", defaultPath: "ld-workbench-backup.json", filters: [{ name: "Backup", extensions: ["json"] }] });
-      if (path === null) return;
-    }
-    act(() => post("backup/export", { path }).then((out) => {
-      setMsg({ tone: "good", text: `Saved ${out.cases} case${out.cases === 1 ? "" : "s"} to ${out.name}.`, path: out.path });
-      return null;
-    }));
+    const where = await pickSave("Save a backup of every case", "ld-workbench-backup.json", { name: "Backup", extensions: ["json"] });
+    if (!where) return;
+    benchAct(() => post("backup/export", where), (out) => benchSet({ msg: { tone: "good", text: `Saved ${out.cases} case${out.cases === 1 ? "" : "s"} to ${out.name}.`, path: out.path } }));
   };
   const loadBackup = (e) => {
     const f = e.target.files && e.target.files[0];
     e.target.value = "";
     if (!f) return;
-    f.text().then((text) => act(() => post("backup/import", { text }), (out) => setMsg({ tone: "good", text: `Added ${out.added} case${out.added === 1 ? "" : "s"} from the backup.` })));
+    f.text().then((text) => benchAct(() => post("backup/import", { text }), (out) => benchSet({ msg: { tone: "good", text: `Added ${out.added} case${out.added === 1 ? "" : "s"} from the backup.` } })));
   };
-  return jsxs3("aside", { className: "ldw-panel ldw-library", "aria-label": "My cases", children: [
-    jsxs3("div", { className: "ldw-row-between", children: [jsx3(Label, { children: "My cases" }), jsx3("span", { className: "ldw-meta", children: String(wb.cases.length) })] }),
-    jsxs3("div", { className: "ldw-two", children: [
-      jsx3(Button2, { size: "sm", variant: "secondary", disabled: busy, onClick: () => act(() => post("cases", { side: "aff" })), children: jsxs3(Fragment, { children: [jsx3(Codicon3, { name: "add" }), "New Aff"] }) }),
-      jsx3(Button2, { size: "sm", variant: "secondary", disabled: busy, onClick: () => act(() => post("cases", { side: "neg" })), children: jsxs3(Fragment, { children: [jsx3(Codicon3, { name: "add" }), "New Neg"] }) })
-    ] }),
-    jsx3("ul", { className: "ldw-cases", children: wb.cases.map((c) => {
-      const on = c.id === wb.case.id;
-      return jsxs3("li", { className: "ldw-case-item", "data-active": on ? "" : void 0, children: [
-        jsxs3("button", { type: "button", className: "ldw-case-open", "aria-current": on ? "true" : void 0, onClick: () => !on && act(() => post(`cases/${c.id}/open`)), children: [
-          jsxs3("span", { className: "ldw-case-name", children: [jsx3("span", { className: "ldw-side-tag", children: sideShort(c.side) }), c.name] }),
-          jsx3("span", { className: "ldw-meta", children: `${c.words} words · ${when(c.updated)}` })
-        ] }),
-        on ? jsx3("div", { className: "ldw-case-acts", children: confirm === c.id ? jsxs3(Fragment, { children: [
-          jsx3("span", { className: "ldw-meta", children: "Delete this case for good?" }),
-          jsx3(Button2, { size: "sm", variant: "secondary", className: "ldw-danger", onClick: () => {
-            setConfirm(null);
-            act(() => post(`cases/${c.id}/delete`));
-          }, children: "Delete" }),
-          jsx3(Button2, { size: "sm", variant: "secondary", onClick: () => setConfirm(null), children: "Keep it" })
-        ] }) : jsxs3(Fragment, { children: [
-          jsx3(Button2, { size: "sm", variant: "secondary", disabled: busy, onClick: () => act(() => post(`cases/${c.id}/duplicate`)), children: "Duplicate" }),
-          jsx3(Button2, { size: "sm", variant: "secondary", disabled: busy, onClick: () => setConfirm(c.id), children: "Delete" })
-        ] }) }) : null
-      ] }, c.id);
-    }) }),
-    jsx3("div", { className: "ldw-label", children: "Backup" }),
-    jsx3("p", { className: "ldw-meta", children: "Your cases are saved by Hermes on this computer. A backup file holds every case, to keep safe or move to another computer." }),
-    jsxs3("div", { className: "ldw-two ldw-stack1", children: [
-      jsx3(Button2, { size: "sm", variant: "secondary", disabled: busy, onClick: saveBackup, children: "Save a backup" }),
-      jsx3(Button2, { size: "sm", variant: "secondary", disabled: busy, onClick: () => fileRef.current && fileRef.current.click(), children: "Load a backup" })
-    ] }),
-    jsx3("input", { ref: fileRef, type: "file", accept: ".json,application/json", hidden: true, onChange: loadBackup, "aria-label": "Backup file" }),
-    msg ? jsx3(Notice, { tone: msg.tone, children: msg.text, action: msg.path && api.os && api.os.revealPath ? jsx3(Button2, { size: "sm", variant: "secondary", onClick: () => api.os.revealPath(msg.path), children: "Show file" }) : null }) : null
+  const saveName = () => {
+    benchSet({ renaming: false });
+    benchAct(() => post(`cases/${c.id}`, { name }));
+  };
+  if (bench.renaming) {
+    return jsxs3("div", { className: "ldw-rename", children: [
+      jsx3(Input, {
+        "aria-label": "Case name",
+        value: name,
+        autoFocus: true,
+        onChange: (e) => setName(e.target.value),
+        onKeyDown: (e) => {
+          if (e.key === "Enter") saveName();
+          if (e.key === "Escape") benchSet({ renaming: false });
+        }
+      }),
+      jsx3(Button2, { size: "sm", onClick: saveName, children: "Save name" }),
+      jsx3(Button2, { size: "sm", variant: "secondary", onClick: () => benchSet({ renaming: false }), children: "Cancel" })
+    ] });
+  }
+  const items = [
+    { heading: "My cases" },
+    ...wb.cases.map((x) => ({
+      label: x.name,
+      meta: `${sideShort(x.side)} · ${x.words} words · ${when(x.updated)}`,
+      current: x.id === c.id,
+      onSelect: () => {
+        if (x.id !== c.id) benchAct(() => post(`cases/${x.id}/open`));
+      }
+    })),
+    { divider: true },
+    { label: "New affirmative case", icon: "add", onSelect: () => benchAct(() => post("cases", { side: "aff" })) },
+    { label: "New negative case", icon: "add", onSelect: () => benchAct(() => post("cases", { side: "neg" })) },
+    { label: "Rename", icon: "edit", onSelect: () => benchSet({ renaming: true }) },
+    { label: "Duplicate", icon: "copy", onSelect: () => benchAct(() => post(`cases/${c.id}/duplicate`)) },
+    { label: "Delete", icon: "trash", danger: true, onSelect: () => benchSet({ confirmDelete: true }) },
+    { divider: true },
+    { label: "Full case review", icon: "checklist", onSelect: () => runTool(c, "review", null, "", false) },
+    { divider: true },
+    { label: "Save a backup", icon: "save", meta: "Every case in one file", onSelect: saveBackup },
+    { label: "Load a backup", icon: "folder-opened", meta: "Adds the cases in a backup file", onSelect: () => fileRef.current && fileRef.current.click() }
+  ];
+  return jsxs3(Fragment, { children: [
+    jsx3(Menu, { items, ariaLabel: `Case: ${c.name}. Switch cases or manage this one`, trigger: (p) => jsxs3("button", { type: "button", className: "ldw-switcher", ...p, children: [
+      jsx3("span", { className: "ldw-switcher-name", children: c.name }),
+      jsx3(Codicon3, { name: "chevron-down" })
+    ] }) }),
+    jsx3("input", { ref: fileRef, type: "file", accept: ".json,application/json", hidden: true, onChange: loadBackup, "aria-label": "Backup file" })
   ] });
 }
-function ResolutionBar({ c, source }) {
+function ResolutionRow({ c, source }) {
   const cfg = $cfg.get();
+  const bench = useValue($bench);
   const [text, setText] = useState3(c.resolution || "");
-  const [open, setOpen] = useState3(false);
   const [paste, setPaste] = useState3("");
   const [url, setUrl] = useState3("");
   const [busy, setBusy] = useState3(false);
@@ -1293,29 +1392,24 @@ function ResolutionBar({ c, source }) {
       setBusy(false);
     }
   };
-  return jsxs3("section", { className: "ldw-panel ldw-resbar", "aria-label": "Resolution", children: [
+  return jsxs3("section", { className: "ldw-resrow-wrap", "aria-label": "Resolution", children: [
     jsxs3("div", { className: "ldw-resrow", children: [
-      jsx3(Label, { accent: true, children: "Resolution" }),
-      jsx3(Input, { className: "ldw-resinput", "aria-label": "Resolution", value: text, placeholder: "Type the resolution you were given", onChange: (e) => save(e.target.value) }),
-      jsx3("span", { className: "ldw-meta", children: `NSDA LD · ${cfg.resolution.period}` }),
-      jsx3(Button2, { size: "sm", variant: "secondary", onClick: () => save(cfg.resolution.text), children: "Current NSDA topic" }),
-      jsx3(Button2, {
-        size: "sm",
-        variant: "secondary",
-        onClick: () => setOpen((v) => !v),
-        "aria-expanded": open,
-        children: jsxs3(Fragment, { children: [jsx3(Codicon3, { name: "book" }), source ? "Source added" : "Topic source"] })
-      })
+      jsx3("label", { className: "ldw-field-label", htmlFor: "ldw-res", children: "Resolution" }),
+      jsx3(Input, { id: "ldw-res", className: "ldw-resinput", value: text, placeholder: "Type the resolution you were given", onChange: (e) => save(e.target.value) }),
+      jsx3(Menu, { label: "Topic", icon: "book", align: "end", items: [
+        { label: "Use the current NSDA topic", meta: `${cfg.resolution.period}: ${cfg.resolution.text}`, onSelect: () => save(cfg.resolution.text) },
+        { label: bench.sourceOpen ? "Hide the topic source" : "Topic source", meta: source ? `Reading from ${source.title || "pasted text"}` : "Paste a topic analysis or read a link", onSelect: () => benchSet({ sourceOpen: !bench.sourceOpen }) }
+      ] })
     ] }),
-    open ? jsxs3("div", { className: "ldw-source", children: [
+    bench.sourceOpen ? jsxs3("div", { className: "ldw-source", children: [
       jsxs3("div", { className: "hk-stack", children: [
-        jsx3(Label, { children: "Paste the text" }),
+        jsx3("h3", { className: "ldw-h3", children: "Paste the text" }),
         jsx3("p", { className: "ldw-meta", children: "Paste a topic analysis or a handout from your coach. The coaching tools read it as background. The opponent does not." }),
         jsx3(Textarea, { "aria-label": "Topic source text", value: paste, onChange: (e) => setPaste(e.target.value), placeholder: "Paste the topic analysis or source text" }),
         jsx3("div", { children: jsx3(Button2, { size: "sm", variant: "secondary", disabled: busy, onClick: () => call(() => post("workbench", { source: { title: "Pasted text", text: paste } })), children: "Use this text" }) })
       ] }),
       jsxs3("div", { className: "hk-stack", children: [
-        jsx3(Label, { children: "Or read a link" }),
+        jsx3("h3", { className: "ldw-h3", children: "Or read a link" }),
         jsx3("p", { className: "ldw-meta", children: "A public page only, such as the NSDA topics page or your league's topic page. PDFs need to be copied and pasted." }),
         jsxs3("div", { className: "hk-row", children: [
           jsx3(Input, { className: "hk-grow", "aria-label": "Topic source link", value: url, onChange: (e) => setUrl(e.target.value), placeholder: cfg.topics_url }),
@@ -1330,7 +1424,7 @@ function ResolutionBar({ c, source }) {
     err ? jsx3(Notice, { tone: "bad", children: err }) : null
   ] });
 }
-function ImportPanel({ c, onClose }) {
+function ImportPanel({ c }) {
   const [text, setText] = useState3("");
   const [docx, setDocx] = useState3(null);
   const [file, setFile] = useState3("");
@@ -1379,13 +1473,16 @@ function ImportPanel({ c, onClose }) {
       setBusy(false);
     }
   };
-  return jsxs3("section", { className: "ldw-panel ldw-import", "aria-label": "Bring in your case", children: [
-    jsxs3("div", { className: "ldw-row-between", children: [jsx3(Label, { accent: true, children: "Bring in a case you already wrote" }), jsx3(Button2, { size: "sm", variant: "secondary", onClick: onClose, children: "Close" })] }),
+  return jsxs3("section", { className: "ldw-panel ldw-import", "aria-label": "Import a case", children: [
+    jsxs3("div", { className: "ldw-row-between", children: [
+      jsx3("h2", { className: "ldw-h2", children: "Import a case you already wrote" }),
+      jsx3("button", { type: "button", className: "hk-link", onClick: () => benchSet({ importOpen: false }), children: "Close" })
+    ] }),
     jsx3("p", { className: "ldw-goal", children: "Paste your case or upload it as a Word document or text file. It becomes a new case in My cases, sorted into sections without changing a single word. Then the coach reviews it." }),
-    jsx3(Textarea, { className: "ldw-speechbox ldw-short", "aria-label": "Case to bring in", value: text, onChange: (e) => setText(e.target.value), placeholder: docx ? `${file} is ready to sort.` : "Paste your whole case here" }),
+    jsx3(Textarea, { className: "ldw-speechbox ldw-short", "aria-label": "Case to import", value: text, onChange: (e) => setText(e.target.value), placeholder: docx ? `${file} is ready to sort.` : "Paste your whole case here" }),
     jsxs3("div", { className: "ldw-row-between", children: [
       jsxs3("div", { className: "hk-row", children: [
-        jsx3(Button2, { size: "sm", variant: "secondary", onClick: () => fileRef.current && fileRef.current.click(), children: jsxs3(Fragment, { children: [jsx3(Codicon3, { name: "cloud-upload" }), "Upload .docx or .txt"] }) }),
+        jsxs3("button", { type: "button", className: "hk-link", onClick: () => fileRef.current && fileRef.current.click(), children: [jsx3(Codicon3, { name: "cloud-upload" }), "Upload a .docx or .txt file"] }),
         jsx3("span", { className: "ldw-meta", children: file }),
         jsx3("input", { ref: fileRef, type: "file", accept: ".docx,.txt,.md", hidden: true, onChange: pick, "aria-label": "Case file" })
       ] }),
@@ -1395,10 +1492,12 @@ function ImportPanel({ c, onClose }) {
     msg ? jsx3(Notice, { tone: msg.tone, children: msg.text }) : null
   ] });
 }
-function PathBoard({ c }) {
+function PathBar({ c }) {
   const coach = useValue($coach);
   const secs = sectionsOf(c);
   const done = (st) => !st.sections.length ? Object.values(secs).filter((v) => words(v) >= 15).length >= 5 : st.sections.every((k) => words(secs[k]) >= (st.min || 15));
+  const states = PATH.map(done);
+  const current = states.indexOf(false) === -1 ? PATH.length - 1 : states.indexOf(false);
   const start = (i) => {
     const st = PATH[i];
     if (!st.sections.length) {
@@ -1411,18 +1510,19 @@ function PathBoard({ c }) {
     if (el) el.scrollIntoView({ behavior: "smooth", block: "center" });
     runTool(c, st.tool, target, "", true);
   };
-  return jsx3("ol", { className: "ldw-board ldw-path", "aria-label": "Writing path", children: PATH.map((st, i) => jsx3("li", { children: jsxs3("button", {
+  return jsx3("nav", { "aria-label": "Writing path", children: jsx3("ol", { className: "ldw-path", children: PATH.map((st, i) => jsx3("li", { children: jsxs3("button", {
     type: "button",
-    className: "ldw-slot ldw-step",
-    "data-state": done(st) ? "done" : "later",
+    className: "ldw-pstep",
+    "data-done": states[i] ? "" : void 0,
+    "aria-current": i === current ? "step" : void 0,
+    title: `${st.title}: ${st.desc}`,
     disabled: !!coach.busy,
     onClick: () => start(i),
     children: [
-      jsxs3("div", { className: "ldw-label ldw-accent", children: [`Step ${i + 1}`, done(st) ? " · drafted" : ""] }),
-      jsx3("div", { className: "ldw-step-title", children: st.title }),
-      jsx3("div", { className: "ldw-step-desc", children: st.desc })
+      jsx3("span", { className: "ldw-pnum", children: states[i] ? jsx3(Codicon3, { name: "check" }) : String(i + 1) }),
+      jsx3("span", { children: st.short })
     ]
-  }) }, i)) });
+  }) }, i)) }) });
 }
 function SectionCard({ c, k }) {
   const cfg = $cfg.get();
@@ -1437,23 +1537,31 @@ function SectionCard({ c, k }) {
   };
   const hide = () => post(`cases/${c.id}`, { hide_helper: k }).then(setWorkbench, () => {
   });
+  const run = (t) => {
+    $coach.set({ ...$coach.get(), focus: k });
+    runTool(c, t, k, "", true);
+  };
+  const [main, ...more] = SECTION_TOOLS[k] || [];
   return jsxs3("div", { className: "ldw-sec", id: `ldw-sec-${k.replace(/\W+/g, "-")}`, "data-focus": focus ? "" : void 0, children: [
     jsxs3("div", { className: "ldw-row-between", children: [jsx3("h3", { className: "ldw-sec-title", children: k }), jsx3("span", { className: "ldw-meta", children: words(text) ? `${words(text)} words` : "" })] }),
     jsx3("p", { className: "ldw-hint", children: SECTION_HINTS[k] }),
     jsx3(Textarea, { className: "ldw-sec-text", "aria-label": k, value: text, onChange: (e) => change(e.target.value), onFocus: () => $coach.set({ ...$coach.get(), focus: k }) }),
-    jsx3("div", { className: "ldw-chips", children: (SECTION_TOOLS[k] || []).map((t, i) => jsxs3("button", {
-      type: "button",
-      className: "ldw-chip",
-      "data-main": i === 0 ? "" : void 0,
-      disabled: !!coach.busy,
-      onClick: () => {
-        $coach.set({ ...$coach.get(), focus: k });
-        runTool(c, t, k, "", true);
-      },
-      children: [jsx3(Codicon3, { name: ICONS[t] || "question" }), cfg.tools[t]]
-    }, t)) }),
+    jsxs3("div", { className: "ldw-sec-actions", children: [
+      main ? jsxs3("button", {
+        type: "button",
+        className: "ldw-chip",
+        "data-main": "",
+        disabled: !!coach.busy,
+        onClick: () => run(main),
+        children: [jsx3(Codicon3, { name: ICONS[main] || "question" }), cfg.tools[main]]
+      }) : null,
+      more.length ? jsx3(Menu, {
+        items: more.map((t) => ({ label: cfg.tools[t], icon: ICONS[t], disabled: !!coach.busy, onSelect: () => run(t) })),
+        trigger: (p) => jsxs3("button", { type: "button", className: "ldw-chip", ...p, "aria-label": `More help with ${k}`, children: ["More", jsx3(Codicon3, { name: "chevron-down" })] })
+      }) : null
+    ] }),
     pending ? jsx3("div", { className: "ldw-helper", children: jsx3(Thinking, { label: cfg.tools[coach.busy.tool] }) }) : helper ? jsxs3("div", { className: "ldw-helper", children: [
-      jsxs3("div", { className: "ldw-row-between", children: [jsx3(Label, { accent: true, children: helper.label }), jsx3("button", { type: "button", className: "hk-link", onClick: hide, children: "Hide" })] }),
+      jsxs3("div", { className: "ldw-row-between", children: [jsx3("h4", { className: "ldw-h3", children: helper.label }), jsx3("button", { type: "button", className: "hk-link", onClick: hide, children: "Hide" })] }),
       jsx3("div", { className: "ldw-helper-body", children: renderText(helper.text) }),
       jsx3("button", { type: "button", className: "hk-link", onClick: () => {
         $coach.set({ ...$coach.get(), focus: k });
@@ -1464,7 +1572,6 @@ function SectionCard({ c, k }) {
   ] });
 }
 function CoachPanel({ c }) {
-  const cfg = $cfg.get();
   const coach = useValue($coach);
   const [text, setText] = useState3("");
   const box = useRef2(null);
@@ -1479,22 +1586,17 @@ function CoachPanel({ c }) {
     runTool(c, "coach", coach.focus, t, false);
   };
   return jsxs3("aside", { className: "ldw-panel ldw-coach", "aria-label": "Coach", children: [
-    jsxs3("div", { className: "ldw-row-between", children: [jsx3(Label, { children: "Coach" }), jsx3("span", { className: "ldw-focus", children: coach.focus || "Whole case" })] }),
-    jsx3("p", { className: "ldw-meta", children: "Click into a section to point the coach at it. Every tool reads your case as it stands right now." }),
-    jsx3("div", { className: "ldw-toolgrid", children: PANEL_TOOLS.map((t) => jsxs3("button", {
-      type: "button",
-      className: "ldw-chip ldw-tool",
-      disabled: !!coach.busy,
-      onClick: () => runTool(c, t, coach.focus, "", false),
-      children: [jsx3(Codicon3, { name: ICONS[t] }), cfg.tools[t]]
-    }, t)) }),
+    jsxs3("div", { className: "ldw-row-between", children: [
+      jsx3("h2", { className: "ldw-h2", children: "Coach" }),
+      jsx3("span", { className: "ldw-focus", title: "The section the coach is looking at. Click into a section to change it.", children: coach.focus || "Whole case" })
+    ] }),
     jsxs3("div", { className: "ldw-thread", ref: box, "aria-live": "polite", children: [
-      !thread.length && !coach.busy ? jsx3("p", { className: "ldw-meta", children: "Starting from a blank page? Click Step 1 in the writing path and the coach will ask your first question. Already writing? Use the tool buttons under any section. A rough draft gets better coaching than a blank page." }) : null,
+      !thread.length && !coach.busy ? jsx3("p", { className: "ldw-meta", children: "Click into a section and use the button under it, or ask the coach anything here. A rough draft gets better coaching than a blank page." }) : null,
       ...thread.map((m, i) => jsxs3("div", { className: "ldw-msg", "data-role": m.role, children: [
-        jsx3(Label, { accent: m.role === "coach", children: m.role === "coach" ? m.label || "Coach" : "You" }),
+        jsx3("span", { className: "ldw-who", children: m.role === "coach" ? m.label || "Coach" : "You" }),
         m.role === "coach" ? m.section ? jsx3("p", { className: "ldw-meta", children: `Shown under ${m.section}. Ask a follow-up below.` }) : renderText(m.text) : jsx3("p", { children: m.text })
       ] }, i)),
-      coach.busy && coach.pendingMessage ? jsxs3("div", { className: "ldw-msg", "data-role": "you", children: [jsx3(Label, { children: "You" }), jsx3("p", { children: coach.pendingMessage })] }) : null,
+      coach.busy && coach.pendingMessage ? jsxs3("div", { className: "ldw-msg", "data-role": "you", children: [jsx3("span", { className: "ldw-who", children: "You" }), jsx3("p", { children: coach.pendingMessage })] }) : null,
       coach.busy ? jsx3(Thinking, { label: "Reading your case" }) : null,
       coach.err ? jsx3(Notice, { tone: "bad", children: `I could not reach the coach just now. ${coach.err}` }) : null
     ] }),
@@ -1522,65 +1624,67 @@ function TimeBar({ c }) {
   const sec = w / WPM * 60;
   const target = c.side === "aff" ? 360 : 270;
   return jsxs3("div", { className: "ldw-timebar", children: [
-    jsx3(Codicon3, { name: "watch" }),
     jsx3("span", { children: `${mmss(sec)} of ${mmss(target)} spoken at ${WPM} words a minute${c.side === "neg" ? " (leaves 2:30 of your NC to attack)" : ""}` }),
     jsx3("div", { className: "ldw-bar ldw-grow", "data-over": sec > target ? "1" : void 0, children: jsx3("span", { style: { width: `${Math.min(100, sec / target * 100)}%` } }) })
   ] });
 }
 function Bench() {
   const st = useValue($state);
+  const bench = useValue($bench);
   const wb = st.workbench;
   const c = wb.case;
-  const [importOpen, setImportOpen] = useState3(false);
-  const [name, setName] = useState3(c.name);
-  const [msg, setMsg] = useState3(null);
-  const timer = useRef2(null);
-  useEffect2(() => {
-    setName(c.name);
-    setMsg(null);
-  }, [c.id]);
-  const rename = (v) => {
-    setName(v);
-    clearTimeout(timer.current);
-    timer.current = setTimeout(() => post(`cases/${c.id}`, { name: v }).then(setWorkbench, (e) => setMsg({ tone: "bad", text: errText(e) })), 600);
-  };
-  const setSide = (side) => post(`cases/${c.id}`, { side }).then(setWorkbench, (e) => setMsg({ tone: "bad", text: errText(e) }));
+  const setSide = (side) => benchAct(() => post(`cases/${c.id}`, { side }));
   const exportAs = async (fmt) => {
-    let path = null;
-    if (api.os && typeof api.os.pickSavePath === "function") {
-      path = await api.os.pickSavePath({
-        title: `Save ${c.name}`,
-        defaultPath: `${(c.name || "case").replace(/[^\w .-]+/g, "")}.${fmt}`,
-        filters: [{ name: fmt === "docx" ? "Word document" : "Text file", extensions: [fmt] }]
-      });
-      if (path === null) return;
+    const where = fmt === "print" ? null : await pickSave(
+      `Save ${c.name}`,
+      `${(c.name || "case").replace(/[^\w .-]+/g, "")}.${fmt}`,
+      { name: fmt === "docx" ? "Word document" : "Text file", extensions: [fmt] }
+    );
+    if (fmt === "print") {
+      $view.set("print");
+      return;
     }
-    try {
-      await Promise.all(Object.entries(local[c.id] || {}).map(([key, text]) => post(`cases/${c.id}`, { section: { key, text } })));
-      const out = await post(`cases/${c.id}/export`, { format: fmt, path });
-      setMsg({ tone: "good", text: `Saved ${out.name}.`, path: out.path });
-    } catch (e) {
-      setMsg({ tone: "bad", text: errText(e) });
-    }
+    if (!where) return;
+    benchAct(
+      async () => {
+        await flushLocal(c);
+        return post(`cases/${c.id}/export`, { format: fmt, path: where.path });
+      },
+      (out) => benchSet({ msg: { tone: "good", text: `Saved ${out.name}.`, path: out.path } })
+    );
   };
+  const msg = bench.msg;
   return jsxs3(Fragment, { children: [
-    jsx3(ResolutionBar, { c, source: wb.source }, `res-${c.id}`),
-    importOpen ? jsx3(ImportPanel, { c, onClose: () => setImportOpen(false) }) : null,
+    jsx3(ResolutionRow, { c, source: wb.source }, `res-${c.id}`),
     jsxs3("div", { className: "ldw-casehead", children: [
-      jsx3(Input, { className: "ldw-casename", "aria-label": "Case name", value: name, onChange: (e) => rename(e.target.value) }),
+      jsx3(CaseSwitcher, { wb }),
       jsx3(SegmentedControl, { value: c.side, onChange: setSide, options: [{ id: "aff", label: "Aff" }, { id: "neg", label: "Neg" }] }),
-      jsxs3("div", { className: "hk-actions", children: [
-        jsx3(Button2, { size: "sm", variant: "secondary", onClick: () => setImportOpen((v) => !v), children: jsxs3(Fragment, { children: [jsx3(Codicon3, { name: "cloud-upload" }), "Bring in your case"] }) }),
-        jsx3(Button2, { size: "sm", variant: "secondary", onClick: () => exportAs("docx"), children: jsxs3(Fragment, { children: [jsx3(Codicon3, { name: "file" }), "Save as Word"] }) }),
-        jsx3(Button2, { size: "sm", variant: "secondary", onClick: () => exportAs("txt"), children: jsxs3(Fragment, { children: [jsx3(Codicon3, { name: "file-text" }), "Save as text"] }) }),
-        jsx3(Button2, { size: "sm", variant: "secondary", onClick: () => $view.set("print"), children: jsxs3(Fragment, { children: [jsx3(Codicon3, { name: "preview" }), "Print view"] }) })
+      jsx3("span", { className: "hk-grow" }),
+      jsx3(Button2, {
+        size: "sm",
+        variant: "secondary",
+        "aria-expanded": bench.importOpen,
+        onClick: () => benchSet({ importOpen: !bench.importOpen }),
+        children: jsxs3(Fragment, { children: [jsx3(Codicon3, { name: "cloud-upload" }), "Import"] })
+      }),
+      jsx3(Menu, { label: "Export", icon: "export", align: "end", items: [
+        { label: "Save as Word", icon: "file", meta: ".docx", onSelect: () => exportAs("docx") },
+        { label: "Save as text", icon: "file-text", meta: ".txt", onSelect: () => exportAs("txt") },
+        { label: "Print view", icon: "preview", onSelect: () => exportAs("print") }
       ] })
     ] }),
+    bench.confirmDelete ? jsx3(Notice, { tone: "warn", children: `Delete "${c.name}" for good? This cannot be undone.`, action: jsxs3("div", { className: "hk-actions", children: [
+      jsx3(Button2, { size: "sm", variant: "secondary", className: "ldw-danger", onClick: () => {
+        benchSet({ confirmDelete: false });
+        benchAct(() => post(`cases/${c.id}/delete`));
+      }, children: "Delete" }),
+      jsx3(Button2, { size: "sm", variant: "secondary", onClick: () => benchSet({ confirmDelete: false }), children: "Keep it" })
+    ] }) }) : null,
     msg ? jsx3(Notice, { tone: msg.tone, children: msg.text, action: msg.path && api.os && api.os.revealPath ? jsx3(Button2, { size: "sm", variant: "secondary", onClick: () => api.os.revealPath(msg.path), children: "Show file" }) : null }) : null,
-    jsx3(PathBoard, { c }),
+    bench.importOpen ? jsx3(ImportPanel, { c }) : null,
+    jsx3(PathBar, { c }),
     jsxs3("div", { className: "ldw-benchgrid", children: [
-      jsx3(Library, { wb }),
-      jsxs3("section", { className: "ldw-panel ldw-case", "aria-label": `Your ${sideName(c.side)} case`, children: [
+      jsxs3("section", { className: "ldw-case", "aria-label": `Your ${sideName(c.side)} case`, children: [
         jsx3(TimeBar, { c }),
         ...($cfg.get().sections || []).map((k) => jsx3(SectionCard, { c, k }, `${c.id}-${k}`))
       ] }),
@@ -1627,8 +1731,7 @@ function Drill() {
   };
   const ok = d.picked && d.picked === d.item.answer;
   return jsxs3("section", { className: "ldw-panel", "aria-label": "Practice", children: [
-    jsx3(Label, { accent: true, children: "Practice" }),
-    jsx3("h2", { className: "hk-h2", children: "Name that fallacy" }),
+    jsx3("h2", { className: "ldw-h2", children: "Practice: name that fallacy" }),
     jsx3("p", { className: "ldw-goal", children: 'Read the argument. Pick the fallacy it commits, or "No fallacy" if the reasoning holds up.' }),
     !d.item && !d.busy ? jsx3("div", { children: jsx3(Button2, { onClick: newDrill, children: jsxs3(Fragment, { children: [jsx3(Codicon3, { name: "play" }), d.err ? "Try again" : "Give me an argument"] }) }) }) : null,
     d.busy ? jsx3(Thinking, { label: "Writing an argument" }) : null,
@@ -1676,14 +1779,13 @@ function CheckArgument() {
     }
   };
   return jsxs3("section", { className: "ldw-panel", "aria-label": "Check an argument", children: [
-    jsx3(Label, { accent: true, children: "Check an argument" }),
-    jsx3("h2", { className: "hk-h2", children: "Find the fallacies in any text" }),
+    jsx3("h2", { className: "ldw-h2", children: "Check an argument" }),
     jsx3("p", { className: "ldw-goal", children: "Paste an opponent's case, a teammate's speech, or a paragraph from an article. To check your own case, use Find fallacies in any contention." }),
     jsx3(Textarea, { className: "ldw-speechbox ldw-short", "aria-label": "Argument to check", value: text, onChange: (e) => setText(e.target.value), placeholder: "Paste the argument here" }),
     jsx3("div", { className: "ldw-row-end", children: jsx3(Button2, { loading: busy, onClick: go, children: jsxs3(Fragment, { children: [jsx3(Codicon3, { name: "search" }), "Find the fallacies"] }) }) }),
     busy ? jsx3(Thinking, { label: "Looking for fallacies" }) : null,
     err ? jsx3(Notice, { tone: "bad", children: err }) : null,
-    out ? jsxs3("div", { className: "ldw-helper", children: [jsx3(Label, { accent: true, children: "Fallacies found" }), jsx3("div", { className: "ldw-helper-body", children: renderText(out) })] }) : null
+    out ? jsxs3("div", { className: "ldw-helper", children: [jsx3("h3", { className: "ldw-h3", children: "Fallacies found" }), jsx3("div", { className: "ldw-helper-body", children: renderText(out) })] }) : null
   ] });
 }
 function Fallacies() {
@@ -1692,7 +1794,7 @@ function Fallacies() {
     jsx3("p", { className: "ldw-goal", children: "A fallacy is a mistake in reasoning that can make a weak argument sound strong. Learn the common ones, practice spotting them, and check any argument for them: yours or someone else's." }),
     jsxs3("div", { className: "ldw-fx-grid", children: [jsx3(Drill, {}), jsx3(CheckArgument, {})] }),
     jsxs3("section", { className: "hk-stack", "aria-label": "The guide", children: [
-      jsx3(Label, { children: `The guide · ${guide.length} fallacies` }),
+      jsx3("h2", { className: "ldw-h2", children: `The guide: ${guide.length} common fallacies` }),
       jsx3("div", { className: "ldw-fx-cards", children: guide.map((f) => jsxs3("article", { className: "ldw-fx-card", children: [
         jsx3("h3", { className: "ldw-sec-title", children: f.name }),
         jsx3("p", { children: f.definition }),
@@ -1708,7 +1810,7 @@ function Header() {
   const cfg = $cfg.get();
   const r = st && st.round;
   const c = st && st.workbench && st.workbench.case;
-  const eyebrow = view === "fallacies" ? "Logical fallacies · guide, practice and checker" : view === "room" ? r ? `Practice round ${r.round_no} · ${sideShort(r.side)} · ${r.level === "jv" ? "JV" : r.level} · ${cfg.judges[r.judge].label}` : `${(st.history || {}).count || 0} ${((st.history || {}).count || 0) === 1 ? "ballot" : "ballots"} so far · NSDA Lincoln-Douglas` : c ? `${c.side === "aff" ? "Affirmative" : "Negative"} case · ${c.name}` : "";
+  const eyebrow = view === "fallacies" ? "A guide, a practice drill and a checker" : view === "room" ? r ? `Practice round ${r.round_no} · ${sideShort(r.side)} · ${r.level === "jv" ? "JV" : r.level} · ${cfg.judges[r.judge].label}` : `${(st.history || {}).count || 0} ${((st.history || {}).count || 0) === 1 ? "ballot" : "ballots"} so far · NSDA Lincoln-Douglas` : c ? `${c.side === "aff" ? "Affirmative" : "Negative"} case · ${c.name}` : "";
   const res = view === "fallacies" ? null : view === "room" ? r ? r.resolution : c && c.resolution : c && c.resolution;
   const tab = (id, label, icon) => jsxs3("button", {
     type: "button",
@@ -1721,7 +1823,7 @@ function Header() {
   return jsxs3("header", { className: "ldw-head ldw-noprint", children: [
     jsxs3("div", { className: "ldw-head-title", children: [
       jsx3("h1", { className: "ldw-h1", children: view === "room" ? "Tournament Room" : view === "fallacies" ? "Fallacies" : "Case Workbench" }),
-      jsx3("span", { className: "ldw-label ldw-accent", children: eyebrow }),
+      jsx3("span", { className: "ldw-meta", children: eyebrow }),
       res ? jsx3("span", { className: "ldw-res", children: `"${res.replace(/^Resolved:\s*/i, "")}"` }) : null
     ] }),
     jsxs3("nav", { className: "ldw-tabs", role: "tablist", "aria-label": "Debate", children: [tab("room", "Tournament Room", "law"), tab("bench", "Case Workbench", "edit"), tab("fallacies", "Fallacies", "warning")] })
@@ -1742,7 +1844,7 @@ function DebatePage() {
   return jsx3("div", { className: "hk hk-page ldw", role: "region", "aria-label": "LD Workbench", children: jsx3("div", { className: "ldw-inner", children: body }) });
 }
 var CSS = `
-.ldw{--ldw-serif:Georgia,"Source Serif 4","Times New Roman",ui-serif,serif;--ldw-gap:14px}
+.ldw{--ldw-serif:Georgia,"Source Serif 4","Times New Roman",ui-serif,serif;--ldw-gap:22px}
 .ldw-inner{padding:18px 22px 40px;display:grid;gap:var(--ldw-gap);align-content:start;min-width:0}
 .ldw-label{font-family:var(--hk-mono);font-size:11px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--hk-ink)}
 .ldw-accent{color:color-mix(in srgb,var(--hk-accent) 82%,var(--hk-ink))}
@@ -1879,8 +1981,8 @@ var CSS = `
 .ldw-chip:disabled{cursor:default;opacity:.6}
 .ldw-helper{border:1px solid var(--hk-stroke);border-left:3px solid var(--hk-accent);border-radius:6px;padding:10px 12px;display:grid;gap:6px;background:var(--hk-sunken)}
 .ldw-helper-body{max-height:420px;overflow:auto}
-.ldw-coach{position:sticky;top:0;max-height:calc(100vh - 80px);grid-template-rows:auto auto auto minmax(160px,1fr) auto}
-.ldw-focus{font-family:var(--hk-mono);font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;border:1px solid var(--hk-accent);border-radius:999px;padding:1px 8px}
+.ldw-coach{position:sticky;top:0;max-height:calc(100vh - 80px);grid-template-rows:auto minmax(160px,1fr) auto}
+.ldw-focus{font-size:12px;font-weight:600;border:1px solid var(--hk-stroke-strong);border-radius:999px;padding:1px 9px}
 .ldw-toolgrid{display:grid;grid-template-columns:1fr 1fr;gap:6px}
 .ldw-tool{border-radius:6px;justify-content:flex-start;text-align:left;padding:6px 8px}
 .ldw-thread{overflow:auto;display:grid;gap:12px;align-content:start;min-height:160px;padding-right:2px}
@@ -1908,6 +2010,64 @@ var CSS = `
 .ldw-row-end{display:flex;justify-content:flex-end}
 @container (max-width:1060px){.ldw-floor{grid-template-columns:260px minmax(0,1fr)}.ldw-floor>.ldw-side{grid-column:1/-1}.ldw-benchgrid{grid-template-columns:210px minmax(0,1fr)}.ldw-benchgrid>.ldw-coach{grid-column:1/-1;position:static;max-height:none}}
 @container (max-width:900px){.ldw-floor,.ldw-benchgrid,.ldw-ballot-grid,.ldw-source,.ldw-fx-grid{grid-template-columns:1fr}.ldw-board{grid-template-columns:repeat(4,minmax(0,1fr))}.ldw-path{grid-template-columns:repeat(3,minmax(0,1fr))}.ldw-clock,.ldw-library{position:static}.ldw-watch-time{font-size:56px}}
+
+/* declutter: sentence-case labels, menus, slim stepper, unboxed case */
+.ldw-label{font-family:inherit;font-size:12px;font-weight:600;letter-spacing:0;text-transform:none}
+.ldw-mono{font-family:var(--hk-mono);font-size:11px;font-weight:700;letter-spacing:.12em;text-transform:uppercase}
+.ldw-h2{margin:0;font-size:16px;font-weight:700;line-height:1.3}
+.ldw-h3{margin:0;font-size:13px;font-weight:700;line-height:1.35}
+.ldw-who{font-size:12px;font-weight:600}
+.ldw-stagehead{display:grid;gap:2px}
+.ldw-panel{gap:14px;padding:18px}
+.ldw-menu-wrap{position:relative;display:inline-flex}
+.ldw-caret{font-size:12px !important;margin-left:2px}
+.ldw-menu{position:absolute;top:calc(100% + 4px);left:0;z-index:40;min-width:240px;max-width:360px;max-height:min(560px,70vh);overflow:auto;padding:4px;
+  background:var(--hk-surface);border:1px solid var(--hk-stroke-strong);border-radius:8px;box-shadow:0 10px 30px color-mix(in srgb,var(--hk-ink) 18%,transparent);display:grid;gap:1px}
+.ldw-menu[data-align=end]{left:auto;right:0}
+.ldw-menu-item{display:flex;gap:8px;align-items:flex-start;width:100%;text-align:left;background:transparent;border:0;border-radius:5px;padding:6px 8px;font:inherit;font-size:13px;color:var(--hk-ink);cursor:pointer}
+.ldw-menu-item:hover:not(:disabled),.ldw-menu-item:focus-visible{background:var(--hk-hover);outline:none;box-shadow:inset 2px 0 0 var(--hk-accent)}
+.ldw-menu-item:disabled{cursor:default}
+.ldw-menu-item[data-danger]{color:var(--hk-bad)}
+.ldw-menu-icon{margin-top:2px;flex:none}
+.ldw-menu-item[aria-current] .ldw-menu-icon{color:var(--hk-good)}
+.ldw-menu-text{display:grid;gap:1px;min-width:0}
+.ldw-menu-meta{font-size:11.5px;overflow-wrap:anywhere}
+.ldw-menu-head{font-size:11.5px;font-weight:700;padding:6px 8px 2px}
+.ldw-menu-sep{height:1px;background:var(--hk-stroke);margin:4px 2px}
+.ldw-watch{padding:8px 0 0;gap:6px}
+.ldw-watch-sub{display:flex;align-items:center;justify-content:center;gap:8px}
+.ldw-iconbtn{display:inline-grid;place-items:center;width:26px;height:26px;border-radius:50%;border:1px solid var(--hk-stroke-strong);background:transparent;color:var(--hk-ink);cursor:pointer}
+.ldw-iconbtn:hover{border-color:var(--hk-accent)}
+.ldw-iconbtn:focus-visible,.ldw-switcher:focus-visible,.ldw-pstep:focus-visible{outline:2px solid var(--hk-accent);outline-offset:2px}
+.ldw-preprow{display:flex;align-items:center;gap:8px;font-size:13px}
+.ldw-preprow .hk-link{margin-left:auto}
+.ldw-num{font-family:var(--hk-mono);font-variant-numeric:tabular-nums}
+.ldw-center{justify-self:center}
+.ldw-path{list-style:none;margin:0;padding:0 0 2px;display:flex;flex-wrap:wrap;gap:4px 22px;border-bottom:1px solid var(--hk-stroke)}
+.ldw-path li{display:block}
+.ldw-pstep{display:inline-flex;align-items:center;gap:7px;background:transparent;border:0;padding:6px 0 8px;font:inherit;font-size:13px;font-weight:600;color:var(--hk-ink);cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-3px}
+.ldw-pstep:hover:not(:disabled){border-bottom-color:var(--hk-stroke-strong)}
+.ldw-pstep[aria-current=step]{border-bottom-color:var(--hk-accent)}
+.ldw-pstep:disabled{cursor:default}
+.ldw-pnum{display:inline-grid;place-items:center;width:20px;height:20px;border-radius:50%;border:1px solid var(--hk-stroke-strong);font-size:11px;font-weight:700}
+.ldw-pstep[data-done] .ldw-pnum{border-color:var(--hk-good-fill);color:var(--hk-good)}
+.ldw-benchgrid{grid-template-columns:minmax(0,1fr) 360px;gap:28px}
+.ldw-case{background:transparent;border:0;padding:0;display:grid;gap:0;overflow:visible}
+.ldw-timebar{background:transparent;border:0;padding:0 0 6px;font-weight:500}
+.ldw-sec{padding:22px 0 22px 14px;border-bottom:0;border-top:1px solid var(--hk-stroke);gap:8px}
+.ldw-sec:first-of-type{border-top:0}
+.ldw-sec-actions{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+.ldw-chip[aria-expanded=true]{border-color:var(--hk-stroke-strong);background:var(--hk-hover)}
+.ldw-casehead{gap:10px}
+.ldw-switcher{display:inline-flex;align-items:center;gap:8px;background:transparent;border:1px solid transparent;border-radius:6px;padding:4px 8px 4px 2px;font:inherit;font-size:18px;font-weight:700;color:var(--hk-ink);cursor:pointer;max-width:520px}
+.ldw-switcher:hover,.ldw-switcher[aria-expanded=true]{border-color:var(--hk-stroke);background:var(--hk-hover)}
+.ldw-switcher-name{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ldw-rename{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.ldw-rename input{min-width:260px;font-size:15px !important;font-weight:600}
+.ldw-resrow-wrap{display:grid;gap:12px}
+.ldw-resrow{gap:10px}
+.ldw-thread{gap:16px}
+@container (max-width:1060px){.ldw-benchgrid{grid-template-columns:1fr}.ldw-benchgrid>.ldw-coach{position:static;max-height:none}}
 @media print{
   body *{visibility:hidden !important}
   .ldw-print,.ldw-print *{visibility:visible !important}

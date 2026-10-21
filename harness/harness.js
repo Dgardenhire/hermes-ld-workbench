@@ -4,6 +4,7 @@
 //   scene  ballot | speech | cx | setup | judging | opp (the opponent's NR with Spot fallacies run) (room only; default ballot)
 //   theme  dark | light                          (default dark)
 //   drills 1                                     (open the drills under the paper ballot)
+//   open   switcher | more | export | judges     (open that menu after load)
 //   fx     1                                     (Fallacies: start a drill, pick a wrong answer, check a pasted argument)
 import { createRoot } from 'react-dom/client'
 import { jsx, jsxs } from 'react/jsx-runtime'
@@ -97,5 +98,13 @@ if (params.get('fx')) {
   Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value').set.call(ta, SPOT_INPUT)
   ta.dispatchEvent(new Event('input', { bubbles: true })); await pause(200)
   click('Find the fallacies'); await pause(500)
+}
+const openWhat = params.get('open')
+if (openWhat) {
+  const btn = openWhat === 'switcher' ? document.querySelector('.ldw-switcher')
+    : openWhat === 'more' ? document.querySelector('[aria-label="More help with Value"]')
+    : [...document.querySelectorAll('[aria-haspopup="menu"]')].find(b => b.textContent.trim().startsWith(openWhat === 'export' ? 'Export' : 'Ask another judge'))
+  if (btn) { if (openWhat === 'more') btn.scrollIntoView({ block: 'center' }); btn.click() }
+  await pause(300)
 }
 document.documentElement.dataset.ready = '1'

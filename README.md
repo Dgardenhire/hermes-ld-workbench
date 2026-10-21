@@ -6,7 +6,7 @@ You write your own case. A coach reads it, finds the weak spot, and asks the que
 
 It uses the AI model you already set up in Hermes. It never writes your case for you.
 
-![The Tournament Room](docs/shots/room-speech-dark.png)
+![The Tournament Room](docs/shots/after/room-speech-dark.png)
 
 ## What you can do
 
