@@ -8,10 +8,11 @@
 // (dashboard/plugin_api.py, reached through ctx.rest): the prompts, every model call (on the user's own
 // Hermes model), the case library, the round, the ballots. Nothing real is kept in browser storage.
 //
-// Two views on one page:
+// Three views on one page (plus a print view of a case):
 //  - Tournament Room: the posting board of the seven speeches, the clock (speech time and prep), the
 //    student's speech or the opponent's, cross-examination, and the last ballot as a paper card.
 //  - Case Workbench: My cases, the writing path, the case sections with their helpers, and the coach.
+//  - Fallacies: the guide, a practice drill with a session score, and a checker for any pasted argument.
 // Colors come only from the app's theme variables (through the kit's --hk-* tokens).
 
 import { useEffect, useRef, useState } from 'react'
@@ -105,15 +106,16 @@ function renderText(text) {
   let para = []
   let list = null
   const flush = () => { if (para.length) { blocks.push(jsx('p', { children: inline(para.join(' '), `p${blocks.length}`) }, `p${blocks.length}`)); para = [] } }
-  const close = () => { if (list) { const L = list; blocks.push(jsx(L.tag, { children: L.items }, `l${blocks.length}`)); list = null } }
+  const close = () => { if (list) { const L = list; blocks.push(jsx(L.tag, { start: L.start, children: L.items }, `l${blocks.length}`)); list = null } }
   for (const raw of String(text || '').split('\n')) {
     const l = raw.trim()
     const ul = l.match(/^[-*•]\s+(.*)/)
-    const ol = l.match(/^\d+[.)]\s+(.*)/)
+    const ol = l.match(/^(?:\d+)[.)]\s+(.*)/)
+    const num = ol ? parseInt(l, 10) : undefined
     if (ul || ol) {
       flush()
       const tag = ul ? 'ul' : 'ol'
-      if (!list || list.tag !== tag) { close(); list = { tag, items: [] } }
+      if (!list || list.tag !== tag) { close(); list = { tag, items: [], start: tag === 'ol' && num > 1 ? num : undefined } }
       list.items.push(jsx('li', { children: inline((ul || ol)[1], `li${blocks.length}-${list.items.length}`) }, list.items.length))
     } else if (!l) { flush(); close() } else { close(); para.push(l.replace(/^#+\s*/, '')) }
   }
@@ -321,8 +323,27 @@ function OpponentSpeech({ r, stop }) {
       pending ? jsxs(Fragment, { children: [
         jsx('div', { className: 'ldw-speech', children: renderText(pending) }),
         jsx('div', { className: 'ldw-meta', children: `${words(pending)} words · about ${mmss(words(pending) / WPM * 60)} spoken. Flow it as you read.` }),
+        jsx(SpotSpeech, { r, id: stop.id }),
       ] }) : null,
     ] }),
+  ] })
+}
+
+// Fallacies in one of the opponent's speeches. The answer is kept with the round on the backend.
+function SpotSpeech({ r, id }) {
+  const [text, setText] = useState((r.spots || {})[id] || null)
+  const [busy, setBusy] = useState(false)
+  const [err, setErr] = useState(null)
+  const go = async () => {
+    setBusy(true); setErr(null)
+    try { setText((await post('spot', { speech_id: id })).text) } catch (e) { setErr(errText(e)) } finally { setBusy(false) }
+  }
+  return jsxs('div', { className: 'hk-stack', children: [
+    !text ? jsx('div', { children: jsx(Button, { variant: 'secondary', loading: busy, onClick: go,
+      children: jsxs(Fragment, { children: [jsx(Codicon, { name: 'search' }), 'Spot fallacies'] }) }) }) : null,
+    busy ? jsx(Thinking, { label: 'Looking for fallacies' }) : null,
+    err ? jsx(Notice, { tone: 'bad', children: err }) : null,
+    text ? jsxs('div', { className: 'ldw-helper', children: [jsx(Label, { accent: true, children: 'Fallacies found' }), jsx('div', { className: 'ldw-helper-body', children: renderText(text) })] }) : null,
   ] })
 }
 
@@ -951,6 +972,87 @@ function PrintView() {
   ] })
 }
 
+/* ================================================================== Fallacies == */
+
+const $drill = atom({ n: 0, right: 0, item: null, picked: null, busy: false, err: null }) // the score lasts for this session
+
+async function newDrill() {
+  $drill.set({ ...$drill.get(), item: null, picked: null, busy: true, err: null })
+  try { $drill.set({ ...$drill.get(), item: await post('drill'), busy: false }) } catch (e) { $drill.set({ ...$drill.get(), busy: false, err: errText(e) }) }
+}
+
+function Drill() {
+  const d = useValue($drill)
+  const guide = ($cfg.get() || {}).fallacies || []
+  const opts = [...guide.map(f => f.name), 'None']
+  const pick = o => {
+    if (!d.item || d.picked) return
+    const ok = o === d.item.answer
+    $drill.set({ ...d, picked: o, n: d.n + 1, right: d.right + (ok ? 1 : 0) })
+  }
+  const ok = d.picked && d.picked === d.item.answer
+  return jsxs('section', { className: 'ldw-panel', 'aria-label': 'Practice', children: [
+    jsx(Label, { accent: true, children: 'Practice' }),
+    jsx('h2', { className: 'hk-h2', children: 'Name that fallacy' }),
+    jsx('p', { className: 'ldw-goal', children: 'Read the argument. Pick the fallacy it commits, or "No fallacy" if the reasoning holds up.' }),
+    !d.item && !d.busy ? jsx('div', { children: jsx(Button, { onClick: newDrill, children: jsxs(Fragment, { children: [jsx(Codicon, { name: 'play' }), d.err ? 'Try again' : 'Give me an argument'] }) }) }) : null,
+    d.busy ? jsx(Thinking, { label: 'Writing an argument' }) : null,
+    d.err ? jsx(Notice, { tone: 'bad', children: d.err }) : null,
+    d.item ? jsxs(Fragment, { children: [
+      jsx('blockquote', { className: 'ldw-drill-arg', children: d.item.argument }),
+      jsx('div', { className: 'ldw-chips', role: 'group', 'aria-label': 'Your answer', children: opts.map(o => {
+        const state = !d.picked ? undefined : o === d.item.answer ? 'right' : o === d.picked ? 'wrong' : undefined
+        return jsxs('button', { type: 'button', className: 'ldw-chip ldw-opt', 'data-result': state, 'aria-pressed': d.picked === o, disabled: !!d.picked && !state,
+          onClick: () => pick(o), children: [state === 'right' ? jsx(Codicon, { name: 'check' }) : state === 'wrong' ? jsx(Codicon, { name: 'close' }) : null, o === 'None' ? 'No fallacy' : o] }, o)
+      }) }),
+      d.picked ? jsxs('div', { className: 'hk-stack', children: [
+        jsxs('p', { className: 'ldw-goal', children: [jsx('strong', { children: ok ? 'Right. ' : `It was ${d.item.answer === 'None' ? 'no fallacy' : d.item.answer}. ` }), d.item.explanation] }),
+        jsx('div', { children: jsx(Button, { onClick: newDrill, children: jsxs(Fragment, { children: [jsx(Codicon, { name: 'arrow-right' }), 'Next argument'] }) }) }),
+      ] }) : null,
+    ] }) : null,
+    d.n ? jsx('div', { className: 'ldw-meta', role: 'status', children: `This session: ${d.right} of ${d.n} right` }) : null,
+  ] })
+}
+
+function CheckArgument() {
+  const [text, setText] = useState('')
+  const [out, setOut] = useState(null)
+  const [busy, setBusy] = useState(false)
+  const [err, setErr] = useState(null)
+  const go = async () => {
+    if (words(text) < 12) { setErr('Paste a longer argument first.'); return }
+    setBusy(true); setErr(null)
+    try { setOut((await post('spot', { text })).text) } catch (e) { setErr(errText(e)) } finally { setBusy(false) }
+  }
+  return jsxs('section', { className: 'ldw-panel', 'aria-label': 'Check an argument', children: [
+    jsx(Label, { accent: true, children: 'Check an argument' }),
+    jsx('h2', { className: 'hk-h2', children: 'Find the fallacies in any text' }),
+    jsx('p', { className: 'ldw-goal', children: "Paste an opponent's case, a teammate's speech, or a paragraph from an article. To check your own case, use Find fallacies in any contention." }),
+    jsx(Textarea, { className: 'ldw-speechbox ldw-short', 'aria-label': 'Argument to check', value: text, onChange: e => setText(e.target.value), placeholder: 'Paste the argument here' }),
+    jsx('div', { className: 'ldw-row-end', children: jsx(Button, { loading: busy, onClick: go, children: jsxs(Fragment, { children: [jsx(Codicon, { name: 'search' }), 'Find the fallacies'] }) }) }),
+    busy ? jsx(Thinking, { label: 'Looking for fallacies' }) : null,
+    err ? jsx(Notice, { tone: 'bad', children: err }) : null,
+    out ? jsxs('div', { className: 'ldw-helper', children: [jsx(Label, { accent: true, children: 'Fallacies found' }), jsx('div', { className: 'ldw-helper-body', children: renderText(out) })] }) : null,
+  ] })
+}
+
+function Fallacies() {
+  const guide = ($cfg.get() || {}).fallacies || []
+  return jsxs(Fragment, { children: [
+    jsx('p', { className: 'ldw-goal', children: 'A fallacy is a mistake in reasoning that can make a weak argument sound strong. Learn the common ones, practice spotting them, and check any argument for them: yours or someone else\'s.' }),
+    jsxs('div', { className: 'ldw-fx-grid', children: [jsx(Drill, {}), jsx(CheckArgument, {})] }),
+    jsxs('section', { className: 'hk-stack', 'aria-label': 'The guide', children: [
+      jsx(Label, { children: `The guide · ${guide.length} fallacies` }),
+      jsx('div', { className: 'ldw-fx-cards', children: guide.map(f => jsxs('article', { className: 'ldw-fx-card', children: [
+        jsx('h3', { className: 'ldw-sec-title', children: f.name }),
+        jsx('p', { children: f.definition }),
+        jsx('p', { className: 'ldw-fx-ex', children: `"${f.example}"` }),
+        jsxs('p', { className: 'ldw-fx-use', children: [jsx('strong', { children: 'In a round: ' }), f.debate] }),
+      ] }, f.name)) }),
+    ] }),
+  ] })
+}
+
 /* ================================================================== page == */
 
 function Header() {
@@ -959,19 +1061,19 @@ function Header() {
   const cfg = $cfg.get()
   const r = st && st.round
   const c = st && st.workbench && st.workbench.case
-  const eyebrow = view === 'room'
+  const eyebrow = view === 'fallacies' ? 'Logical fallacies · guide, practice and checker' : view === 'room'
     ? r ? `Practice round ${r.round_no} · ${sideShort(r.side)} · ${r.level === 'jv' ? 'JV' : r.level} · ${cfg.judges[r.judge].label}` : `${(st.history || {}).count || 0} ${((st.history || {}).count || 0) === 1 ? 'ballot' : 'ballots'} so far · NSDA Lincoln-Douglas`
     : c ? `${c.side === 'aff' ? 'Affirmative' : 'Negative'} case · ${c.name}` : ''
-  const res = view === 'room' ? (r ? r.resolution : c && c.resolution) : c && c.resolution
+  const res = view === 'fallacies' ? null : view === 'room' ? (r ? r.resolution : c && c.resolution) : c && c.resolution
   const tab = (id, label, icon) => jsxs('button', { type: 'button', role: 'tab', className: 'ldw-tab', 'aria-selected': view === id || (id === 'bench' && view === 'print'),
     onClick: () => $view.set(id), children: [jsx(Codicon, { name: icon }), label] })
   return jsxs('header', { className: 'ldw-head ldw-noprint', children: [
     jsxs('div', { className: 'ldw-head-title', children: [
-      jsx('h1', { className: 'ldw-h1', children: view === 'room' ? 'Tournament Room' : 'Case Workbench' }),
+      jsx('h1', { className: 'ldw-h1', children: view === 'room' ? 'Tournament Room' : view === 'fallacies' ? 'Fallacies' : 'Case Workbench' }),
       jsx('span', { className: 'ldw-label ldw-accent', children: eyebrow }),
       res ? jsx('span', { className: 'ldw-res', children: `"${res.replace(/^Resolved:\s*/i, '')}"` }) : null,
     ] }),
-    jsxs('nav', { className: 'ldw-tabs', role: 'tablist', 'aria-label': 'Debate', children: [tab('room', 'Tournament Room', 'law'), tab('bench', 'Case Workbench', 'edit')] }),
+    jsxs('nav', { className: 'ldw-tabs', role: 'tablist', 'aria-label': 'Debate', children: [tab('room', 'Tournament Room', 'law'), tab('bench', 'Case Workbench', 'edit'), tab('fallacies', 'Fallacies', 'warning')] }),
   ] })
 }
 
@@ -984,7 +1086,7 @@ function DebatePage() {
   let body
   if (err && !st) body = jsx(Failure, { title: 'The workbench could not load', body: `${errText(err)} Check that LD Workbench is turned on in Capabilities, Plugins, then try again.`, error: err, onRetry: load })
   else if (!st || !cfg) body = jsx(Thinking, { label: 'Opening the workbench' })
-  else body = jsxs(Fragment, { children: [jsx(Header, {}), view === 'room' ? jsx(Room, {}) : view === 'print' ? jsx(PrintView, {}) : jsx(Bench, {})] })
+  else body = jsxs(Fragment, { children: [jsx(Header, {}), view === 'room' ? jsx(Room, {}) : view === 'fallacies' ? jsx(Fallacies, {}) : view === 'print' ? jsx(PrintView, {}) : jsx(Bench, {})] })
   return jsx('div', { className: 'hk hk-page ldw', role: 'region', 'aria-label': 'LD Workbench', children: jsx('div', { className: 'ldw-inner', children: body }) })
 }
 
@@ -1145,8 +1247,20 @@ const CSS = `
 .ldw-print p{margin:0 0 10px}
 .ldw-print-meta{font-style:italic}
 
+.ldw-fx-grid{display:grid;grid-template-columns:1fr 1fr;gap:var(--ldw-gap);align-items:start}
+.ldw-fx-cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,260px),1fr));gap:10px}
+.ldw-fx-card{background:var(--hk-surface);border:1px solid var(--hk-stroke);border-radius:8px;padding:12px 14px;display:grid;gap:6px;align-content:start;font-size:13px}
+.ldw-fx-ex{font-family:var(--ldw-serif);font-style:italic;font-size:14px}
+.ldw-fx-use{border-top:1px solid var(--hk-stroke);padding-top:6px}
+.ldw-drill-arg{margin:0;font-family:var(--ldw-serif);font-size:16px;line-height:1.55;border-left:3px solid var(--hk-accent);padding:6px 0 6px 14px}
+.ldw-opt:disabled{opacity:1;cursor:default}
+.ldw-opt[data-result=right]{border-color:var(--hk-good-fill);background:color-mix(in srgb,var(--hk-good-fill) 18%,transparent)}
+.ldw-opt[data-result=right] .codicon{color:var(--hk-good)}
+.ldw-opt[data-result=wrong]{border-color:var(--hk-bad-fill);background:color-mix(in srgb,var(--hk-bad-fill) 16%,transparent)}
+.ldw-opt[data-result=wrong] .codicon{color:var(--hk-bad)}
+.ldw-row-end{display:flex;justify-content:flex-end}
 @container (max-width:1060px){.ldw-floor{grid-template-columns:260px minmax(0,1fr)}.ldw-floor>.ldw-side{grid-column:1/-1}.ldw-benchgrid{grid-template-columns:210px minmax(0,1fr)}.ldw-benchgrid>.ldw-coach{grid-column:1/-1;position:static;max-height:none}}
-@container (max-width:900px){.ldw-floor,.ldw-benchgrid,.ldw-ballot-grid,.ldw-source{grid-template-columns:1fr}.ldw-board{grid-template-columns:repeat(4,minmax(0,1fr))}.ldw-path{grid-template-columns:repeat(3,minmax(0,1fr))}.ldw-clock,.ldw-library{position:static}.ldw-watch-time{font-size:56px}}
+@container (max-width:900px){.ldw-floor,.ldw-benchgrid,.ldw-ballot-grid,.ldw-source,.ldw-fx-grid{grid-template-columns:1fr}.ldw-board{grid-template-columns:repeat(4,minmax(0,1fr))}.ldw-path{grid-template-columns:repeat(3,minmax(0,1fr))}.ldw-clock,.ldw-library{position:static}.ldw-watch-time{font-size:56px}}
 @media print{
   body *{visibility:hidden !important}
   .ldw-print,.ldw-print *{visibility:visible !important}
@@ -1169,6 +1283,7 @@ export default {
       render: () => jsx(DebatePage, {}),
       palette: [
         { id: 'ld-workbench.room', label: 'Debate: open the Tournament Room', keywords: ['lincoln douglas', 'practice round', 'ballot'], run: open('room') },
+        { id: 'ld-workbench.fallacies', contributionId: 'fallacies', label: 'Debate: practice logical fallacies', keywords: ['fallacy', 'logic', 'reasoning'], run: open('fallacies') },
         { id: 'ld-workbench.bench', contributionId: 'bench', label: 'Debate: open the Case Workbench', keywords: ['case', 'coach', 'lincoln douglas'], run: open('bench') },
       ],
     })

@@ -14,4 +14,7 @@ shot room-cx-dark "view=room&scene=cx" 1440,900
 shot room-setup-light "view=room&scene=setup&theme=light" 1440,900
 shot bench-dark "view=bench" 1440,1800
 shot bench-light "view=bench&theme=light" 1440,1800
+shot fallacies-dark "view=fallacies&fx=1" 1440,1900
+shot fallacies-light "view=fallacies&fx=1&theme=light" 1440,1900
+shot room-opponent-spot-dark "view=room&scene=opp" 1440,3600
 shot print-light "view=print&theme=light" 1100,1400

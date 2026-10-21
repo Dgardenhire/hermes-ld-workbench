@@ -349,6 +349,40 @@ async def post_source_read(body: dict):
         _fail(e)
 
 
+# ---------- fallacies ----------
+@router.post("/drill")
+async def post_drill():
+    """One practice item: an argument and its answer (a fallacy from the guide, or "None")."""
+    try:
+        return await engine.run_drill(engine.clean({"action": "drill"}), MODEL)
+    except Exception as e:
+        _fail(e)
+
+
+@router.post("/spot")
+async def post_spot(body: dict):
+    """Find the fallacies in pasted text, or in one of the opponent's speeches in the current round
+    (the answer is kept with the round so it is still there after a reload)."""
+    try:
+        b = _body(body)
+        sid = b.get("speech_id")
+        if sid is not None:
+            sid = engine._pick(sid, engine.SPEECH_IDS, "speech")
+            r = _round_or_fail()
+            t = next((x for x in r["transcript"] if x["id"] == sid and x["speaker"] == "ai"), None)
+            pend = r.get("pending_ai") or {}
+            text = t["text"] if t else pend.get("text") if pend.get("id") == sid else None
+            if not text:
+                raise ValueError("That is not one of the opponent's speeches.")
+            out = await engine.run_spot(text, r["resolution"], MODEL)
+            _save_round(lambda x: (x.setdefault("spots", {}).__setitem__(sid, out["text"]), x)[1])
+            return {"text": out["text"], "speech_id": sid}
+        text = engine._s(b.get("text"), engine.SPOT_LIMIT, "Text")
+        return await engine.run_spot(text, _active().get("resolution") or "", MODEL)
+    except Exception as e:
+        _fail(e)
+
+
 # ---------- the practice round ----------
 def _round_or_fail():
     r = store.read("round.json")

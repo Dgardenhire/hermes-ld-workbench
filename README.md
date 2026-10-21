@@ -14,6 +14,8 @@ It uses the AI model you already set up in Hermes. It never writes your case for
 
 **Case Workbench.** Your case in sections: resolution analysis, definitions, value, criterion, contentions, and blocks. A six-step writing path walks you from a blank page to a finished case. Every section has helpers that lay out your options and ask hard questions, and a coach panel you can talk to.
 
+**Fallacies.** A guide to 15 common mistakes in reasoning, each with a plain definition, an example, and what to do about it in a round. A practice drill gives you a short argument; you pick the fallacy it commits (or "No fallacy"), see whether you were right and why, and keep a score for the session. You can also paste any argument and have it checked. In the Tournament Room, a "Spot fallacies" button sits under every speech the opponent gives.
+
 **My cases.** Keep as many cases as you want. Each one has its own name, resolution, side, sections and coach notes. Make a new one, copy one, or delete one. Save any case as a Word document or a text file, or print it. Save a backup file of every case, and load it on another computer.
 
 **Bring in your case.** Paste a case you already wrote, or upload it as a Word document or text file. The workbench sorts your words into the sections without changing a single word, then the coach reviews it.

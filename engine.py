@@ -152,7 +152,7 @@ def clean(p):
     if p.get("tool") is not None:
         out["tool"] = _pick(p.get("tool"), M.TOOLS, "tool")
     if p.get("action") is not None:
-        out["action"] = _pick(p.get("action"), ("import", "source", "speech", "cx", "flow", "judge"), "action")
+        out["action"] = _pick(p.get("action"), ("drill", "import", "source", "speech", "cx", "flow", "judge"), "action")
     out["side"] = _pick(p.get("side"), ("aff", "neg"), "side", "aff")
     out["student_side"] = _pick(p.get("student_side"), ("aff", "neg"), "side", "aff")
     out["section"] = _s(p.get("section"), 60, "Section")
@@ -480,6 +480,37 @@ async def run_import(p, model):
     return assemble_sections(text, chunks, assign)
 
 
+# ---------- fallacies (server.py run_drill and the "spot" tool) ----------
+SPOT_LIMIT = 12000
+
+
+def check_drill(out):
+    """A drill item as the page may show it. The answer must be a guide name exactly, or "None"."""
+    valid = {f["name"] for f in M.FALLACIES} | {"None"}
+    answer = out.get("answer") if isinstance(out, dict) else None
+    if not isinstance(answer, str) or answer not in valid or not str(out.get("argument") or "").strip():
+        raise RuntimeError("The drill came out wrong. Try again.")
+    return {"argument": str(out.get("argument", ""))[:800], "answer": out["answer"], "explanation": str(out.get("explanation", ""))[:600]}
+
+
+async def run_drill(p, model):
+    import time
+    names = ", ".join(f["name"] for f in M.FALLACIES)
+    ask = f"Write practice item number {int(time.time()) % 997}."
+    out = await model.json(M.DRILL_PROMPT.format(names=names), "Practice item:", ask, max_tokens=4000, purpose="ld-workbench.drill")
+    return check_drill(out)
+
+
+async def run_spot(text, resolution, model):
+    """Fallacies in someone else's argument: the "spot" tool, with an empty case, as the web app sends it."""
+    text = (text or "").strip()
+    if len(text.split()) < 12:
+        raise ValueError("Paste a longer argument first.")
+    p = clean({"tool": "spot", "side": "aff", "case": {}, "resolution": resolution,
+               "message": "Find the fallacies in this argument:\n\n" + text[:SPOT_LIMIT]})
+    return await run_tool(p, model)
+
+
 def tidy_ballot(b):
     """Keep only the ballot fields the page shows, as the types it expects."""
     def s(v, n=2000):
@@ -503,7 +534,7 @@ def tidy_ballot(b):
     }
 
 
-ACTIONS = {"import": run_import, "speech": run_speech, "cx": run_cx, "flow": run_flow, "judge": run_judge}
+ACTIONS = {"drill": run_drill, "import": run_import, "speech": run_speech, "cx": run_cx, "flow": run_flow, "judge": run_judge}
 
 
 def config():
@@ -517,4 +548,5 @@ def config():
         "resolution": M.CURRENT_RESOLUTION,
         "topics_url": "https://www.speechanddebate.org/topics/",
         "import_sections": M.IMPORT_SECTIONS,
+        "fallacies": M.FALLACIES,
     }

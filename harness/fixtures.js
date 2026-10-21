@@ -112,6 +112,98 @@ export const CONFIG = {
   "Blocks",
   "Other material"
  ],
+ "fallacies": [
+  {
+   "name": "Straw man",
+   "definition": "Arguing against a weaker or twisted version of what the other side actually said.",
+   "example": "They say homework should be shorter. So they think students should never practice anything.",
+   "debate": "Call it out by restating their real claim, then answering that."
+  },
+  {
+   "name": "Slippery slope",
+   "definition": "Claiming one step will lead to an extreme outcome without showing each link in the chain.",
+   "example": "If we let students use phones at lunch, soon nobody will pay attention in class and grades will collapse.",
+   "debate": "Ask which link in the chain they have evidence for."
+  },
+  {
+   "name": "False dilemma",
+   "definition": "Pretending there are only two options when more exist.",
+   "example": "Either we cancel the field trip or we accept that someone will get hurt.",
+   "debate": "Name the third option the judge was not told about."
+  },
+  {
+   "name": "Ad hominem",
+   "definition": "Attacking the person making the argument instead of the argument.",
+   "example": "You can't trust her plan for the budget. She failed algebra.",
+   "debate": "Point out that the argument stands or falls on its reasons, not on who said it."
+  },
+  {
+   "name": "Appeal to authority",
+   "definition": "Treating a claim as true only because an important person said it, especially outside their expertise.",
+   "example": "A famous actor said this diet works, so it must work.",
+   "debate": "Ask what the expert's reasoning or evidence was, and whether it is their field."
+  },
+  {
+   "name": "Hasty generalization",
+   "definition": "Drawing a broad conclusion from too few examples.",
+   "example": "My two friends hated the new cafeteria menu, so the whole school hates it.",
+   "debate": "Ask how many cases the claim rests on and whether they are typical."
+  },
+  {
+   "name": "Circular reasoning",
+   "definition": "Using the conclusion as one of the reasons for the conclusion.",
+   "example": "The rule is fair because it treats people fairly.",
+   "debate": "Ask for a reason that does not already assume the conclusion."
+  },
+  {
+   "name": "Appeal to emotion",
+   "definition": "Trying to win with feelings instead of reasons.",
+   "example": "Think of how sad the puppies will be. That's why the shelter needs a new roof.",
+   "debate": "Acknowledge the feeling, then ask what the actual reason and impact are."
+  },
+  {
+   "name": "Bandwagon",
+   "definition": "Claiming something is right or true because many people believe or do it.",
+   "example": "Everyone is switching to this app, so it must be the best one.",
+   "debate": "Ask why popularity proves it is good, true or ethical."
+  },
+  {
+   "name": "False cause",
+   "definition": "Assuming that because one thing came before or alongside another, it caused it.",
+   "example": "Our team won every game I wore these socks, so the socks help us win.",
+   "debate": "Ask what else could explain it, and whether there is a mechanism."
+  },
+  {
+   "name": "Red herring",
+   "definition": "Changing the subject to something that sounds related but does not answer the question.",
+   "example": "Why worry about the broken lockers when the gym needs new paint?",
+   "debate": "Bring the judge back to the question that was never answered."
+  },
+  {
+   "name": "Equivocation",
+   "definition": "Using one word in two different meanings to make an argument look valid.",
+   "example": "A feather is light. What is light cannot be dark. So a feather cannot be dark.",
+   "debate": "Pin down the definition, which is why definitions matter in Lincoln-Douglas."
+  },
+  {
+   "name": "Appeal to nature",
+   "definition": "Assuming something is good because it is natural, or bad because it is not.",
+   "example": "This medicine is made in a lab, so it must be worse than herbal tea.",
+   "debate": "Ask why natural or unnatural decides whether it is good."
+  },
+  {
+   "name": "Tu quoque (you too)",
+   "definition": "Dismissing an argument because the person making it does not follow it themselves.",
+   "example": "You say we should recycle, but you threw away a bottle yesterday.",
+   "debate": "Point out that hypocrisy does not make the argument false."
+  },
+  {
+   "name": "Moving the goalposts",
+   "definition": "Changing what counts as proof after the other side has met the original standard.",
+   "example": "You showed one study. Fine, but now show me ten, from this year, in this state.",
+   "debate": "Hold them to the standard set first, and say so to the judge."
+  }
+ ],
  "sections": [
   "Resolution analysis",
   "Definitions",
@@ -443,3 +535,13 @@ export const STATE = {
   }
  }
 }
+
+// Captured 2026-10-20 by calling engine.run_drill and engine.run_spot with PluginLlm (the user's model).
+export const DRILL = {
+ "argument": "Either we hold every club meeting before school, or we admit that the club is not important. Anyone who values the club should therefore support morning meetings.",
+ "answer": "False dilemma",
+ "explanation": "The claim \"Either we hold every club meeting before school, or we admit that the club is not important\" presents only two options when others exist. Members can value the club while preferring meetings at lunch or after school."
+}
+
+export const SPOT = "There are three clear fallacies here:\n\n1. **Slippery slope** \u2014 Claiming that one change will lead to extreme consequences without showing the links.\n\n   **Exact words:** \u201cIf we let students choose their own reading, next they will want to choose their own grades, and soon schools will have no standards at all.\u201d\n\n   **Why it fails:** Choosing a book does not give students control over grading. Schools could allow reading choices while keeping requirements and grading standards. The argument gives no reason those limits would disappear.\n\n   **Cross-examination question:** \u201cWhy would letting students choose books require schools to let them choose their grades?\u201d\n\n2. **Ad hominem** \u2014 Attacking the people making a proposal instead of addressing the proposal itself.\n\n   **Exact words:** \u201cThe people pushing this idea never did well in school themselves.\u201d\n\n   **Why it fails:** Their past grades do not establish whether student-selected reading helps or hurts learning. Even if the claim about their grades is true, the proposal still needs to be judged on its merits.\n\n   **Cross-examination question:** \u201cHow do the supporters\u2019 past grades show that their reading proposal would harm literacy?\u201d\n\n3. **False dilemma** \u2014 Presenting only two choices when other possibilities exist.\n\n   **Exact words:** \u201cEither we keep the reading list exactly as it is, or we give up on literacy.\u201d\n\n   **Why it fails:** Schools could revise the list, offer a teacher-approved selection, or combine required books with student choices. None of those options means abandoning literacy.\n\n   **Cross-examination question:** \u201cWhy couldn\u2019t schools keep literacy standards while letting students choose from a teacher-approved list?\u201d\n\n**The false dilemma matters most for winning this argument.** It makes the unchanged reading list seem like the only way to protect literacy. Showing a workable middle option breaks that central claim. But remember: exposing the fallacy does not prove student choice improves literacy. That still requires evidence."
+export const SPOT_INPUT = "If we let students choose their own reading, next they will want to choose their own grades, and soon schools will have no standards at all. Besides, the people pushing this idea never did well in school themselves. Either we keep the reading list exactly as it is, or we give up on literacy."

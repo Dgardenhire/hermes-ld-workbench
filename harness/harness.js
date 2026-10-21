@@ -1,12 +1,13 @@
 // Renders desktop/plugin.js inside a Hermes-like window. ctx.rest answers from fixtures.js (real backend answers).
 // URL parameters:
 //   view   room | bench | print                  (default room)
-//   scene  ballot | speech | cx | setup | judging (room only; default ballot)
+//   scene  ballot | speech | cx | setup | judging | opp (the opponent's NR with Spot fallacies run) (room only; default ballot)
 //   theme  dark | light                          (default dark)
 //   drills 1                                     (open the drills under the paper ballot)
+//   fx     1                                     (Fallacies: start a drill, pick a wrong answer, check a pasted argument)
 import { createRoot } from 'react-dom/client'
 import { jsx, jsxs } from 'react/jsx-runtime'
-import { CONFIG, STATE } from './fixtures.js'
+import { CONFIG, DRILL, SPOT, SPOT_INPUT, STATE } from './fixtures.js'
 
 const params = new URLSearchParams(location.search)
 const dark = params.get('theme') !== 'light'
@@ -20,6 +21,13 @@ function sceneState() {
   const r = s.round
   const scene = params.get('scene') || 'ballot'
   if (scene === 'setup') s.round = null
+  if (scene === 'opp') {
+    const nr = r.transcript.find(t => t.id === 'NR')
+    r.transcript = r.transcript.filter(t => t.id !== 'NR' && t.id !== '2AR')
+    r.phase = 'live'; r.i = 5; r.ballots = []; r.prep = 95
+    r.pending_ai = { id: 'NR', text: nr.text }
+    r.spots = { NR: SPOT }
+  }
   if (scene === 'speech' || scene === 'cx' || scene === 'judging') {
     const upto = scene === 'speech' ? 4 : scene === 'cx' ? 3 : 7
     const keep = new Set(CONFIG.round.slice(0, upto).map(x => x.id))
@@ -41,6 +49,8 @@ async function rest(path, options = {}) {
   await pause(30)
   if (path === 'config') return clone(CONFIG)
   if (path === 'state') return sceneState()
+  if (path === 'drill') return clone(DRILL)
+  if (path === 'spot') return { text: SPOT }
   if (params.get('scene') === 'judging' && path === 'round/judge') return new Promise(() => {})
   throw new Error('400: {"detail":"The harness does not answer this request."}')
 }
@@ -78,5 +88,14 @@ if (params.get('drills')) {
   const b = [...document.querySelectorAll('button')].find(x => x.textContent.trim() === 'Run the drills')
   if (b) b.click()
   await pause(300)
+}
+if (params.get('fx')) {
+  const click = t => { const b = [...document.querySelectorAll('button')].find(x => x.textContent.trim() === t); if (b) b.click() }
+  click('Give me an argument'); await pause(300)
+  click('Slippery slope'); await pause(200)
+  const ta = document.querySelector('textarea[aria-label="Argument to check"]')
+  Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value').set.call(ta, SPOT_INPUT)
+  ta.dispatchEvent(new Event('input', { bubbles: true })); await pause(200)
+  click('Find the fallacies'); await pause(500)
 }
 document.documentElement.dataset.ready = '1'
