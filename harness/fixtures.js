@@ -1,0 +1,445 @@
+// Real answers from the plugin's backend on Damon's machine (Hermes 0.22.2, the user's own model through PluginLlm),
+// captured from GET /config and GET /state on 2026-10-20. Used only by the harness.
+export const CONFIG = {
+ "tools": {
+  "coach": "Socratic coach",
+  "explain": "Explain an idea",
+  "stress": "Stress-test the framework",
+  "attack": "Attack my case",
+  "logic": "Check my logic",
+  "sources": "Research leads",
+  "notes": "Margin notes",
+  "breakdown": "Break down the resolution",
+  "definitions": "Find definitions",
+  "values": "Value options",
+  "criteria": "Criterion options",
+  "arguments": "Map the arguments",
+  "fallacies": "Find fallacies",
+  "spot": "Spot fallacies in their argument",
+  "review": "Full case review"
+ },
+ "round": [
+  {
+   "id": "AC",
+   "name": "Affirmative Constructive",
+   "side": "aff",
+   "kind": "speech",
+   "minutes": 6
+  },
+  {
+   "id": "CX1",
+   "name": "Cross-Examination of the Aff",
+   "side": "neg",
+   "kind": "cx",
+   "minutes": 3
+  },
+  {
+   "id": "NC",
+   "name": "Negative Constructive",
+   "side": "neg",
+   "kind": "speech",
+   "minutes": 7
+  },
+  {
+   "id": "CX2",
+   "name": "Cross-Examination of the Neg",
+   "side": "aff",
+   "kind": "cx",
+   "minutes": 3
+  },
+  {
+   "id": "1AR",
+   "name": "First Affirmative Rebuttal",
+   "side": "aff",
+   "kind": "speech",
+   "minutes": 4
+  },
+  {
+   "id": "NR",
+   "name": "Negative Rebuttal",
+   "side": "neg",
+   "kind": "speech",
+   "minutes": 6
+  },
+  {
+   "id": "2AR",
+   "name": "Second Affirmative Rebuttal",
+   "side": "aff",
+   "kind": "speech",
+   "minutes": 3
+  }
+ ],
+ "prep_minutes": 4,
+ "speech_goals": {
+  "AC": "Read the affirmative case: framework (value and criterion), definitions if needed, and contentions.",
+  "NC": "Read the negative case, then attack the affirmative case. Spend roughly the first two-thirds on your own case.",
+  "1AR": "Defend the affirmative case and answer the negative case in four minutes. Prioritize: framework, then the arguments the negative dropped or that win the round. Be efficient.",
+  "NR": "Extend your winning arguments, answer the 1AR, and give the judge clear reasons to vote negative. Begin to crystallize.",
+  "2AR": "Final speech. Crystallize: give two or three voting issues, explain why the affirmative wins under the framework, and answer only what matters."
+ },
+ "judges": {
+  "lay": {
+   "label": "Parent judge",
+   "summary": "Community or parent judge. No debate experience. Votes for the clearer, more persuasive speaker."
+  },
+  "traditional": {
+   "label": "Traditional coach",
+   "summary": "Former debater or coach. Evaluates value and criterion first, then which side best meets the winning framework."
+  },
+  "flow": {
+   "label": "Flow judge",
+   "summary": "Experienced judge who keeps a careful flow. Dropped arguments count as conceded. Rewards technical precision."
+  }
+ },
+ "levels": [
+  "novice",
+  "jv",
+  "varsity"
+ ],
+ "resolution": {
+  "text": "Resolved: De-extinction is unethical.",
+  "period": "November/December 2026"
+ },
+ "topics_url": "https://www.speechanddebate.org/topics/",
+ "import_sections": [
+  "Resolution analysis",
+  "Definitions",
+  "Value",
+  "Criterion",
+  "Contention 1",
+  "Contention 2",
+  "Contention 3",
+  "Blocks",
+  "Other material"
+ ],
+ "sections": [
+  "Resolution analysis",
+  "Definitions",
+  "Value",
+  "Criterion",
+  "Contention 1",
+  "Contention 2",
+  "Contention 3",
+  "Blocks",
+  "Other material"
+ ]
+}
+
+export const STATE = {
+ "workbench": {
+  "case": {
+   "id": "572f1227b6c1",
+   "name": "Live round test",
+   "resolution": "Resolved: De-extinction is unethical.",
+   "side": "aff",
+   "sections": {
+    "Other material": "I affirm the resolution: Resolved: De-extinction is unethical.\nFor these reasons I urge an affirmative ballot.",
+    "Definitions": "Definitions\nDe-extinction means using cloning or gene editing to bring back an extinct species or a close copy of one.",
+    "Value": "Value\nMy value is morality, because the resolution asks whether an action is ethical.",
+    "Criterion": "Criterion\nMy criterion is minimizing suffering. Suffering is the clearest measure of moral harm to living beings, and it lets the judge weigh real outcomes.",
+    "Contention 1": "Contention 1: Animal welfare\nMost cloned animals die before or soon after birth. In 2003 the bucardo clone lived only minutes before it died of a lung defect. Surrogate mothers also carry the risks of pregnancy for a species not their own. That suffering is certain, while the benefits are speculative.",
+    "Contention 2": "Contention 2: Opportunity cost\nMoney spent reviving lost species is money not spent protecting living ones. Conservation budgets are small, so every dollar matters. Choosing spectacle over prevention leads to more extinctions, not fewer."
+   },
+   "thread": [
+    {
+     "role": "coach",
+     "label": "Check my logic \u00b7 Contention 1",
+     "text": "Your next step is to strengthen Contention 1\u2019s reasoning, not add more examples yet. The bucardo example gives you a specific event to investigate, but you still need to show how it supports a judgment about de-extinction generally.\n\n- **Claim: present, but incomplete.** \u201cMost cloned animals die before or soon after birth\u201d makes a clear factual claim. The ethical conclusion is implied. You need to establish when animal suffering makes a practice unethical under your criterion, rather than merely risky. **What level of suffering would make de-extinction unethical under your standard?**\n\n- **Warrant: partly present.** \u201cSurrogate mothers also carry the risks of pregnancy for a species not their own\u201d suggests a mechanism for harm. But you have not explained whether those risks are greater than ordinary pregnancy risks, or whether they apply to every method in your definition. Moving from cloning to all \u201ccloning or gene editing\u201d is an unsupported generalization. **Which welfare risks apply across the methods your definition includes?**\n\n- **Data: one concrete example, with major support missing.** \u201cIn 2003 the bucardo clone lived only minutes before it died of a lung defect\u201d needs a citation. One failed birth does not establish \u201cmost.\u201d As research leads\u2014not verified evidence for your case\u2014look for the original bucardo cloning report and veterinary reviews of cloning outcomes, including surrogate health. **What evidence establishes how common and severe these harms are?**\n\n- **Impact: present, but the comparison is unsupported.** \u201cThat suffering is certain, while the benefits are speculative\u201d connects to minimizing suffering. But \u201ccertain\u201d overstates what one example proves, and uncertain benefits might still outweigh likely harms. You also need to consider whether revived species could reduce suffering through ecosystem benefits. **Why would the expected suffering outweigh the expected benefits, even if some de-extinction projects succeed?**",
+     "section": "Contention 1",
+     "tool": "logic"
+    },
+    {
+     "role": "you",
+     "text": "Can you just write my criterion paragraph for me?"
+    },
+    {
+     "role": "coach",
+     "label": "Socratic coach",
+     "text": "The words have to be yours, but I can help you make the standard stronger. Your current criterion, \u201cminimizing suffering,\u201d leaves one important choice unresolved: whether to count only immediate harms or also uncertain future benefits.\n\nTwo options:\n- **Expected suffering:** Weigh how likely harms and benefits are, how severe they are, and how long they last. This allows uncertain ecosystem benefits to count, too.\n- **Avoidable suffering:** Focus on harms we can prevent. You would need to explain when a possible benefit justifies causing those harms.\n\nWould you permit de-extinction if strong evidence showed it would prevent more suffering than it caused? Your answer determines which standard you can defend.",
+     "section": null,
+     "tool": "coach"
+    }
+   ],
+   "helpers": {
+    "Contention 1": {
+     "label": "Check my logic",
+     "tool": "logic",
+     "text": "Your next step is to strengthen Contention 1\u2019s reasoning, not add more examples yet. The bucardo example gives you a specific event to investigate, but you still need to show how it supports a judgment about de-extinction generally.\n\n- **Claim: present, but incomplete.** \u201cMost cloned animals die before or soon after birth\u201d makes a clear factual claim. The ethical conclusion is implied. You need to establish when animal suffering makes a practice unethical under your criterion, rather than merely risky. **What level of suffering would make de-extinction unethical under your standard?**\n\n- **Warrant: partly present.** \u201cSurrogate mothers also carry the risks of pregnancy for a species not their own\u201d suggests a mechanism for harm. But you have not explained whether those risks are greater than ordinary pregnancy risks, or whether they apply to every method in your definition. Moving from cloning to all \u201ccloning or gene editing\u201d is an unsupported generalization. **Which welfare risks apply across the methods your definition includes?**\n\n- **Data: one concrete example, with major support missing.** \u201cIn 2003 the bucardo clone lived only minutes before it died of a lung defect\u201d needs a citation. One failed birth does not establish \u201cmost.\u201d As research leads\u2014not verified evidence for your case\u2014look for the original bucardo cloning report and veterinary reviews of cloning outcomes, including surrogate health. **What evidence establishes how common and severe these harms are?**\n\n- **Impact: present, but the comparison is unsupported.** \u201cThat suffering is certain, while the benefits are speculative\u201d connects to minimizing suffering. But \u201ccertain\u201d overstates what one example proves, and uncertain benefits might still outweigh likely harms. You also need to consider whether revived species could reduce suffering through ecosystem benefits. **Why would the expected suffering outweigh the expected benefits, even if some de-extinction projects succeed?**"
+    }
+   },
+   "backup": null,
+   "created": 1792555370.903,
+   "updated": 1792555843.578
+  },
+  "cases": [
+   {
+    "id": "572f1227b6c1",
+    "name": "Live round test",
+    "resolution": "Resolved: De-extinction is unethical.",
+    "side": "aff",
+    "created": 1792555370.903,
+    "updated": 1792555843.578,
+    "words": 160
+   },
+   {
+    "id": "bdfef88fc6e7",
+    "name": "Verification case",
+    "resolution": "Resolved: De-extinction is unethical.",
+    "side": "aff",
+    "created": 1792555322.231,
+    "updated": 1792555349.583,
+    "words": 14
+   }
+  ],
+  "source": null
+ },
+ "round": {
+  "round_no": 1,
+  "phase": "ballot",
+  "side": "aff",
+  "level": "jv",
+  "judge": "traditional",
+  "resolution": "Resolved: De-extinction is unethical.",
+  "i": 7,
+  "prep": 240,
+  "transcript": [
+   {
+    "id": "AC",
+    "speaker": "student",
+    "side": "aff",
+    "text": "Definitions\nDe-extinction means using cloning or gene editing to bring back an extinct species or a close copy of one.\n\nValue\nMy value is morality, because the resolution asks whether an action is ethical.\n\nCriterion\nMy criterion is minimizing suffering. Suffering is the clearest measure of moral harm to living beings, and it lets the judge weigh real outcomes.\n\nContention 1: Animal welfare\nMost cloned animals die before or soon after birth. In 2003 the bucardo clone lived only minutes before it died of a lung defect. Surrogate mothers also carry the risks of pregnancy for a species not their own. That suffering is certain, while the benefits are speculative.\n\nContention 2: Opportunity cost\nMoney spent reviving lost species is money not spent protecting living ones. Conservation budgets are small, so every dollar matters. Choosing spectacle over prevention leads to more extinctions, not fewer."
+   },
+   {
+    "id": "NC",
+    "speaker": "ai",
+    "side": "neg",
+    "text": "I negate the resolution, \u201cDe-extinction is unethical.\u201d\n\nOff the top, framework. I accept the affirmative\u2019s definition of de-extinction as using cloning or gene editing to bring back an extinct species or a close copy. I also accept morality as the value. But my criterion is responsible reduction of harm: we should compare the likely harms and benefits of a project, while requiring protections against unnecessary suffering.\n\nThe difference is that minimizing suffering cannot mean rejecting anything that risks causing suffering. Conservation involves risks already. Captive breeding, transporting endangered animals, and reintroducing predators can harm individual animals. Those actions can still be ethical when they prevent greater harms and use reasonable safeguards.\n\nThe resolution makes a general judgment about de-extinction. I do not need to defend every proposed project, or say we should recreate every extinct species. I need to show that de-extinction can be ethically justified under reasonable conditions. The affirmative must establish why the practice itself is unethical, rather than why some versions are irresponsible.\n\nMy first contention is that de-extinction can fulfill a responsibility to repair human-caused harm.\n\nWhen humans help destroy a species, we do not erase our responsibility just because the final individual dies. Consider the basic principle behind environmental restoration: if people damage a habitat, they have a reason to restore it rather than simply promise not to damage the next one. Extinction makes restoration harder, but difficulty alone does not make restoration wrong.\n\nFor example, imagine a species eliminated through human hunting whose former habitat remains suitable. If a close genetic copy could survive there without major welfare problems or threats to existing species, bringing it back would address a harm humans caused.\n\nThe affirmative might say an extinct species cannot suffer, so we owe it nothing. But the obligation is not only to the extinct animals. Other living organisms can be harmed by the ecological changes that follow a species\u2019 disappearance. Restoring a missing ecological role could benefit those existing populations.\n\nThis is not an unlimited duty to recreate the past. If the habitat is gone or the animals would predictably suffer, restoration may be unjustified. My argument is narrower: responsibility creates a moral reason to investigate restoration, rather than categorically condemn it.\n\nMy second contention is that de-extinction can support functioning ecosystems.\n\nSpecies interact with their environments. Animals disperse seeds, graze vegetation, and influence food webs. Losing one species can therefore change conditions for others. A restored species, or a close copy capable of performing a similar role, could help repair those relationships.\n\nI am not claiming every proposed de-extinction will produce those benefits. Some environments have changed too much, and some projects may focus more on publicity than ecology. That is why ethical review should ask specific questions: Is there suitable habitat? Does the organism have a useful ecological role? Can it live without constant distress? What risks would release create for existing species?\n\nThose questions support case-by-case evaluation. They do not support the claim that the entire practice is unethical.\n\nThere is also a difference between pursuing research and immediately releasing an animal. Researchers can evaluate genetic changes, develop reproductive techniques, and assess habitat before deciding whether producing or releasing animals is justified. Ethical limits can apply at each stage. We are not forced to choose between an unrestricted experiment and a permanent ban.\n\nMy third contention is that ethical permission can be conditional.\n\nA defensible project should have independent welfare review, a credible habitat plan, and stopping rules when animal suffering becomes excessive. It should also show that its expected benefits justify its costs compared with realistic alternatives.\n\nThese conditions matter because the negative does not treat animals as disposable tools. A project that repeatedly produces animals with fatal defects without a strong justification should stop. But condemning that project does not establish that improved methods, different species, or less harmful approaches are also unethical.\n\nNow, on the affirmative\u2019s first contention, animal welfare.\n\nTheir strongest example is the bucardo clone, which died shortly after birth from a lung defect. I agree that this is a serious harm. But one failed attempt establishes the danger of a method, not the permanent immorality of the whole category. Their definition also includes gene editing, so an example involving cloning does not automatically establish the welfare consequences of every approach.\n\nThey say, \u201cThat suffering is certain, while the benefits are speculative.\u201d This overstates the contrast. Not every possible future project is guaranteed to produce the same suffering. And uncertainty about benefits is a reason to demand stronger evidence before proceeding, not proof that proceeding could never be ethical.\n\nOn their second contention, opportunity cost.\n\nThe affirmative says every dollar spent on de-extinction is a dollar not spent protecting living species. In cross-examination, I asked what shows that this funding would otherwise go to conservation. Their answer returned to animal suffering. That does not establish the funding tradeoff. My follow-up received no answer, so I am not claiming a concession.\n\nA private donor interested in biotechnology might otherwise fund another technology project, not habitat protection. Where money actually comes from a fixed conservation budget, opportunity cost matters. But that requires comparing particular projects, not assuming every dollar is interchangeable.\n\nFinally, weigh the cases. Their arguments justify caution, welfare protections, and rejecting bad projects. My case explains why a carefully limited project could repair human-caused harm and benefit living ecosystems. Because ethical de-extinction is possible, the categorical resolution fails. I urge a negative ballot."
+   },
+   {
+    "id": "1AR",
+    "speaker": "student",
+    "side": "aff",
+    "text": "Off the top, framework. Even under their criterion, certain suffering outweighs speculative benefits. Extend my first contention: clones die before birth, and they never answered it."
+   },
+   {
+    "id": "NR",
+    "speaker": "ai",
+    "side": "neg",
+    "text": "Off the top, framework. This round comes down to whether evidence of serious risks establishes that de-extinction itself is unethical. The affirmative\u2019s entire rebuttal is that \u201ccertain suffering outweighs speculative benefits\u201d and that I never answered animals dying before birth. I will answer both, but neither defeats my argument for conditional ethical permission.\n\nWe agree on morality. My criterion is responsible reduction of harm: compare likely harms and benefits, require safeguards, and reject unnecessary suffering. In cross-examination, I clarified that certain suffering counts strongly against a project. It is not an automatic veto if well-supported benefits outweigh it and less harmful alternatives are unavailable. That is not permission to sacrifice animals for publicity. It is a demanding test that some projects may fail.\n\nThe affirmative says, \u201cEven under their criterion,\u201d they win. But they never explain why every project necessarily fails that test. They repeat a comparison between certain suffering and speculative benefits without defending either description across the whole category.\n\nOn their first contention, animal welfare. They say clones die before birth and \u201cthey never answered it.\u201d I did answer it. I acknowledged the bucardo\u2019s death as a serious harm, argued that a failed cloning attempt demonstrates danger rather than permanent immorality, and pointed out that their definition includes gene editing, not only cloning.\n\nTo be clear, I am not denying reproductive failures or saying gene editing guarantees safety. My answer is that their evidence does not establish identical welfare outcomes for every method and species. They need a link from the risks of cloning to their broader conclusion about de-extinction.\n\nAlso, \u201ccertain suffering\u201d does not by itself settle an ethical comparison. Captive breeding and relocating endangered animals can cause distress. We still evaluate whether those actions prevent greater harm. If the affirmative wants suffering to operate as an absolute prohibition here, they must explain why the same reasoning does not prohibit conservation interventions they presumably support.\n\nTheir strongest response is that de-extinction benefits remain uncertain. That matters. Where benefits are merely guesses and serious suffering is likely, my standard says do not proceed. But that supports rejecting an inadequately justified project. It does not show that a project with stronger evidence, suitable habitat, and manageable welfare risks would also be unethical.\n\nNow extend my first contention, responsibility to repair human-caused harm. The affirmative gives no response to the principle that causing environmental damage creates a reason to repair it. That reason does not disappear automatically when the last member of a species dies.\n\nI do not need to claim an extinct animal currently suffers. The beneficiaries can include living organisms affected by the loss of ecological relationships. Repair matters because human-caused extinction can leave consequences for surviving populations.\n\nOn my second contention, ecosystems, extend the explanation that animals disperse seeds, shape vegetation, and influence food webs. Restoring a missing role could benefit living organisms. The affirmative labels benefits speculative, but does not answer the mechanism or explain why evaluating it is inherently unethical.\n\nI am not asking the judge to assume every restoration succeeds. I am asking the judge to distinguish uncertainty requiring investigation from proof of immorality. Habitat assessment and ecological review help determine whether a proposed benefit is credible before release.\n\nOn opportunity cost, the affirmative does not extend this contention in their rebuttal, and my answer remains standing. They never established that all de-extinction funding would otherwise protect living species. A biotechnology donor may fund another biotechnology project instead. Where a project does draw from a fixed conservation budget, compare it with available alternatives. My safeguards already require that comparison. So opportunity cost can defeat particular proposals without defeating the practice categorically.\n\nFinally, extend conditional permission. Independent welfare review, a credible habitat plan, and stopping rules are the substance of my position, not an afterthought. If fatal defects keep occurring without adequate justification, stop. If habitat cannot support the animals, do not release them. If existing conservation achieves the same benefit with less harm, choose that alternative.\n\nHere are the two voting issues. First, scope: the affirmative establishes reasons for caution, especially with cloning, but does not establish that de-extinction as defined is inherently unethical. Second, comparison: my framework takes their welfare concerns seriously while preserving the possibility of repairing human-caused ecological harm under demanding conditions.\n\nDo not vote negative because every project is good. Vote negative because the affirmative\u2019s objections justify ethical limits, not a blanket moral condemnation. I negate."
+   },
+   {
+    "id": "2AR",
+    "speaker": "student",
+    "side": "aff",
+    "text": "Two voting issues. First, framework: minimizing suffering. Second, the welfare contention was dropped in the NR. Vote affirmative."
+   }
+  ],
+  "cx": {
+   "CX1": [
+    {
+     "q": true,
+     "who": "neg",
+     "text": "What evidence shows that funding for de-extinction would otherwise go to protecting living species?"
+    },
+    {
+     "q": false,
+     "who": "aff",
+     "text": "Suffering is certain for clones; the benefits are guesses."
+    },
+    {
+     "q": true,
+     "who": "neg",
+     "text": "Does your answer concede that you have not shown de-extinction funding would otherwise go to protecting living species?"
+    }
+   ],
+   "CX2": [
+    {
+     "q": true,
+     "who": "aff",
+     "text": "What is your criterion, and how does it weigh certain suffering?"
+    },
+    {
+     "q": false,
+     "who": "neg",
+     "text": "My criterion is responsible reduction of harm: comparing likely harms and benefits while requiring safeguards against unnecessary suffering. Certain suffering counts strongly against a project, but it is not an automatic veto if well-supported benefits outweigh it and less harmful alternatives are unavailable."
+    }
+   ]
+  },
+  "flow": {
+   "AC": [
+    "Definitions: De-extinction uses cloning or gene editing to recreate extinct species.",
+    "FW: Value morality; resolution asks whether de-extinction is ethical.",
+    "FW: Minimize suffering; judge weighs concrete harms to living beings.",
+    "C1: Most cloned animals die before or shortly after birth.",
+    "C1: Bucardo clone died within minutes from a lung defect.",
+    "C1: Surrogate mothers face risks carrying another species.",
+    "C1: Suffering is certain; benefits remain speculative.",
+    "C2: De-extinction diverts scarce conservation funding from living species.",
+    "C2: Prioritizing spectacle over prevention causes more extinctions."
+   ],
+   "NC": [
+    "FW: Accept definitions and morality; prioritize responsible harm reduction.",
+    "FW: Conservation risks require safeguards, not categorical rejection.",
+    "FW: Negative needs ethical possibility; affirmative must condemn entire practice.",
+    "C1: De-extinction can repair human-caused harm and benefit living organisms.",
+    "C2: Restored ecological roles justify case-specific review and staged research.",
+    "C3: Conditional permission requires welfare review, habitat plans, stopping rules.",
+    "A/T C1: Bucardo failure doesn't establish all methods' permanent immorality.",
+    "A/T C1: Uncertain benefits demand evidence, not categorical prohibition.",
+    "A/T C2: Funding tradeoff unproven; compare actual budgets and alternatives.",
+    "Weigh: Safeguarded restoration's ethical possibility defeats categorical condemnation."
+   ],
+   "1AR": [
+    "FW: Certain suffering outweighs speculative benefits, even under their criterion.",
+    "Extend C1: Clones die before birth.",
+    "Drop? They never answered C1\u2019s prenatal clone deaths."
+   ],
+   "2AR": [
+    "FW: Minimize suffering; first voting issue.",
+    "Drop?: NR dropped welfare contention; second voting issue.",
+    "Voter: Vote affirmative."
+   ],
+   "NR": [
+    "FW: Responsible harm reduction permits projects passing demanding safeguards.",
+    "A/T FW: Affirmative never proves every project fails ethical comparison.",
+    "A/T C1: Cloning failures don't establish identical harms across methods.",
+    "A/T C1: Suffering isn't absolute; conservation interventions also cause distress.",
+    "A/T C1: Speculative benefits defeat particular projects, not conditional permission.",
+    "Extend C1: Human-caused extinction creates repair duties benefiting living organisms.",
+    "Extend C2: Restored ecological roles merit investigation, not categorical condemnation.",
+    "A/T Opportunity Cost: Dropped; funding tradeoffs require project-specific comparison.",
+    "Extend: Welfare review, habitat plans, stopping rules, less-harmful alternatives.",
+    "Voters: Scope and comparison favor ethical limits over blanket condemnation."
+   ]
+  },
+  "drafts": {},
+  "pending_ai": null,
+  "ballots": [
+   {
+    "decision": "neg",
+    "judge": "Traditional coach",
+    "judge_key": "traditional",
+    "reason": "You lose this round because the negative wins the framework comparison and the scope of your welfare claim. You establish that cloning can cause serious suffering, especially through the bucardo example, but you do not explain why that evidence makes de-extinction unethical across your definition, which also includes gene editing. The negative explicitly answers this distinction in both NC and NR, so your 2AR claim that welfare was dropped is not supported by the flow. On framework, your 1AR says you win even under their criterion, but your final speech merely names minimizing suffering without explaining why it is preferable to responsible reduction of harm. The negative provides a comparative standard incorporating welfare safeguards, alternatives, and potential benefits to living ecosystems. Their conditional-permission argument therefore remains standing: reject harmful projects without condemning every possible project. Your opportunity-cost contention also falls out after the negative challenges whether biotechnology funding would otherwise support conservation; your cross-examination answer does not establish that tradeoff. I do not treat hypothetical ecological benefits as proven successes. Rather, your rebuttals leave unanswered the negative\u2019s distinction between evidence supporting caution and evidence supporting the resolution\u2019s general ethical condemnation.",
+    "framework": "The negative wins responsible reduction of harm because they explain how to weigh suffering against credible benefits while requiring safeguards and less harmful alternatives. You name minimizing suffering but do not defend its comparative advantage or show that every de-extinction project fails the negative\u2019s test.",
+    "ownership": "You show familiarity with your welfare thesis and ask a relevant question about the opponent\u2019s criterion. However, your answer to the funding question returns to clone suffering rather than defending the opportunity-cost mechanism, so your command of that part of your case is not demonstrated.",
+    "speaker_points": {
+     "student": 26.3,
+     "opponent": 28.6
+    },
+    "strengths": [
+     "You present a clearly organized affirmative with definitions, a value, a criterion, and two distinct contentions.",
+     "You use the bucardo clone as a concrete illustration of animal-welfare harms rather than relying entirely on abstract assertions.",
+     "Your cross-examination question targets the central framework issue of how certain suffering should be weighed."
+    ],
+    "drills": [
+     {
+      "name": "Answer-or-drop audit",
+      "why": "Your 2AR says, \"the welfare contention was dropped in the NR,\" although the NR explicitly answers cloning risks, gene editing, and the scope of your conclusion.",
+      "how": "For 12 minutes, mark each NC and NR response to animal welfare on a flow. Spend four minutes locating responses, four writing one-sentence answers to each, and four delivering a rebuttal that distinguishes an inadequate answer from an actual drop."
+     },
+     {
+      "name": "Framework comparison",
+      "why": "Your final framework argument is only, \"First, framework: minimizing suffering,\" without a reason to prefer it.",
+      "how": "Spend 10 minutes writing a four-sentence framework block: your standard, its justification, its advantage over responsible reduction of harm, and its application to de-extinction. Deliver it three times, then revise any sentence that merely repeats the criterion."
+     },
+     {
+      "name": "Direct-answer and scope drill",
+      "why": "Asked for evidence of a funding tradeoff, you answer, \"Suffering is certain for clones; the benefits are guesses,\" which addresses welfare instead of funding.",
+      "how": "For 15 minutes, practice five questions about funding, cloning, gene editing, safeguards, and ecological benefits. Give each a direct 20-second answer, identify what evidence your claim requires, and narrow unsupported claims. Finish with a one-minute rebuttal connecting your strongest supported harm to the resolution."
+     }
+    ],
+    "decisive": [
+     {
+      "speech": "NC",
+      "line": "Their definition also includes gene editing, so an example involving cloning does not automatically establish the welfare consequences of every approach.",
+      "effect": "This exposes the unanswered gap between your cloning evidence and your conclusion about de-extinction generally."
+     },
+     {
+      "speech": "NR",
+      "line": "If existing conservation achieves the same benefit with less harm, choose that alternative.",
+      "effect": "The negative incorporates your concern for minimizing harm into a conditional framework rather than ignoring animal welfare or opportunity costs."
+     },
+     {
+      "speech": "NR",
+      "line": "They never established that all de-extinction funding would otherwise protect living species.",
+      "effect": "This unanswered funding-source challenge prevents your opportunity-cost contention from independently carrying the ballot."
+     },
+     {
+      "speech": "2AR",
+      "line": "First, framework: minimizing suffering. Second, the welfare contention was dropped in the NR.",
+      "effect": "Your final crystallization neither compares the frameworks nor answers the actual welfare responses, leaving the negative\u2019s central distinctions intact."
+     }
+    ],
+    "at": 1792555480,
+    "round_no": 1,
+    "side": "aff"
+   }
+  ],
+  "started_at": 1792555370,
+  "case_id": "572f1227b6c1",
+  "case_name": "Live round test"
+ },
+ "history": {
+  "rounds_started": 1,
+  "count": 1,
+  "last": {
+   "decision": "neg",
+   "judge": "Traditional coach",
+   "judge_key": "traditional",
+   "reason": "You lose this round because the negative wins the framework comparison and the scope of your welfare claim. You establish that cloning can cause serious suffering, especially through the bucardo example, but you do not explain why that evidence makes de-extinction unethical across your definition, which also includes gene editing. The negative explicitly answers this distinction in both NC and NR, so your 2AR claim that welfare was dropped is not supported by the flow. On framework, your 1AR says you win even under their criterion, but your final speech merely names minimizing suffering without explaining why it is preferable to responsible reduction of harm. The negative provides a comparative standard incorporating welfare safeguards, alternatives, and potential benefits to living ecosystems. Their conditional-permission argument therefore remains standing: reject harmful projects without condemning every possible project. Your opportunity-cost contention also falls out after the negative challenges whether biotechnology funding would otherwise support conservation; your cross-examination answer does not establish that tradeoff. I do not treat hypothetical ecological benefits as proven successes. Rather, your rebuttals leave unanswered the negative\u2019s distinction between evidence supporting caution and evidence supporting the resolution\u2019s general ethical condemnation.",
+   "framework": "The negative wins responsible reduction of harm because they explain how to weigh suffering against credible benefits while requiring safeguards and less harmful alternatives. You name minimizing suffering but do not defend its comparative advantage or show that every de-extinction project fails the negative\u2019s test.",
+   "ownership": "You show familiarity with your welfare thesis and ask a relevant question about the opponent\u2019s criterion. However, your answer to the funding question returns to clone suffering rather than defending the opportunity-cost mechanism, so your command of that part of your case is not demonstrated.",
+   "speaker_points": {
+    "student": 26.3,
+    "opponent": 28.6
+   },
+   "strengths": [
+    "You present a clearly organized affirmative with definitions, a value, a criterion, and two distinct contentions.",
+    "You use the bucardo clone as a concrete illustration of animal-welfare harms rather than relying entirely on abstract assertions.",
+    "Your cross-examination question targets the central framework issue of how certain suffering should be weighed."
+   ],
+   "drills": [
+    {
+     "name": "Answer-or-drop audit",
+     "why": "Your 2AR says, \"the welfare contention was dropped in the NR,\" although the NR explicitly answers cloning risks, gene editing, and the scope of your conclusion.",
+     "how": "For 12 minutes, mark each NC and NR response to animal welfare on a flow. Spend four minutes locating responses, four writing one-sentence answers to each, and four delivering a rebuttal that distinguishes an inadequate answer from an actual drop."
+    },
+    {
+     "name": "Framework comparison",
+     "why": "Your final framework argument is only, \"First, framework: minimizing suffering,\" without a reason to prefer it.",
+     "how": "Spend 10 minutes writing a four-sentence framework block: your standard, its justification, its advantage over responsible reduction of harm, and its application to de-extinction. Deliver it three times, then revise any sentence that merely repeats the criterion."
+    },
+    {
+     "name": "Direct-answer and scope drill",
+     "why": "Asked for evidence of a funding tradeoff, you answer, \"Suffering is certain for clones; the benefits are guesses,\" which addresses welfare instead of funding.",
+     "how": "For 15 minutes, practice five questions about funding, cloning, gene editing, safeguards, and ecological benefits. Give each a direct 20-second answer, identify what evidence your claim requires, and narrow unsupported claims. Finish with a one-minute rebuttal connecting your strongest supported harm to the resolution."
+    }
+   ],
+   "decisive": [
+    {
+     "speech": "NC",
+     "line": "Their definition also includes gene editing, so an example involving cloning does not automatically establish the welfare consequences of every approach.",
+     "effect": "This exposes the unanswered gap between your cloning evidence and your conclusion about de-extinction generally."
+    },
+    {
+     "speech": "NR",
+     "line": "If existing conservation achieves the same benefit with less harm, choose that alternative.",
+     "effect": "The negative incorporates your concern for minimizing harm into a conditional framework rather than ignoring animal welfare or opportunity costs."
+    },
+    {
+     "speech": "NR",
+     "line": "They never established that all de-extinction funding would otherwise protect living species.",
+     "effect": "This unanswered funding-source challenge prevents your opportunity-cost contention from independently carrying the ballot."
+    },
+    {
+     "speech": "2AR",
+     "line": "First, framework: minimizing suffering. Second, the welfare contention was dropped in the NR.",
+     "effect": "Your final crystallization neither compares the frameworks nor answers the actual welfare responses, leaving the negative\u2019s central distinctions intact."
+    }
+   ],
+   "at": 1792555480,
+   "round_no": 1,
+   "side": "aff"
+  }
+ }
+}

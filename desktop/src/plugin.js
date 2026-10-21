@@ -74,6 +74,7 @@ function mmss(sec) {
 }
 const sideName = s => (s === 'aff' ? 'affirmative' : 'negative')
 const sideShort = s => (s === 'aff' ? 'Aff' : 'Neg')
+const clip = (t, n) => { t = String(t || ''); return t.length > n ? t.slice(0, n - 3).replace(/\s+\S*$/, '') + '...' : t }
 const cls = (...xs) => xs.filter(Boolean).join(' ')
 function when(t) {
   if (!t) return ''
@@ -138,12 +139,12 @@ const SECTION_HINTS = {
 }
 const READ_SECTIONS = ['Resolution analysis', 'Definitions', 'Value', 'Criterion', 'Contention 1', 'Contention 2', 'Contention 3']
 const ICONS = { breakdown: 'search', definitions: 'book', values: 'law', criteria: 'law', arguments: 'type-hierarchy', review: 'checklist',
-  coach: 'question', explain: 'book', stress: 'law', attack: 'shield', logic: 'type-hierarchy', sources: 'search', notes: 'edit' }
+  fallacies: 'warning', coach: 'question', explain: 'book', stress: 'law', attack: 'shield', logic: 'type-hierarchy', sources: 'search', notes: 'edit' }
 const SECTION_TOOLS = {
   'Resolution analysis': ['breakdown', 'coach', 'explain'], Definitions: ['definitions', 'sources', 'coach'],
   Value: ['values', 'stress', 'explain', 'coach'], Criterion: ['criteria', 'stress', 'explain', 'coach'],
-  'Contention 1': ['arguments', 'logic', 'attack', 'sources', 'coach'], 'Contention 2': ['arguments', 'logic', 'attack', 'sources', 'coach'],
-  'Contention 3': ['arguments', 'logic', 'attack', 'sources', 'coach'], Blocks: ['attack', 'coach'], 'Other material': ['coach', 'notes'],
+  'Contention 1': ['arguments', 'logic', 'fallacies', 'attack', 'sources', 'coach'], 'Contention 2': ['arguments', 'logic', 'fallacies', 'attack', 'sources', 'coach'],
+  'Contention 3': ['arguments', 'logic', 'fallacies', 'attack', 'sources', 'coach'], Blocks: ['attack', 'coach'], 'Other material': ['coach', 'notes'],
 }
 const PANEL_TOOLS = ['coach', 'explain', 'stress', 'attack', 'logic', 'sources', 'notes', 'review']
 const PATH = [
@@ -379,7 +380,7 @@ function PaperBallot({ b, roundNo }) {
   }
   const pts = b.speaker_points || {}
   const first = (b.decisive || [])[0]
-  const reason = (b.reason || '').length > 240 ? b.reason.slice(0, 237).replace(/\s+\S*$/, '') + '...' : b.reason
+  const reason = clip(b.reason, 220)
   return jsxs('section', { className: 'ldw-panel ldw-side', 'aria-label': 'Last ballot', children: [
     jsx(Label, { children: `Last ballot · Round ${b.round_no || roundNo || ''}` }),
     jsxs('article', { className: 'ldw-paper', children: [
@@ -390,7 +391,7 @@ function PaperBallot({ b, roundNo }) {
         jsx('span', { className: 'hk-sr', children: `Decision: ${sideName(b.decision)}` }),
       ] }),
       jsxs('div', { className: 'ldw-paper-line', children: [jsx('span', { children: `Speaker points · you (${sideShort(b.side)})` }), jsx('b', { children: pts.student ?? '' })] }),
-      first ? jsxs('div', { className: 'ldw-paper-line ldw-paper-decided', children: [jsx('span', { children: 'Decided on' }), jsx('b', { children: `${first.speech}: "${first.line}"` })] }) : null,
+      first ? jsxs('div', { className: 'ldw-paper-line ldw-paper-decided', children: [jsx('span', { children: 'Decided on' }), jsx('b', { children: `${first.speech}: "${clip(first.line, 70)}"` })] }) : null,
       jsx('p', { className: 'ldw-paper-rfd', children: reason }),
       jsx('div', { className: 'ldw-stamp', children: `${(b.drills || []).length} drills` }),
     ] }),
@@ -684,7 +685,7 @@ function Library({ wb }) {
     }) }),
     jsx('div', { className: 'ldw-label', children: 'Backup' }),
     jsx('p', { className: 'ldw-meta', children: 'Your cases are saved by Hermes on this computer. A backup file holds every case, to keep safe or move to another computer.' }),
-    jsxs('div', { className: 'ldw-two', children: [
+    jsxs('div', { className: 'ldw-two ldw-stack1', children: [
       jsx(Button, { size: 'sm', variant: 'secondary', disabled: busy, onClick: saveBackup, children: 'Save a backup' }),
       jsx(Button, { size: 'sm', variant: 'secondary', disabled: busy, onClick: () => fileRef.current && fileRef.current.click(), children: 'Load a backup' }),
     ] }),
@@ -959,7 +960,7 @@ function Header() {
   const r = st && st.round
   const c = st && st.workbench && st.workbench.case
   const eyebrow = view === 'room'
-    ? r ? `Practice round ${r.round_no} · ${sideShort(r.side)} · ${r.level === 'jv' ? 'JV' : r.level} · ${cfg.judges[r.judge].label}` : `${(st.history || {}).count || 0} ballots so far · NSDA Lincoln-Douglas`
+    ? r ? `Practice round ${r.round_no} · ${sideShort(r.side)} · ${r.level === 'jv' ? 'JV' : r.level} · ${cfg.judges[r.judge].label}` : `${(st.history || {}).count || 0} ${((st.history || {}).count || 0) === 1 ? 'ballot' : 'ballots'} so far · NSDA Lincoln-Douglas`
     : c ? `${c.side === 'aff' ? 'Affirmative' : 'Negative'} case · ${c.name}` : ''
   const res = view === 'room' ? (r ? r.resolution : c && c.resolution) : c && c.resolution
   const tab = (id, label, icon) => jsxs('button', { type: 'button', role: 'tab', className: 'ldw-tab', 'aria-selected': view === id || (id === 'bench' && view === 'print'),
@@ -1025,11 +1026,13 @@ const CSS = `
 .ldw-step-title{font-weight:700;font-size:13px;line-height:1.25}
 .ldw-step-desc{font-size:12px;line-height:1.35}
 
-.ldw-floor{display:grid;grid-template-columns:300px minmax(0,1fr) 360px;gap:var(--ldw-gap);align-items:start}
+.ldw-floor{display:grid;grid-template-columns:260px minmax(0,1fr) 330px;gap:var(--ldw-gap);align-items:start}
 .ldw-panel{background:var(--hk-surface);border:1px solid var(--hk-stroke);border-radius:10px;padding:16px;min-width:0;display:grid;gap:10px;align-content:start}
+.ldw-panel>*{min-width:0}
+
 .ldw-clock{position:sticky;top:0}
 .ldw-watch{text-align:center;padding:14px 0 4px;display:grid;gap:8px}
-.ldw-watch-time{font-family:var(--hk-mono);font-weight:800;font-size:76px;letter-spacing:-.02em;line-height:1;font-variant-numeric:tabular-nums}
+.ldw-watch-time{font-family:var(--hk-mono);font-weight:800;font-size:68px;letter-spacing:-.02em;line-height:1;font-variant-numeric:tabular-nums}
 .ldw-over{color:var(--hk-bad)}
 .ldw-bar{height:6px;background:var(--hk-sunken);border-radius:3px;overflow:hidden}
 .ldw-bar span{display:block;height:100%;background:var(--hk-accent);border-radius:3px;transition:width 160ms var(--hk-ease)}
@@ -1063,7 +1066,7 @@ const CSS = `
 .ldw-paper{position:relative;border-radius:6px;padding:16px 18px 18px;font-family:var(--ldw-serif);
   background:color-mix(in srgb,var(--hk-surface) 90%,var(--hk-warn-fill));color:var(--hk-ink);border:1px solid var(--hk-stroke)}
 :root.dark .ldw-paper{background:color-mix(in srgb,var(--hk-ink) 90%,var(--hk-warn-fill));color:var(--ui-bg-elevated,var(--hk-bg));border-color:transparent}
-.ldw-paper-top{display:flex;justify-content:space-between;gap:8px;font-family:var(--hk-mono);font-size:10px;letter-spacing:.14em;font-weight:800;text-transform:uppercase;border-bottom:2px solid currentColor;padding-bottom:8px;margin-bottom:6px}
+.ldw-paper-top{display:flex;justify-content:space-between;gap:4px 10px;flex-wrap:wrap;font-family:var(--hk-mono);font-size:10px;letter-spacing:.14em;font-weight:800;text-transform:uppercase;border-bottom:2px solid currentColor;padding-bottom:8px;margin-bottom:6px}
 .ldw-paper-line{display:flex;justify-content:space-between;gap:10px;font-size:14px;padding:7px 0;border-bottom:1px dashed color-mix(in srgb,currentColor 40%,transparent)}
 .ldw-paper-decided b{text-align:left;max-width:70%}
 .ldw-box{display:inline-block;width:14px;height:14px;border:1.5px solid currentColor;margin-right:7px;vertical-align:-2px;position:relative}
@@ -1078,7 +1081,7 @@ const CSS = `
 .ldw-drill p{font-size:13px}
 .ldw-why{font-style:italic}
 .ldw-verdict{margin:0;font-size:20px;font-weight:800}
-.ldw-ballot-grid{display:grid;grid-template-columns:minmax(0,1.3fr) minmax(0,1fr);gap:20px}
+.ldw-ballot-grid{display:grid;grid-template-columns:1fr;gap:18px}
 .ldw-decisive{display:grid;gap:3px;text-align:left;font:inherit;color:inherit;background:var(--hk-sunken);border:1px solid var(--hk-stroke);border-left:3px solid var(--hk-accent);border-radius:6px;padding:8px 10px;cursor:pointer}
 .ldw-decisive:hover{border-color:var(--hk-stroke-strong)}
 .ldw-decisive em{font-size:12.5px}
@@ -1098,9 +1101,9 @@ const CSS = `
 .ldw-source textarea{min-height:80px}
 .ldw-casehead{display:flex;gap:12px;align-items:center;flex-wrap:wrap}
 .ldw-casename{flex:1;min-width:220px;font-size:16px !important;font-weight:700}
-.ldw-benchgrid{display:grid;grid-template-columns:230px minmax(0,1fr) 380px;gap:var(--ldw-gap);align-items:start}
+.ldw-benchgrid{display:grid;grid-template-columns:232px minmax(0,1fr) 340px;gap:var(--ldw-gap);align-items:start}
 .ldw-library{position:sticky;top:0}
-.ldw-two{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+.ldw-two{display:grid;grid-template-columns:1fr 1fr;gap:6px}.ldw-two>*{width:100%;min-width:0;justify-content:center}.ldw-stack1{grid-template-columns:1fr}
 .ldw-cases{list-style:none;margin:0;padding:0;display:grid;gap:4px;max-height:46vh;overflow:auto}
 .ldw-case-open{flex-direction:column;align-items:flex-start;gap:2px;border-color:transparent}
 .ldw-case-item[data-active] .ldw-case-open{border-color:var(--hk-accent);background:var(--hk-active)}
@@ -1111,6 +1114,7 @@ const CSS = `
 .ldw-case{padding:0;gap:0;overflow:hidden}
 .ldw-timebar{display:flex;align-items:center;gap:10px;padding:12px 16px;border-bottom:1px solid var(--hk-stroke);background:var(--hk-sunken);font-size:13px;font-weight:600;flex-wrap:wrap}
 .ldw-grow{flex:1;min-width:120px}
+.ldw-timebar .ldw-bar{background:var(--hk-surface);border:1px solid var(--hk-stroke)}
 .ldw-sec{padding:14px 16px;border-bottom:1px solid var(--hk-stroke);border-left:3px solid transparent;display:grid;gap:6px;transition:border-color var(--hk-dur) var(--hk-ease)}
 .ldw-sec:last-child{border-bottom:0}
 .ldw-sec[data-focus]{border-left-color:var(--hk-accent)}
@@ -1129,7 +1133,7 @@ const CSS = `
 .ldw-coach{position:sticky;top:0;max-height:calc(100vh - 80px);grid-template-rows:auto auto auto minmax(160px,1fr) auto}
 .ldw-focus{font-family:var(--hk-mono);font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;border:1px solid var(--hk-accent);border-radius:999px;padding:1px 8px}
 .ldw-toolgrid{display:grid;grid-template-columns:1fr 1fr;gap:6px}
-.ldw-tool{border-radius:6px;justify-content:flex-start;padding:6px 8px}
+.ldw-tool{border-radius:6px;justify-content:flex-start;text-align:left;padding:6px 8px}
 .ldw-thread{overflow:auto;display:grid;gap:12px;align-content:start;min-height:160px;padding-right:2px}
 .ldw-msg{display:grid;gap:3px;font-size:14px}
 .ldw-msg[data-role=coach]{border-left:2px solid var(--hk-accent);padding-left:10px}
@@ -1141,7 +1145,7 @@ const CSS = `
 .ldw-print p{margin:0 0 10px}
 .ldw-print-meta{font-style:italic}
 
-@container (max-width:1240px){.ldw-floor{grid-template-columns:260px minmax(0,1fr)}.ldw-floor>.ldw-side{grid-column:1/-1}.ldw-benchgrid{grid-template-columns:210px minmax(0,1fr)}.ldw-benchgrid>.ldw-coach{grid-column:1/-1;position:static;max-height:none}}
+@container (max-width:1060px){.ldw-floor{grid-template-columns:260px minmax(0,1fr)}.ldw-floor>.ldw-side{grid-column:1/-1}.ldw-benchgrid{grid-template-columns:210px minmax(0,1fr)}.ldw-benchgrid>.ldw-coach{grid-column:1/-1;position:static;max-height:none}}
 @container (max-width:900px){.ldw-floor,.ldw-benchgrid,.ldw-ballot-grid,.ldw-source{grid-template-columns:1fr}.ldw-board{grid-template-columns:repeat(4,minmax(0,1fr))}.ldw-path{grid-template-columns:repeat(3,minmax(0,1fr))}.ldw-clock,.ldw-library{position:static}.ldw-watch-time{font-size:56px}}
 @media print{
   body *{visibility:hidden !important}
