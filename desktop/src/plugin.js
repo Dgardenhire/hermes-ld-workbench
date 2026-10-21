@@ -109,6 +109,13 @@ function renderText(text) {
   const close = () => { if (list) { const L = list; blocks.push(jsx(L.tag, { start: L.start, children: L.items }, `l${blocks.length}`)); list = null } }
   for (const raw of String(text || '').split('\n')) {
     const l = raw.trim()
+    const h = l.match(/^(#{2,3})\s+(.*)/)
+    if (h) {
+      flush(); close()
+      blocks.push(h[1].length === 2 ? jsx('h3', { className: 'ldw-md-h', children: inline(h[2], `h${blocks.length}`) }, `h${blocks.length}`)
+        : jsx('h4', { className: 'ldw-md-h4', children: inline(h[2], `h${blocks.length}`) }, `h${blocks.length}`))
+      continue
+    }
     const ul = l.match(/^[-*•]\s+(.*)/)
     const ol = l.match(/^(?:\d+)[.)]\s+(.*)/)
     const num = ol ? parseInt(l, 10) : undefined
@@ -777,13 +784,17 @@ function ResolutionRow({ c, source }) {
   const timer = useRef(null)
   useEffect(() => { setText(c.resolution || '') }, [c.id])
   const save = v => { setText(v); clearTimeout(timer.current); timer.current = setTimeout(() => post(`cases/${c.id}`, { resolution: v }).then(wb => setWorkbench({ cases: wb.cases, case: { ...$state.get().workbench.case, resolution: v } }), e => setErr(errText(e))), 600) }
-  const call = async fn => { setBusy(true); setErr(null); try { setWorkbench(await fn()) } catch (e) { setErr(errText(e)) } finally { setBusy(false) } }
+  const call = async fn => { setBusy(true); setErr(null); try { setWorkbench(await fn()); return true } catch (e) { setErr(errText(e)); return false } finally { setBusy(false) } }
   return jsxs('section', { className: 'ldw-resrow-wrap', 'aria-label': 'Resolution', children: [
     jsxs('div', { className: 'ldw-resrow', children: [
       jsx('label', { className: 'ldw-field-label', htmlFor: 'ldw-res', children: 'Resolution' }),
-      jsx(Input, { id: 'ldw-res', className: 'ldw-resinput', value: text, placeholder: 'Type the resolution you were given', onChange: e => save(e.target.value) }),
-      jsx(Menu, { label: 'Topic', icon: 'book', align: 'end', items: [
-        { label: 'Use the current NSDA topic', meta: `${cfg.resolution.period}: ${cfg.resolution.text}`, onSelect: () => save(cfg.resolution.text) },
+      jsx(Input, { id: 'ldw-res', className: 'ldw-resinput', value: text, placeholder: 'Type the resolution you were given', onChange: e => save(e.target.value),
+        onBlur: e => runBriefing('auto', e.target.value), onKeyDown: e => { if (e.key === 'Enter') runBriefing('auto', e.target.value) } }),
+      jsx(Button, { size: 'sm', variant: 'secondary', title: 'A map of this topic for both sides', onClick: () => runBriefing('open', text),
+        children: jsxs(Fragment, { children: [jsx(Codicon, { name: 'book' }), 'Briefing'] }) }),
+      jsx(Menu, { label: 'Topic', icon: 'list-unordered', align: 'end', items: [
+        { label: 'Topic briefing', meta: 'A map of this topic for both sides', onSelect: () => runBriefing('open', text) },
+        { label: 'Use the current NSDA topic', meta: `${cfg.resolution.period}: ${cfg.resolution.text}`, onSelect: () => { save(cfg.resolution.text); runBriefing('auto', cfg.resolution.text) } },
         { label: bench.sourceOpen ? 'Hide the topic source' : 'Topic source', meta: source ? `Reading from ${source.title || 'pasted text'}` : 'Paste a topic analysis or read a link', onSelect: () => benchSet({ sourceOpen: !bench.sourceOpen }) },
       ] }),
     ] }),
@@ -792,14 +803,14 @@ function ResolutionRow({ c, source }) {
         jsx('h3', { className: 'ldw-h3', children: 'Paste the text' }),
         jsx('p', { className: 'ldw-meta', children: 'Paste a topic analysis or a handout from your coach. The coaching tools read it as background. The opponent does not.' }),
         jsx(Textarea, { 'aria-label': 'Topic source text', value: paste, onChange: e => setPaste(e.target.value), placeholder: 'Paste the topic analysis or source text' }),
-        jsx('div', { children: jsx(Button, { size: 'sm', variant: 'secondary', disabled: busy, onClick: () => call(() => post('workbench', { source: { title: 'Pasted text', text: paste } })), children: 'Use this text' }) }),
+        jsx('div', { children: jsx(Button, { size: 'sm', variant: 'secondary', disabled: busy, onClick: () => call(() => post('workbench', { source: { title: 'Pasted text', text: paste } })).then(ok => ok && runBriefing('redo', text)), children: 'Use this text' }) }),
       ] }),
       jsxs('div', { className: 'hk-stack', children: [
         jsx('h3', { className: 'ldw-h3', children: 'Or read a link' }),
         jsx('p', { className: 'ldw-meta', children: 'A public page only, such as the NSDA topics page or your league\'s topic page. PDFs need to be copied and pasted.' }),
         jsxs('div', { className: 'hk-row', children: [
           jsx(Input, { className: 'hk-grow', 'aria-label': 'Topic source link', value: url, onChange: e => setUrl(e.target.value), placeholder: cfg.topics_url }),
-          jsx(Button, { size: 'sm', variant: 'secondary', loading: busy, onClick: () => call(() => post('source/read', { url })), children: 'Read link' }),
+          jsx(Button, { size: 'sm', variant: 'secondary', loading: busy, onClick: () => call(() => post('source/read', { url })).then(ok => ok && runBriefing('open', text)), children: 'Read link' }),
         ] }),
         source ? jsxs('p', { className: 'ldw-meta', children: [`Reading from ${source.title || 'pasted text'} · ${words(source.text)} words. `,
           jsx('button', { type: 'button', className: 'hk-link', onClick: () => call(() => post('workbench', { source: null })), children: 'Remove' })] })
@@ -955,6 +966,67 @@ function TimeBar({ c }) {
   ] })
 }
 
+/* ---------- Topic briefing ---------- */
+// One briefing per resolution and topic source, saved by the backend. It opens by itself the first time a
+// student meets a resolution; after that it opens instantly from the saved copy.
+const $brief = atom({ open: false, busy: false, text: '', err: null, resolution: '' })
+const briefAsked = new Set()
+
+async function runBriefing(mode, resolution) {
+  const res = String(resolution || '').trim()
+  const b = $brief.get()
+  if (b.busy) return
+  if (res.split(/\s+/).filter(Boolean).length < 3) {
+    if (mode !== 'auto') $brief.set({ ...b, open: true, text: '', err: 'Enter the resolution first.', resolution: res })
+    return
+  }
+  if (mode === 'auto') {
+    // Only the first time this resolution is met: ask the backend whether a briefing is saved (no model call).
+    const key = res.toLowerCase().replace(/\s+/g, ' ')
+    if (briefAsked.has(key)) return
+    briefAsked.add(key)
+    try { if ((await post('briefing', { mode: 'check', resolution: res })).known) return } catch (e) { return }
+    mode = 'open'
+  }
+  $brief.set({ open: true, busy: true, text: '', err: null, resolution: res })
+  try {
+    const out = await post('briefing', { mode, resolution: res })
+    $brief.set({ open: true, busy: false, text: out.text, err: null, resolution: out.resolution })
+  } catch (e) {
+    $brief.set({ open: true, busy: false, text: '', err: `The briefing could not be made: ${errText(e)}`, resolution: res })
+  }
+}
+
+function BriefingPanel() {
+  const b = useValue($brief)
+  if (!b.open) return null
+  return jsxs('section', { className: 'ldw-panel ldw-brief', 'aria-label': 'Topic briefing', 'aria-live': 'polite', children: [
+    jsxs('div', { className: 'ldw-row-between', children: [
+      jsxs('div', { className: 'ldw-stagehead', children: [jsx('span', { className: 'ldw-label ldw-accent', children: 'Topic briefing' }), jsx('h2', { className: 'ldw-h2 ldw-brief-title', children: b.resolution })] }),
+      jsxs('div', { className: 'hk-actions', children: [
+        jsx(Button, { size: 'sm', variant: 'secondary', disabled: b.busy, onClick: () => runBriefing('redo', b.resolution), children: jsxs(Fragment, { children: [jsx(Codicon, { name: 'refresh' }), 'Redo'] }) }),
+        jsx(Button, { size: 'sm', variant: 'secondary', disabled: b.busy || !b.text, onClick: () => $view.set('printbrief'), children: jsxs(Fragment, { children: [jsx(Codicon, { name: 'preview' }), 'Print'] }) }),
+        jsx(Button, { size: 'sm', onClick: () => $brief.set({ ...b, open: false }), children: 'Got it' }),
+      ] }),
+    ] }),
+    jsx('p', { className: 'ldw-goal', children: 'Read this before you write. It maps the ground for both sides. Check anything marked "check this" before you use it.' }),
+    b.busy ? jsx(Thinking, { label: 'Preparing your briefing on this topic' }) : null,
+    b.err ? jsx(Notice, { tone: 'bad', children: b.err }) : null,
+    b.text ? jsx('div', { className: 'ldw-brief-body', children: renderText(b.text) }) : null,
+  ] })
+}
+
+function PrintBriefing() {
+  const b = useValue($brief)
+  return jsxs(Fragment, { children: [
+    jsxs('div', { className: 'hk-actions ldw-noprint', children: [
+      jsx(Button, { variant: 'secondary', onClick: () => $view.set('bench'), children: jsxs(Fragment, { children: [jsx(Codicon, { name: 'arrow-left' }), 'Back to the workbench'] }) }),
+      jsx(Button, { onClick: () => window.print(), children: jsxs(Fragment, { children: [jsx(Codicon, { name: 'file' }), 'Print'] }) }),
+    ] }),
+    jsxs('article', { className: 'ldw-print', children: [jsx('h1', { children: 'Topic briefing' }), jsx('p', { className: 'ldw-print-meta', children: b.resolution }), renderText(b.text)] }),
+  ] })
+}
+
 function Bench() {
   const st = useValue($state)
   const bench = useValue($bench)
@@ -970,7 +1042,9 @@ function Bench() {
       out => benchSet({ msg: { tone: 'good', text: `Saved ${out.name}.`, path: out.path } }))
   }
   const msg = bench.msg
+  useEffect(() => { runBriefing('auto', c.resolution) }, [c.id])
   return jsxs(Fragment, { children: [
+    jsx(BriefingPanel, {}),
     jsx(ResolutionRow, { c, source: wb.source }, `res-${c.id}`),
     jsxs('div', { className: 'ldw-casehead', children: [
       jsx(CaseSwitcher, { wb }),
@@ -1112,7 +1186,7 @@ function Header() {
     ? r ? `Practice round ${r.round_no} · ${sideShort(r.side)} · ${r.level === 'jv' ? 'JV' : r.level} · ${cfg.judges[r.judge].label}` : `${(st.history || {}).count || 0} ${((st.history || {}).count || 0) === 1 ? 'ballot' : 'ballots'} so far · NSDA Lincoln-Douglas`
     : c ? `${c.side === 'aff' ? 'Affirmative' : 'Negative'} case · ${c.name}` : ''
   const res = view === 'fallacies' ? null : view === 'room' ? (r ? r.resolution : c && c.resolution) : c && c.resolution
-  const tab = (id, label, icon) => jsxs('button', { type: 'button', role: 'tab', className: 'ldw-tab', 'aria-selected': view === id || (id === 'bench' && view === 'print'),
+  const tab = (id, label, icon) => jsxs('button', { type: 'button', role: 'tab', className: 'ldw-tab', 'aria-selected': view === id || (id === 'bench' && (view === 'print' || view === 'printbrief')),
     onClick: () => $view.set(id), children: [jsx(Codicon, { name: icon }), label] })
   return jsxs('header', { className: 'ldw-head ldw-noprint', children: [
     jsxs('div', { className: 'ldw-head-title', children: [
@@ -1133,7 +1207,7 @@ function DebatePage() {
   let body
   if (err && !st) body = jsx(Failure, { title: 'The workbench could not load', body: `${errText(err)} Check that LD Workbench is turned on in Capabilities, Plugins, then try again.`, error: err, onRetry: load })
   else if (!st || !cfg) body = jsx(Thinking, { label: 'Opening the workbench' })
-  else body = jsxs(Fragment, { children: [jsx(Header, {}), view === 'room' ? jsx(Room, {}) : view === 'fallacies' ? jsx(Fallacies, {}) : view === 'print' ? jsx(PrintView, {}) : jsx(Bench, {})] })
+  else body = jsxs(Fragment, { children: [jsx(Header, {}), view === 'room' ? jsx(Room, {}) : view === 'fallacies' ? jsx(Fallacies, {}) : view === 'printbrief' ? jsx(PrintBriefing, {}) : view === 'print' ? jsx(PrintView, {}) : jsx(Bench, {})] })
   return jsx('div', { className: 'hk hk-page ldw', role: 'region', 'aria-label': 'LD Workbench', children: jsx('div', { className: 'ldw-inner', children: body }) })
 }
 
@@ -1365,6 +1439,14 @@ const CSS = `
 .ldw-resrow-wrap{display:grid;gap:12px}
 .ldw-resrow{gap:10px}
 .ldw-thread{gap:16px}
+.ldw-brief{gap:12px}
+.ldw-brief-title{font-family:var(--ldw-serif);font-style:italic;font-weight:600;font-size:18px}
+.ldw-brief-body{max-width:78ch}
+.ldw-md-h{margin:20px 0 6px;font-size:16px;font-weight:700;font-family:inherit;line-height:1.3}
+.ldw-md-h:first-child{margin-top:2px}
+.ldw-md-h4{margin:12px 0 4px;font-family:var(--hk-mono);font-size:11px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:color-mix(in srgb,var(--hk-accent) 82%,var(--hk-ink))}
+.ldw-prose .ldw-md-h{font-family:var(--ldw-serif)}
+.ldw-print .ldw-md-h{font-family:var(--hk-mono);font-size:15px;text-transform:uppercase;letter-spacing:.08em;margin:22px 0 6px}
 @container (max-width:1060px){.ldw-benchgrid{grid-template-columns:1fr}.ldw-benchgrid>.ldw-coach{position:static;max-height:none}}
 @media print{
   body *{visibility:hidden !important}

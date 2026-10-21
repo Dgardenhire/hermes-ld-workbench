@@ -10,6 +10,7 @@ Files:
                       sections, coach thread, helper results, and the copy kept before an import
 - ``round.json``      the practice round in progress (null when none)
 - ``ballots.json``    how many rounds were started, and every ballot written, newest last
+- ``briefings.json``  topic briefings, keyed by resolution and topic source, the 20 most recent
 
 Every write goes to a temporary file in the same folder, is flushed to disk, then renamed over the old
 file, so a crash mid-write leaves the previous version intact. One lock serializes read-modify-write.
@@ -31,7 +32,9 @@ DEFAULTS = {
     "workbench.json": {"active": None, "source": None},
     "round.json": None,
     "ballots.json": {"rounds_started": 0, "history": []},
+    "briefings.json": {"items": {}},
 }
+BRIEFING_CAP = 20
 HISTORY_CAP = 40
 THREAD_CAP = 80
 

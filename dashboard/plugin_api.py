@@ -349,6 +349,45 @@ async def post_source_read(body: dict):
         _fail(e)
 
 
+# ---------- topic briefing ----------
+@router.post("/briefing")
+async def post_briefing(body: dict):
+    """The topic briefing for a resolution (and the topic source, if any).
+
+    mode "open" (default): a saved briefing if there is one, otherwise a new one.
+    mode "auto": only when this resolution has no briefing yet; otherwise {"skipped": true}.
+    mode "check": no model call; {"known": true|false} says whether a briefing is saved.
+    mode "redo": always a new one."""
+    try:
+        b = _body(body)
+        mode = engine._pick(b.get("mode"), ("open", "auto", "check", "redo"), "mode", "open")
+        res = b.get("resolution")
+        if res is None:
+            res = _active().get("resolution") or ""
+        source = store.read("workbench.json").get("source")
+        p = engine.clean({"action": "briefing", "resolution": res, "source": source})
+        if len(p["resolution"].split()) < 3:
+            raise ValueError("Enter the resolution first.")
+        key = engine.briefing_key(p["resolution"], p.get("source"))
+        saved = store.read("briefings.json")["items"].get(key)
+        if mode == "check":
+            return {"known": bool(saved), "resolution": p["resolution"]}
+        if saved and mode != "redo":
+            return {"skipped": True, "resolution": p["resolution"]} if mode == "auto" else \
+                {"text": saved["text"], "cached": True, "resolution": p["resolution"]}
+        out = await _once(("briefing", key), lambda: engine.run_briefing(p, MODEL))
+
+        def keep(x):
+            x["items"][key] = {"text": out["text"], "at": time.time(), "resolution": p["resolution"]}
+            for old in sorted(x["items"], key=lambda k: x["items"][k].get("at", 0))[:-store.BRIEFING_CAP]:
+                del x["items"][old]
+            return x
+        store.update("briefings.json", keep)
+        return {"text": out["text"], "cached": False, "resolution": p["resolution"]}
+    except Exception as e:
+        _fail(e)
+
+
 # ---------- fallacies ----------
 @router.post("/drill")
 async def post_drill():

@@ -152,7 +152,7 @@ def clean(p):
     if p.get("tool") is not None:
         out["tool"] = _pick(p.get("tool"), M.TOOLS, "tool")
     if p.get("action") is not None:
-        out["action"] = _pick(p.get("action"), ("drill", "import", "source", "speech", "cx", "flow", "judge"), "action")
+        out["action"] = _pick(p.get("action"), ("briefing", "drill", "import", "source", "speech", "cx", "flow", "judge"), "action")
     out["side"] = _pick(p.get("side"), ("aff", "neg"), "side", "aff")
     out["student_side"] = _pick(p.get("student_side"), ("aff", "neg"), "side", "aff")
     out["section"] = _s(p.get("section"), 60, "Section")
@@ -481,6 +481,27 @@ async def run_import(p, model):
     return assemble_sections(text, chunks, assign)
 
 
+# ---------- topic briefing (server.py run_briefing) ----------
+async def run_briefing(p, model):
+    if len(p.get("resolution", "").split()) < 3:
+        raise ValueError("Enter the resolution first.")
+    system = M.COACHING_STANCE + "\n\n" + M.TOPIC_BRIEFING_PROMPT
+    ask = f"Resolution: {p['resolution']}" + source_block(p)
+    return {"text": await model.text(system, [{"role": "user", "content": ask}], purpose="ld-workbench.briefing")}
+
+
+def briefing_key(resolution, source):
+    """One briefing per resolution and topic source: the resolution in lower case with single spaces, plus
+    the source's link or title and a short fingerprint of its text."""
+    import hashlib
+    res = " ".join(str(resolution or "").lower().split())
+    src = source or {}
+    ident = ""
+    if (src.get("text") or "").strip():
+        ident = (src.get("url") or src.get("title") or "pasted") + ":" + hashlib.sha256(src["text"].encode("utf-8")).hexdigest()[:12]
+    return (res + "|" + ident)[:600]
+
+
 # ---------- fallacies (server.py run_drill and the "spot" tool) ----------
 SPOT_LIMIT = 12000
 
@@ -539,7 +560,7 @@ def tidy_ballot(b):
     }
 
 
-ACTIONS = {"drill": run_drill, "import": run_import, "speech": run_speech, "cx": run_cx, "flow": run_flow, "judge": run_judge}
+ACTIONS = {"briefing": run_briefing, "drill": run_drill, "import": run_import, "speech": run_speech, "cx": run_cx, "flow": run_flow, "judge": run_judge}
 
 
 def config():

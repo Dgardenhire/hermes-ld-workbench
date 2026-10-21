@@ -5,10 +5,11 @@
 //   theme  dark | light                          (default dark)
 //   drills 1                                     (open the drills under the paper ballot)
 //   open   switcher | more | export | judges     (open that menu after load)
+//   brief  1                                     (the resolution is new: the topic briefing opens by itself)
 //   fx     1                                     (Fallacies: start a drill, pick a wrong answer, check a pasted argument)
 import { createRoot } from 'react-dom/client'
 import { jsx, jsxs } from 'react/jsx-runtime'
-import { CONFIG, DRILL, SPOT, SPOT_INPUT, STATE } from './fixtures.js'
+import { BRIEFING, CONFIG, DRILL, SPOT, SPOT_INPUT, STATE } from './fixtures.js'
 
 const params = new URLSearchParams(location.search)
 const dark = params.get('theme') !== 'light'
@@ -50,6 +51,11 @@ async function rest(path, options = {}) {
   await pause(30)
   if (path === 'config') return clone(CONFIG)
   if (path === 'state') return sceneState()
+  if (path === 'briefing') {
+    const body = options.body || {}
+    if (body.mode === 'check') return { known: !params.get('brief'), resolution: body.resolution }
+    return { text: BRIEFING, cached: false, resolution: body.resolution }
+  }
   if (path === 'drill') return clone(DRILL)
   if (path === 'spot') return { text: SPOT }
   if (params.get('scene') === 'judging' && path === 'round/judge') return new Promise(() => {})

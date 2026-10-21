@@ -448,6 +448,13 @@ function renderText(text) {
   };
   for (const raw of String(text || "").split("\n")) {
     const l = raw.trim();
+    const h = l.match(/^(#{2,3})\s+(.*)/);
+    if (h) {
+      flush();
+      close();
+      blocks.push(h[1].length === 2 ? jsx3("h3", { className: "ldw-md-h", children: inline(h[2], `h${blocks.length}`) }, `h${blocks.length}`) : jsx3("h4", { className: "ldw-md-h4", children: inline(h[2], `h${blocks.length}`) }, `h${blocks.length}`));
+      continue;
+    }
     const ul = l.match(/^[-*•]\s+(.*)/);
     const ol = l.match(/^(?:\d+)[.)]\s+(.*)/);
     const num = ol ? parseInt(l, 10) : void 0;
@@ -1386,8 +1393,10 @@ function ResolutionRow({ c, source }) {
     setErr(null);
     try {
       setWorkbench(await fn());
+      return true;
     } catch (e) {
       setErr(errText(e));
+      return false;
     } finally {
       setBusy(false);
     }
@@ -1395,9 +1404,30 @@ function ResolutionRow({ c, source }) {
   return jsxs3("section", { className: "ldw-resrow-wrap", "aria-label": "Resolution", children: [
     jsxs3("div", { className: "ldw-resrow", children: [
       jsx3("label", { className: "ldw-field-label", htmlFor: "ldw-res", children: "Resolution" }),
-      jsx3(Input, { id: "ldw-res", className: "ldw-resinput", value: text, placeholder: "Type the resolution you were given", onChange: (e) => save(e.target.value) }),
-      jsx3(Menu, { label: "Topic", icon: "book", align: "end", items: [
-        { label: "Use the current NSDA topic", meta: `${cfg.resolution.period}: ${cfg.resolution.text}`, onSelect: () => save(cfg.resolution.text) },
+      jsx3(Input, {
+        id: "ldw-res",
+        className: "ldw-resinput",
+        value: text,
+        placeholder: "Type the resolution you were given",
+        onChange: (e) => save(e.target.value),
+        onBlur: (e) => runBriefing("auto", e.target.value),
+        onKeyDown: (e) => {
+          if (e.key === "Enter") runBriefing("auto", e.target.value);
+        }
+      }),
+      jsx3(Button2, {
+        size: "sm",
+        variant: "secondary",
+        title: "A map of this topic for both sides",
+        onClick: () => runBriefing("open", text),
+        children: jsxs3(Fragment, { children: [jsx3(Codicon3, { name: "book" }), "Briefing"] })
+      }),
+      jsx3(Menu, { label: "Topic", icon: "list-unordered", align: "end", items: [
+        { label: "Topic briefing", meta: "A map of this topic for both sides", onSelect: () => runBriefing("open", text) },
+        { label: "Use the current NSDA topic", meta: `${cfg.resolution.period}: ${cfg.resolution.text}`, onSelect: () => {
+          save(cfg.resolution.text);
+          runBriefing("auto", cfg.resolution.text);
+        } },
         { label: bench.sourceOpen ? "Hide the topic source" : "Topic source", meta: source ? `Reading from ${source.title || "pasted text"}` : "Paste a topic analysis or read a link", onSelect: () => benchSet({ sourceOpen: !bench.sourceOpen }) }
       ] })
     ] }),
@@ -1406,14 +1436,14 @@ function ResolutionRow({ c, source }) {
         jsx3("h3", { className: "ldw-h3", children: "Paste the text" }),
         jsx3("p", { className: "ldw-meta", children: "Paste a topic analysis or a handout from your coach. The coaching tools read it as background. The opponent does not." }),
         jsx3(Textarea, { "aria-label": "Topic source text", value: paste, onChange: (e) => setPaste(e.target.value), placeholder: "Paste the topic analysis or source text" }),
-        jsx3("div", { children: jsx3(Button2, { size: "sm", variant: "secondary", disabled: busy, onClick: () => call(() => post("workbench", { source: { title: "Pasted text", text: paste } })), children: "Use this text" }) })
+        jsx3("div", { children: jsx3(Button2, { size: "sm", variant: "secondary", disabled: busy, onClick: () => call(() => post("workbench", { source: { title: "Pasted text", text: paste } })).then((ok) => ok && runBriefing("redo", text)), children: "Use this text" }) })
       ] }),
       jsxs3("div", { className: "hk-stack", children: [
         jsx3("h3", { className: "ldw-h3", children: "Or read a link" }),
         jsx3("p", { className: "ldw-meta", children: "A public page only, such as the NSDA topics page or your league's topic page. PDFs need to be copied and pasted." }),
         jsxs3("div", { className: "hk-row", children: [
           jsx3(Input, { className: "hk-grow", "aria-label": "Topic source link", value: url, onChange: (e) => setUrl(e.target.value), placeholder: cfg.topics_url }),
-          jsx3(Button2, { size: "sm", variant: "secondary", loading: busy, onClick: () => call(() => post("source/read", { url })), children: "Read link" })
+          jsx3(Button2, { size: "sm", variant: "secondary", loading: busy, onClick: () => call(() => post("source/read", { url })).then((ok) => ok && runBriefing("open", text)), children: "Read link" })
         ] }),
         source ? jsxs3("p", { className: "ldw-meta", children: [
           `Reading from ${source.title || "pasted text"} · ${words(source.text)} words. `,
@@ -1628,6 +1658,63 @@ function TimeBar({ c }) {
     jsx3("div", { className: "ldw-bar ldw-grow", "data-over": sec > target ? "1" : void 0, children: jsx3("span", { style: { width: `${Math.min(100, sec / target * 100)}%` } }) })
   ] });
 }
+var $brief = atom({ open: false, busy: false, text: "", err: null, resolution: "" });
+var briefAsked = /* @__PURE__ */ new Set();
+async function runBriefing(mode, resolution) {
+  const res = String(resolution || "").trim();
+  const b = $brief.get();
+  if (b.busy) return;
+  if (res.split(/\s+/).filter(Boolean).length < 3) {
+    if (mode !== "auto") $brief.set({ ...b, open: true, text: "", err: "Enter the resolution first.", resolution: res });
+    return;
+  }
+  if (mode === "auto") {
+    const key = res.toLowerCase().replace(/\s+/g, " ");
+    if (briefAsked.has(key)) return;
+    briefAsked.add(key);
+    try {
+      if ((await post("briefing", { mode: "check", resolution: res })).known) return;
+    } catch (e) {
+      return;
+    }
+    mode = "open";
+  }
+  $brief.set({ open: true, busy: true, text: "", err: null, resolution: res });
+  try {
+    const out = await post("briefing", { mode, resolution: res });
+    $brief.set({ open: true, busy: false, text: out.text, err: null, resolution: out.resolution });
+  } catch (e) {
+    $brief.set({ open: true, busy: false, text: "", err: `The briefing could not be made: ${errText(e)}`, resolution: res });
+  }
+}
+function BriefingPanel() {
+  const b = useValue($brief);
+  if (!b.open) return null;
+  return jsxs3("section", { className: "ldw-panel ldw-brief", "aria-label": "Topic briefing", "aria-live": "polite", children: [
+    jsxs3("div", { className: "ldw-row-between", children: [
+      jsxs3("div", { className: "ldw-stagehead", children: [jsx3("span", { className: "ldw-label ldw-accent", children: "Topic briefing" }), jsx3("h2", { className: "ldw-h2 ldw-brief-title", children: b.resolution })] }),
+      jsxs3("div", { className: "hk-actions", children: [
+        jsx3(Button2, { size: "sm", variant: "secondary", disabled: b.busy, onClick: () => runBriefing("redo", b.resolution), children: jsxs3(Fragment, { children: [jsx3(Codicon3, { name: "refresh" }), "Redo"] }) }),
+        jsx3(Button2, { size: "sm", variant: "secondary", disabled: b.busy || !b.text, onClick: () => $view.set("printbrief"), children: jsxs3(Fragment, { children: [jsx3(Codicon3, { name: "preview" }), "Print"] }) }),
+        jsx3(Button2, { size: "sm", onClick: () => $brief.set({ ...b, open: false }), children: "Got it" })
+      ] })
+    ] }),
+    jsx3("p", { className: "ldw-goal", children: 'Read this before you write. It maps the ground for both sides. Check anything marked "check this" before you use it.' }),
+    b.busy ? jsx3(Thinking, { label: "Preparing your briefing on this topic" }) : null,
+    b.err ? jsx3(Notice, { tone: "bad", children: b.err }) : null,
+    b.text ? jsx3("div", { className: "ldw-brief-body", children: renderText(b.text) }) : null
+  ] });
+}
+function PrintBriefing() {
+  const b = useValue($brief);
+  return jsxs3(Fragment, { children: [
+    jsxs3("div", { className: "hk-actions ldw-noprint", children: [
+      jsx3(Button2, { variant: "secondary", onClick: () => $view.set("bench"), children: jsxs3(Fragment, { children: [jsx3(Codicon3, { name: "arrow-left" }), "Back to the workbench"] }) }),
+      jsx3(Button2, { onClick: () => window.print(), children: jsxs3(Fragment, { children: [jsx3(Codicon3, { name: "file" }), "Print"] }) })
+    ] }),
+    jsxs3("article", { className: "ldw-print", children: [jsx3("h1", { children: "Topic briefing" }), jsx3("p", { className: "ldw-print-meta", children: b.resolution }), renderText(b.text)] })
+  ] });
+}
 function Bench() {
   const st = useValue($state);
   const bench = useValue($bench);
@@ -1654,7 +1741,11 @@ function Bench() {
     );
   };
   const msg = bench.msg;
+  useEffect2(() => {
+    runBriefing("auto", c.resolution);
+  }, [c.id]);
   return jsxs3(Fragment, { children: [
+    jsx3(BriefingPanel, {}),
     jsx3(ResolutionRow, { c, source: wb.source }, `res-${c.id}`),
     jsxs3("div", { className: "ldw-casehead", children: [
       jsx3(CaseSwitcher, { wb }),
@@ -1816,7 +1907,7 @@ function Header() {
     type: "button",
     role: "tab",
     className: "ldw-tab",
-    "aria-selected": view === id || id === "bench" && view === "print",
+    "aria-selected": view === id || id === "bench" && (view === "print" || view === "printbrief"),
     onClick: () => $view.set(id),
     children: [jsx3(Codicon3, { name: icon }), label]
   });
@@ -1840,7 +1931,7 @@ function DebatePage() {
   let body;
   if (err && !st) body = jsx3(Failure, { title: "The workbench could not load", body: `${errText(err)} Check that LD Workbench is turned on in Capabilities, Plugins, then try again.`, error: err, onRetry: load });
   else if (!st || !cfg) body = jsx3(Thinking, { label: "Opening the workbench" });
-  else body = jsxs3(Fragment, { children: [jsx3(Header, {}), view === "room" ? jsx3(Room, {}) : view === "fallacies" ? jsx3(Fallacies, {}) : view === "print" ? jsx3(PrintView, {}) : jsx3(Bench, {})] });
+  else body = jsxs3(Fragment, { children: [jsx3(Header, {}), view === "room" ? jsx3(Room, {}) : view === "fallacies" ? jsx3(Fallacies, {}) : view === "printbrief" ? jsx3(PrintBriefing, {}) : view === "print" ? jsx3(PrintView, {}) : jsx3(Bench, {})] });
   return jsx3("div", { className: "hk hk-page ldw", role: "region", "aria-label": "LD Workbench", children: jsx3("div", { className: "ldw-inner", children: body }) });
 }
 var CSS = `
@@ -2067,6 +2158,14 @@ var CSS = `
 .ldw-resrow-wrap{display:grid;gap:12px}
 .ldw-resrow{gap:10px}
 .ldw-thread{gap:16px}
+.ldw-brief{gap:12px}
+.ldw-brief-title{font-family:var(--ldw-serif);font-style:italic;font-weight:600;font-size:18px}
+.ldw-brief-body{max-width:78ch}
+.ldw-md-h{margin:20px 0 6px;font-size:16px;font-weight:700;font-family:inherit;line-height:1.3}
+.ldw-md-h:first-child{margin-top:2px}
+.ldw-md-h4{margin:12px 0 4px;font-family:var(--hk-mono);font-size:11px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:color-mix(in srgb,var(--hk-accent) 82%,var(--hk-ink))}
+.ldw-prose .ldw-md-h{font-family:var(--ldw-serif)}
+.ldw-print .ldw-md-h{font-family:var(--hk-mono);font-size:15px;text-transform:uppercase;letter-spacing:.08em;margin:22px 0 6px}
 @container (max-width:1060px){.ldw-benchgrid{grid-template-columns:1fr}.ldw-benchgrid>.ldw-coach{position:static;max-height:none}}
 @media print{
   body *{visibility:hidden !important}

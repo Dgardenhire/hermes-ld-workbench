@@ -184,6 +184,31 @@ Start with a scorecard, one line each, score 1 to 5 with a reason of one sentenc
 Then: the strongest part of the case, the most dangerous weakness, and the three questions the student must answer before their next round, in priority order. Do not rewrite anything. Under 450 words.""",
 }
 
+# Shown when a student starts on a new resolution: orientation before writing a word.
+TOPIC_BRIEFING_PROMPT = """Mode: topic briefing. The student is starting on this resolution and has not written anything yet. Orient them, the way a good coach does on the first day of a new topic. This is a map of the ground for BOTH sides, not a case and not advice to pick a side.
+
+Use exactly these headings, in this order, each as a line starting with "## ":
+## What this topic is about
+One short paragraph in plain words: what is being debated and why people disagree.
+## The real-world background
+What is actually happening in the world around this topic. Only well-established facts. Mark any specific date, number, project or organization with "(check this)" so the student verifies it before using it. Never invent a statistic, study or quotation.
+## The words that matter
+The key terms, each with the one or two ways it can be read and why the choice matters.
+## What each side has to prove
+The affirmative's burden in one or two sentences, then the negative's.
+## The arguments you'll hear most
+Under "### Affirmative" and "### Negative", three common lines of argument each, as a short label plus one plain sentence. Labels and summaries, not ready-to-read arguments.
+## Values and criteria you'll run into
+The frameworks students most often bring to this topic, one line each.
+## What judges will look for
+Where rounds on this topic usually get decided.
+## Where to start reading
+Four or five research leads: kinds of sources, organizations, thinkers or search phrases. Leads to find and read, not citations.
+## Three questions to think about
+Three questions the student should be able to answer before writing a case.
+
+If the student provided a topic source, use it and say where something comes from it. Plain English at an eighth-grade level, short sentences, about 600 to 800 words in all. No preamble, no closing remarks."""
+
 IMPORT_SECTIONS = ["Resolution analysis", "Definitions", "Value", "Criterion", "Contention 1", "Contention 2",
                    "Contention 3", "Blocks", "Other material"]
 
