@@ -28,16 +28,24 @@ class DrillValidation(unittest.TestCase):
         out = engine.check_drill({"argument": "a" * 5000, "answer": "None", "explanation": "b" * 5000})
         self.assertEqual((len(out["argument"]), len(out["explanation"])), (800, 600))
 
-    def test_drill_route_uses_method_prompt(self):
-        name = M.FALLACIES[0]["name"]
-        self.llm.queue.append(json.dumps({"argument": "Arg.", "answer": name, "explanation": "E."}))
+    def test_drill_route_uses_method_prompt_with_random_parts(self):
+        self.llm.queue.append(json.dumps({"argument": "Arg.", "explanation": "E."}))
         out = run(api.post_drill())
-        self.assertEqual(out["answer"], name)
-        names = ", ".join(f["name"] for f in M.FALLACIES)
-        self.assertEqual(self.llm.calls[-1]["system_prompt"], M.DRILL_PROMPT.format(names=names))
+        valid = {f["name"] for f in M.FALLACIES} | {"None"}
+        self.assertIn(out["answer"], valid)
+        prompt = self.llm.calls[-1]["system_prompt"]
+        self.assertTrue(any(t in prompt for t in M.DRILL_TOPICS))
+        self.assertTrue(any(v in prompt for v in M.DRILL_VOICES))
+        self.assertIn(f"Fallacy to commit: {out['answer']}.", prompt)
 
-    def test_drill_route_refuses_an_invented_fallacy(self):
+    def test_drill_answer_is_the_servers_choice_not_the_models(self):
         self.llm.queue.append(json.dumps({"argument": "Arg.", "answer": "Made-up fallacy", "explanation": "E."}))
+        out = run(api.post_drill())
+        self.assertNotEqual(out["answer"], "Made-up fallacy")
+        self.assertIn(out["answer"], {f["name"] for f in M.FALLACIES} | {"None"})
+
+    def test_drill_route_refuses_an_empty_argument(self):
+        self.llm.queue.append(json.dumps({"argument": "", "explanation": "E."}))
         with self.assertRaises(HTTPException) as cm:
             run(api.post_drill())
         self.assertEqual(cm.exception.status_code, 502)

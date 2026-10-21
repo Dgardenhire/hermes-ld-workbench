@@ -249,11 +249,35 @@ FALLACIES = [
      "debate": "Hold them to the standard set first, and say so to the judge."},
 ]
 
-DRILL_PROMPT = """You write practice items for high school debaters learning logical fallacies.
+# The server picks the fallacy, topic and voice at random for each drill item, so items vary
+# instead of settling into one formula ("Our school says...").
+DRILL_TOPICS = [
+    "a city council vote on a new bike lane", "a restaurant review", "a pro basketball trade", "a new smartphone launch",
+    "a debate about daylight saving time", "a museum deciding what to display", "a weather forecast that went wrong",
+    "a band's new album", "a used-car sale", "a hospital's new visiting hours", "a mayor's race", "a streaming service raising prices",
+    "a farmer choosing crops", "a space agency's next mission", "a neighborhood dog park", "a coffee shop's new menu",
+    "a video game update", "a library cutting its hours", "a marathon's route", "a fashion trend", "a factory moving overseas",
+    "a vaccine study", "a TV talent show", "a road trip plan", "a company's four-day work week", "a zoo's new exhibit",
+    "a chess tournament", "an airline's baggage fees", "a recycling program", "a famous painting's sale price",
+    "a hiking trail closure", "a soccer referee's call", "a new diet book", "a solar panel installer", "a history documentary",
+    "a family choosing a vacation", "a bakery's prices", "a wildfire prevention plan", "a podcast host's opinion", "a startup's pitch",
+]
+DRILL_VOICES = [
+    "a social media post", "a letter to the editor", "a TV commercial", "two friends arguing, written as one quoted line each",
+    "a politician's campaign speech", "an online product review", "a sports commentator on air", "a parent at the dinner table",
+    "a company press release", "a radio call-in listener", "a scientist being interviewed", "a store manager talking to staff",
+    "a blogger's opening paragraph", "a coach at halftime", "a news anchor's question", "a lawyer's closing line",
+]
 
-Write ONE short argument (2 to 4 sentences) on an everyday or school topic, NOT on the current debate resolution. About one time in five, write a sound argument with no fallacy. Otherwise use exactly one fallacy from this list: {names}. Vary the topic and the fallacy; do not use the example sentences from the guide.
+DRILL_PROMPT = """You write one practice item for high school debaters learning logical fallacies.
 
-Return ONLY a JSON object: {{"argument": "...", "answer": "the fallacy name exactly as listed, or None", "explanation": "two plain sentences on why, quoting the key words"}}"""
+Write a short argument of 2 to 4 sentences.
+- Topic: {topic}.
+- Written as: {voice}.
+- Fallacy to commit: {fallacy}. If this says "None", write a sound, reasonable argument with no fallacy in it.
+Make it natural and specific, with names, numbers or places where they fit, the way real people actually talk. Do not open with "Our", do not mention a school, principal or teacher, and do not name the fallacy in the argument.
+
+Return ONLY a JSON object: {{"argument": "...", "explanation": "two plain sentences on why it is (or is not) a fallacy, quoting the key words"}}"""
 
 # NSDA Lincoln-Douglas speech order and times (minutes). Prep is 4 minutes per debater.
 ROUND = [

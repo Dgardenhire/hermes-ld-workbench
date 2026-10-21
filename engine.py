@@ -494,10 +494,14 @@ def check_drill(out):
 
 
 async def run_drill(p, model):
-    import time
-    names = ", ".join(f["name"] for f in M.FALLACIES)
-    ask = f"Write practice item number {int(time.time()) % 997}."
-    out = await model.json(M.DRILL_PROMPT.format(names=names), "Practice item:", ask, max_tokens=4000, purpose="ld-workbench.drill")
+    """The fallacy, topic and voice are picked here at random, so items vary instead of settling into one formula."""
+    import random
+    rng = random.SystemRandom()
+    fallacy = "None" if rng.random() < 0.2 else rng.choice(M.FALLACIES)["name"]
+    prompt = M.DRILL_PROMPT.format(topic=rng.choice(M.DRILL_TOPICS), voice=rng.choice(M.DRILL_VOICES), fallacy=fallacy)
+    out = await model.json(prompt, "Practice item:", "Write the item.", max_tokens=4000, purpose="ld-workbench.drill")
+    if isinstance(out, dict):
+        out["answer"] = fallacy  # the answer is what the server chose, never what the model claims
     return check_drill(out)
 
 
