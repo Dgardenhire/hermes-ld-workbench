@@ -22,17 +22,18 @@ It uses the AI model you already set up in Hermes. It never writes your case for
 
 ## How to install it
 
-You need the Hermes desktop app, version 0.22 or newer, with a model already set up.
+You need the Hermes desktop app, version 0.22 or newer, with a model already set up. LD Workbench uses that model. Nothing goes to anyone else.
 
-1. Download this folder to your computer.
-2. Open the Terminal app and type this line, with the real place you saved the folder:
-   `ln -s /path/to/hermes-ld-workbench ~/.hermes/plugins/ld-workbench`
-3. Turn on the plugin's helper program by typing:
-   `hermes plugins enable ld-workbench`
-4. Open Hermes. Go to Capabilities, then Plugins. Find LD Workbench and switch it on.
-5. Click **Debate** in the left sidebar.
+1. In Hermes Desktop, click **Capabilities**, then **Plugins**, then **Install from Git**.
+2. Paste `https://github.com/Dgardenhire/hermes-ld-workbench` and confirm. Keep both parts selected: the agent plugin and the desktop plugin.
+3. In **Capabilities**, then **Plugins**, find **LD Workbench** and switch it on.
+4. Click **Debate** in the left sidebar.
 
-To check that everything is in place, type `hermes plugins doctor ld-workbench`. It should say OK.
+Prefer the terminal? Run `hermes plugins install Dgardenhire/hermes-ld-workbench --enable`, then do steps 3 and 4.
+
+To check that everything is in place, run `hermes plugins doctor ld-workbench`. It should say OK.
+
+The full manual, with pictures: https://linchpin.studio/hermes/ld-workbench/manual/
 
 ## Where your work is saved
 
