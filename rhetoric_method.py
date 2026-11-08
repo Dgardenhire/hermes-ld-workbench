@@ -69,15 +69,18 @@ def _f(fid, name, effect, definition, source, example=None, extra=False):
 
 
 # Definitions marked CLEARING are The Clearing's own glosses from craft-paths.js, sentence-cased, except
-# the four in CLEARING_REVISED: The Clearing gave each its own definition on Nov 8, 2026 (hermes-clearing
-# 3a97a48, library/additions.json, figures.groups), and these copy that text word for word. The
-# Clearing's examples for them are its own sentences; ours stay real public-domain lines.
-CLEARING_REVISED = ("merism", "syllepsis", "synecdoche", "zeugma")
+# the eleven in CLEARING_REVISED: The Clearing gave each its own definition on Nov 8, 2026 (hermes-clearing
+# 3a97a48, library/additions.json, figures.groups), and these copy that text word for word. The first four
+# were the pairs that shared one gloss; the other seven are the figures The Clearing reworded so no two
+# definitions share a three-word run. The Clearing's examples are its own sentences; ours stay real
+# public-domain lines.
+CLEARING_REVISED = ("merism", "syllepsis", "synecdoche", "zeugma",
+                    "alliteration", "assonance", "anaphora", "epistrophe", "epanalepsis", "periodic-sentence", "parataxis")
 FIGURES = [
     # Sound & verbal music
-    _f("alliteration", "Alliteration", "sound", "Words close together that start with the same sound.", WORKBENCH,
+    _f("alliteration", "Alliteration", "sound", "Nearby words that begin with the same consonant sound.", CLEARING,
        ("gettysburg", "Four score and seven years ago our fathers brought forth")),
-    _f("assonance", "Assonance", "sound", "The same vowel sound repeated in words close together.", WORKBENCH),
+    _f("assonance", "Assonance", "sound", "A vowel sound echoed inside words close together.", CLEARING),
     _f("rhyme", "Rhyme", "sound", "Words that end with the same sound, placed where the ear will catch them.", WORKBENCH),
     _f("versification", "Versification", "sound", "Deliberate rhythm and meter: a beat of stressed and unstressed syllables.", WORKBENCH),
     # Repetition & return
@@ -87,11 +90,11 @@ FIGURES = [
        ("fdr-first-inaugural", "This Nation asks for action, and action now.")),
     _f("diacope", "Diacope", "repetition", "Interrupted repetition.", CLEARING,
        ("fdr-first-inaugural", "the only thing we have to fear is fear itself")),
-    _f("epistrophe", "Epistrophe", "repetition", "Repeated endings.", CLEARING,
+    _f("epistrophe", "Epistrophe", "repetition", "The same ending, word for word, on several successive clauses.", CLEARING,
        ("gettysburg", "of the people, by the people, for the people")),
     _f("epizeuxis", "Epizeuxis", "repetition", "Immediate repetition.", CLEARING),
-    _f("epanalepsis", "Epanalepsis", "repetition", "Circular return.", CLEARING),
-    _f("anaphora", "Anaphora", "repetition", "Repeated beginnings.", CLEARING,
+    _f("epanalepsis", "Epanalepsis", "repetition", "A sentence that closes on the very word it opened with.", CLEARING),
+    _f("anaphora", "Anaphora", "repetition", "Successive clauses that open on identical words.", CLEARING,
        ("anthony-vote", "To them this government has no just powers derived from the consent of the governed. To them this government is not a democracy.")),
     _f("symploce", "Symploce", "repetition", "The same beginning and the same ending repeated together.", WORKBENCH, extra=True),
     # Balance, contrast & threes
@@ -108,10 +111,10 @@ FIGURES = [
     # Sentence order & syntax
     _f("hyperbaton", "Hyperbaton", "syntax", "Unusual word order.", CLEARING,
        ("lincoln-second-inaugural", "Fondly do we hope—fervently do we pray")),
-    _f("periodic-sentence", "Periodic sentence", "syntax", "Delayed completion.", CLEARING,
+    _f("periodic-sentence", "Periodic sentence", "syntax", "Holding back the main point until the last words.", CLEARING,
        ("lincoln-second-inaugural", "with firmness in the right, as God gives us to see the right, let us strive on to finish the work we are in")),
     _f("hypotaxis", "Hypotaxis", "syntax", "Subordinated complexity.", CLEARING),
-    _f("parataxis", "Parataxis", "syntax", "Short coordinate clauses.", CLEARING,
+    _f("parataxis", "Parataxis", "syntax", "Clauses placed one after another with no ranking among them.", CLEARING,
        ("fdr-first-inaugural", "Values have shrunken to fantastic levels; taxes have risen; our ability to pay has fallen")),
     _f("hendiadys", "Hendiadys", "syntax", "Noun-and-noun emphasis.", CLEARING,
        ("gettysburg", "It is altogether fitting and proper that we should do this.")),

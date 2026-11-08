@@ -36,6 +36,7 @@ Debate Workbench now covers three events and listens to you speak.
 - A feed larger than the download cap no longer comes back empty when its items use namespaced tags (The Atlantic's did).
 - A bare topic page ("Federal Reserve") is no longer listed as a headline.
 - Zeugma and syllepsis, and merism and synecdoche, each have their own definition, the same words as The Clearing, and an example. Zeugma's example is Susan B. Anthony's "which ordains all men sovereigns, all women subjects"; syllepsis's is Pope's "Dost sometimes counsel take—and sometimes tea." (The Rape of the Lock, 1714), since no speech in the library shows one cleanly.
+- Alliteration, assonance, anaphora, epistrophe, epanalepsis, the periodic sentence and parataxis now carry The Clearing's reworded definitions word for word (alliteration and assonance were our own until now). Their examples stay real public-domain lines. A test checks every figure the two products share against The Clearing's own text.
 - The 60-second answer and the openings lab open on a low-partisan question (the Federal Reserve).
 
 ### Compatibility
