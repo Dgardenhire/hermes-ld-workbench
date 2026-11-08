@@ -476,6 +476,12 @@ def recordings_summary():
 #
 # No download starts until the student presses Transcribe now and has seen the size: engine 1 runs on its
 # own only when Hermes would not download a model for it, and engine 2 downloads only on that press.
+#
+# Press first for anything that may leave the computer. When Hermes's speech-to-text is a cloud provider,
+# or Hermes would decide at run time (auto-detect, or a provider from a plugin), a take is never sent on
+# its own: the take first says where it would go, and only a Transcribe now press after that, for that
+# take and that provider, sends it. Every take asks again. When the workbench's own faster-whisper is
+# ready with no download, it makes the transcript on this computer instead, with no press.
 
 CLOUD_STT = ("openai", "groq", "mistral", "xai", "elevenlabs", "deepinfra")  # Hermes's built-in cloud providers
 STT_LABELS = {"openai": "OpenAI", "groq": "Groq", "mistral": "Mistral", "xai": "xAI", "elevenlabs": "ElevenLabs",
@@ -659,6 +665,43 @@ def stt_label(provider):
     return STT_LABELS.get(provider or "", provider or "the speech-to-text set up in Hermes")
 
 
+def press_first(plan):
+    """True when Hermes would send a take somewhere that may be off this computer, so it waits for a press."""
+    return bool(plan.get("usable")) and plan.get("local") is not True
+
+
+def send_ask(plan):
+    """What a take says while it waits for the press, naming where the press sends it."""
+    provider = plan.get("provider")
+    if plan.get("local") is False:
+        name = stt_label(provider)
+        return (f"This take is still only on this computer. Press Transcribe now to send it to {name}, the service "
+                "chosen in Hermes Settings, Voice, to turn your speech into text. Or type what you said.")
+    where = f"{provider}, the speech-to-text set up in Hermes" if provider else "the speech-to-text set up in Hermes"
+    return (f"This take is still only on this computer. Press Transcribe now to send it to {where}. "
+            "That may be a service on the internet. Or type what you said.")
+
+
+def _asked(take, plan):
+    """This take said where the press would send it, and it still goes there. A press without that is not
+    consent to send."""
+    tr = take.get("transcript") or {}
+    return tr.get("ask") == "send" and tr.get("send_to", "") == (plan.get("provider") or "")
+
+
+def _ask(t, plan):
+    tr = t["transcript"]
+    if tr.get("status") in ("typed", "done") and tr.get("text"):
+        return  # the student's own words, or a transcript already made, stay
+    tr.update(status="failed", error=send_ask(plan), ask="send", send_to=plan.get("provider") or "",
+              send_label=stt_label(plan.get("provider")), send_local=plan.get("local"))
+
+
+def _unask(t):
+    for k in ("ask", "send_to", "send_label", "send_local"):
+        t["transcript"].pop(k, None)
+
+
 def transcript_status(chosen=None):
     chosen = chosen if chosen in MODELS else DEFAULT_MODEL
     plan = hermes_plan()
@@ -668,10 +711,12 @@ def transcript_status(chosen=None):
         writable = os.access(target, os.W_OK)
     except OSError:
         writable = False
+    own_ready = whisper_installed() and model_cached(chosen)
     return {"available": TRANSCRIBER.available(), "model": chosen, "models": list(MODELS),
             "cached": {m: model_cached(m) for m in MODELS}, "mb": dict(MODEL_MB),
             "hermes": dict(plan, label=stt_label(plan["provider"])), "own_folder_writable": writable,
-            "fallback": whisper_installed()}
+            "fallback": whisper_installed(), "own_ready": own_ready,
+            "press_first": press_first(plan) and not own_ready}
 
 
 # ---------- turning a take into the WAV Hermes's recorder makes ----------
@@ -888,6 +933,10 @@ class Transcriber:
     def available(self):
         return self.fallback_ready() or _hermes_transcribe_fn() is not None
 
+    def own_ready(self, name):
+        """The workbench's own engine can make a transcript now, on this computer, with no download."""
+        return bool(self._engine) or (whisper_installed() and model_cached(name))
+
     def _load(self, name, allow_download=False):
         if self._model is not None and self._model_name == name:
             return self._model
@@ -917,7 +966,7 @@ class Transcriber:
     def _transcribe(self, path, model_name, allow_download, plan):
         """Engine 1 when Hermes would run it without a download, else (or when it fails) engine 2."""
         hermes_error = None
-        if plan.get("usable"):
+        if plan.get("usable") and (plan.get("local") is True or plan.get("pressed")):  # never sent without the press
             fn = _hermes_transcribe_fn()
             if fn is not None:
                 try:
@@ -970,7 +1019,9 @@ class Transcriber:
         """Queue a take. Its status moves waiting -> working -> done | failed | unavailable.
 
         ``allow_download``: True only when the student pressed Transcribe now. A recording that has just
-        arrived never starts a download; its take says what the download is and waits.
+        arrived never starts a download; its take says what the download is and waits. The same press is
+        the only thing that sends a take to a speech-to-text that may be off this computer, and only after
+        that take has said where it would go (``press_first``, ``send_ask``).
 
         Called from a request, so it runs in the requesting profile's scope (Hermes wraps every plugin
         route in it). The job runs in a copy of that context, so Hermes's speech-to-text reads the same
@@ -987,6 +1038,14 @@ class Transcriber:
         if take_id in self._jobs:  # a second press while it is already queued or running
             return get_take(take_id)
         plan = hermes_plan()
+        if press_first(plan):
+            if allow_download and _asked(take, plan):  # the student pressed after this take said where it goes
+                plan = dict(plan, pressed=True)
+            elif self.own_ready(model_name):  # made on this computer instead; nothing is sent
+                plan = dict(plan, usable=False, reason="press")
+            else:
+                change_take(take_id, lambda t: _ask(t, plan))
+                return get_take(take_id)
         if not plan["usable"] and self._engine is None and not model_cached(model_name):
             if not whisper_installed():
                 change_take(take_id, lambda t: t["transcript"].update(status="unavailable", error=None))
@@ -995,7 +1054,11 @@ class Transcriber:
                 change_take(take_id, lambda t: t["transcript"].update(status="failed", error=download_ask(model_name)))
                 return get_take(take_id)
         self._jobs.add(take_id)
-        change_take(take_id, lambda t: t["transcript"].update(status="waiting", error=None))
+
+        def queue(t):  # one press sends one take once; a retry asks again
+            _unask(t)
+            t["transcript"].update(status="waiting", error=None)
+        change_take(take_id, queue)
         ctx = contextvars.copy_context()
         try:
             self._pool.submit(ctx.run, self._run, take_id, model_name, allow_download, plan)

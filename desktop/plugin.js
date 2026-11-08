@@ -959,7 +959,7 @@ function transcriptLine(t) {
   if (st === "typed") return t.typed ? "Typed, not recorded" : "Your words, typed";
   if (st === "waiting" || st === "working") return "Making the transcript";
   if (st === "unavailable") return "Timing only";
-  if (st === "failed") return "Timing only";
+  if (st === "failed") return tr.ask === "send" ? "Not sent yet" : "Timing only";
   if (st === "cancelled") return "Transcript stopped";
   return "";
 }
@@ -990,8 +990,9 @@ function LastTake({ take, limit, title, onChange, children, fastOk }) {
       jsx4(Thinking, { label: "Making the transcript" }),
       jsx4("button", { type: "button", className: "hk-link", onClick: () => call(() => post(`speech/${take.id}/cancel`)), children: "Stop" })
     ] }) : null,
+    // A take that waits for the press says where it would go; nothing has left the computer, so it is not a warning.
     st === "unavailable" || st === "failed" || st === "cancelled" ? jsx4(Notice, {
-      tone: "warn",
+      tone: st === "failed" && take.transcript.ask === "send" ? "info" : "warn",
       children: st === "failed" ? take.transcript.error : TRANSCRIPTS_OFF,
       action: jsxs4("div", { className: "hk-actions", children: [
         take.has_audio ? jsx4(Button3, { size: "sm", variant: "secondary", loading: busy, onClick: () => call(() => post(`speech/${take.id}/transcribe`)), children: "Transcribe now" }) : null,
@@ -2506,10 +2507,12 @@ var mb = (bytes) => `${Math.max(0.1, bytes / 1048576).toFixed(bytes < 10485760 ?
 function Section2({ title, children }) {
   return jsxs8("section", { className: "ldw-set", "aria-label": title, children: [jsx8("h2", { className: "ldw-set-title", children: title }), jsx8("div", { className: "ldw-set-body", children })] });
 }
-function hermesLine(h) {
-  if (h.local === false) return `Made by ${h.label}, the speech-to-text chosen in Hermes Settings, Voice. Each recording goes to ${h.label} to be transcribed.`;
+var cloudish = (h) => h.usable && h.local !== true;
+var sendsTo = (h) => h.local === false ? h.label : "the speech-to-text set up in Hermes, which may be a service on the internet";
+function hermesLine(h, t) {
   if (h.local === true) return `Made on this computer by ${h.label}, as set in Hermes Settings, Voice. Your recordings stay on it.`;
-  return "Made by the speech-to-text set up in Hermes Settings, Voice. If that is a cloud service, each recording goes to it to be transcribed.";
+  if (t.own_ready) return "Made on this computer with faster-whisper. Your recordings stay on it.";
+  return `Made by ${sendsTo(h)}, as set in Hermes Settings, Voice. A recording goes there only when you press Transcribe now on that take. Every take asks first.`;
 }
 function Transcripts({ t }) {
   const [busy, setBusy] = useState8(false);
@@ -2527,14 +2530,15 @@ function Transcripts({ t }) {
     }
   };
   const h = t.hermes || {};
-  const own = !h.usable && t.fallback;
   const cached = (t.cached || {})[t.model];
+  const own = t.fallback && (!h.usable || cloudish(h) && Object.values(t.cached || {}).some(Boolean));
   return jsxs8(Section2, { title: "Transcripts", children: [
-    jsx8("p", { className: "ldw-set-status", "data-ok": t.available ? "" : void 0, children: h.usable ? hermesLine(h) : own ? "Made on this computer with faster-whisper. Your recordings stay on it." : "Not set up yet. Every take still gets real timing and pauses." }),
+    jsx8("p", { className: "ldw-set-status", "data-ok": t.available ? "" : void 0, children: h.usable ? hermesLine(h, t) : own ? "Made on this computer with faster-whisper. Your recordings stay on it." : "Not set up yet. Every take still gets real timing and pauses." }),
     own && h.reason === "model" ? jsx8("p", { className: "ldw-set-line", children: `Hermes's own speech-to-text would first download its ${h.model} model, so the workbench uses its own copy, kept in its own folder.` }) : null,
+    cloudish(h) && t.own_ready ? jsx8("p", { className: "ldw-set-line", children: `Hermes Settings, Voice names ${sendsTo(h)}. The workbench uses its own speech model on this computer instead, so nothing is sent.` }) : null,
     !t.available || !h.usable && !t.fallback ? jsx8(Notice, { tone: "info", children: TRANSCRIPTS_OFF }) : null,
     own ? jsx8(Choices, { label: "Transcript model", value: t.model, onChange: pick, disabled: busy, options: (t.models || []).map((m) => ({ id: m, label: `${m}: ${MODEL_TEXT[m] || ""}` })) }) : null,
-    own ? jsx8("p", { className: "ldw-set-line", children: cached ? `${t.model} is already on this computer.` : `The first transcript asks before it downloads ${t.model} (about ${(t.mb || {})[t.model] || 150} MB) from huggingface.co into the workbench's own folder, once. After that it works offline.` }) : null,
+    own ? jsx8("p", { className: "ldw-set-line", children: cached ? `${t.model} is already on this computer.` : cloudish(h) ? `${t.model} is not on this computer, so each take asks before it goes to ${sendsTo(h)}. Pick a model that is here to keep transcripts on this computer.` : `The first transcript asks before it downloads ${t.model} (about ${(t.mb || {})[t.model] || 150} MB) from huggingface.co into the workbench's own folder, once. After that it works offline.` }) : null,
     own && t.own_folder_writable === false && !cached ? jsx8(Notice, { tone: "warn", children: "The workbench's folder for the speech model is not writable, so the model cannot be saved. Timing and pauses still work." }) : null,
     err ? jsx8(Notice, { tone: "bad", children: err }) : null
   ] });
@@ -2600,13 +2604,13 @@ function Outlets() {
 function voiceLines(t) {
   const h = t && t.hermes || {};
   const kept = "Recorded only while you speak and kept on the computer that runs Hermes.";
-  if (h.usable && h.local === false) return [
-    ["Your voice", `${kept} Each recording goes to ${h.label}, the speech-to-text chosen in Hermes, to be transcribed. It never goes to a model or a website otherwise.`],
-    ["Transcripts", `Made by ${h.label}, through Hermes. Change it in Hermes Settings, Voice; local keeps your voice on this computer.`]
+  if (cloudish(h) && t.own_ready) return [
+    ["Your voice", `${kept} It never goes to a model or a website.`],
+    ["Transcripts", "Made on this computer by the workbench's own speech model."]
   ];
-  if (h.usable && h.local !== true) return [
-    ["Your voice", `${kept} If the speech-to-text set up in Hermes is a cloud service, each recording goes to it to be transcribed. Otherwise it never leaves.`],
-    ["Transcripts", "Made by the speech-to-text set up in Hermes Settings, Voice."]
+  if (cloudish(h)) return [
+    ["Your voice", `${kept} A take goes to ${sendsTo(h)} only when you press Transcribe now on it. Every take asks first and says where it goes. It never goes to a model or a website otherwise.`],
+    ["Transcripts", h.local === false ? `Made by ${h.label}, through Hermes, after you press. Change it in Hermes Settings, Voice; local keeps your voice on this computer.` : "Made by the speech-to-text set up in Hermes Settings, Voice, after you press."]
   ];
   return [
     ["Your voice", `${kept} It never goes to a model or a website.`],

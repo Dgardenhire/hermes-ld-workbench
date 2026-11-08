@@ -211,7 +211,8 @@ the adult set up apply.
 speech-to-text. When the adult has chosen a cloud speech-to-text provider in Hermes Settings, Voice, each
 recording goes to that provider to be transcribed. Settings, the take, the README and the catalog text all
 say so and name the provider; choosing local in Hermes keeps the voice on the computer. This new path needs
-the independent audit's sign-off before release.
+the independent audit's sign-off before release. **Changed again Nov 8 (S-5, built):** a take no longer goes to
+a cloud speech-to-text on its own; it waits for the student's Transcribe now press on that take.
 
 ## Also in this pass (step 0)
 
@@ -240,7 +241,7 @@ Fit to ship after this pass. One medium finding was fixed: a pattern in the new 
 in cubic time, so a model answer with one long line of spaces could hold Hermes's whole backend for minutes.
 Two low findings were fixed (any bytes sent as "audio" were kept and decoded, and a WAV copy left by a crash
 outlived Delete all recordings), plus bandit's one high, which was a false positive. Nothing high or critical.
-Cloud transcription is reported below, unchanged, for Damon's decision.
+Cloud transcription is reported below, unchanged, for Damon's decision (since built as press first: S-5).
 
 Tests: 273, all passing (`/usr/bin/python3 -m unittest discover -s tests`), up from 267: 6 new in
 `tests/test_security.py` (`SecondReview`). Five fail on `ac0ec0f` (shown by restoring the three source files);
@@ -334,6 +335,31 @@ Damon's decision (whether a cloud transcript should wait for a press); behavior 
 - If Damon wants a press first: make `hermes_plan` not usable when `local` is not `True` unless
   `allow_download` (the Transcribe now press) is set, and say "Press Transcribe now to send this take to
   <provider>" on the take.
+- **Built after the review (Nov 8, Damon's decision: press first). Done; not re-audited.** `hermes_plan` is
+  unchanged (it still describes what Hermes would do); the gate is in `Transcriber.start` (`speech.py`,
+  `press_first`, `send_ask`, `_asked`). When Hermes's speech-to-text is a cloud provider, or `local` is `None`
+  (auto-detect, or a provider from a Hermes plugin), a take that arrives is not sent: its transcript is marked
+  `ask: "send"` with the provider it would go to, and it says "This take is still only on this computer. Press
+  Transcribe now to send it to OpenAI, the service chosen in Hermes Settings, Voice, to turn your speech into
+  text. Or type what you said." (auto and plugin providers add "That may be a service on the internet."). The
+  take's corner reads "Not sent yet" and the notice is information, not a warning. Scope: every take, every
+  time. A press sends only when that take has said where it goes and Hermes still names the same provider; a
+  press on a take that has not asked (stopped, failed for another reason, transcripts deleted), or after the
+  adult changed the provider, asks again instead of sending. Queuing the job clears the ask, so one press sends
+  one take once and a retry asks again. The worker also refuses: `_transcribe` calls Hermes for a plan that is
+  not local only when the plan carries the press. When the workbench's own faster-whisper can run with no
+  download (its model already in `plugin-data/ld-workbench/models/` or the shared cache), it makes the
+  transcript on this computer with no press and nothing is sent. Hermes local (`local: True`) still needs no
+  press. Settings and "What leaves your computer" say a recording goes to the provider only on that press.
+  Tests (`tests/test_transcription.py`, class `CloudWaitsForThePress`, 11 new; 8 older cloud tests now press
+  first): no built-in cloud provider (OpenAI, nous, Groq, Mistral, xAI, ElevenLabs, DeepInfra) is called and
+  no WAV is made before the press, through the real audio route; auto-detect and plugin providers wait too; the
+  press is honored; a press the take did not ask for, a changed provider, a retry, a new take and Delete
+  transcripts and ballots each ask again; the worker refuses an unpressed cloud plan; the workbench's own model
+  needs no press. With the gate taken out (checked once by hand), 23 checks in that file fail, every
+  send-without-press check among them. Left as it was: when a pressed cloud transcript
+  fails and the workbench's faster-whisper is installed without its model, the fallback may download the model
+  (no audio sent) without the size notice, as any Transcribe now press could before.
 
 **S-6. A question the student or coach writes reaches the extemp judge unfenced.** `run_extemp_judge` puts the
 question on a `Question:` line. It is the student's own text from this computer (one line, 240 characters,

@@ -125,6 +125,21 @@ class WithHermes(unittest.TestCase):
         speech.save_audio(t["id"], b"\x1a\x45\xdf\xa3webm-bytes", "audio/webm")
         return t
 
+    def press(self, t, engine=True):
+        """The press-first path to a cloud speech-to-text: the recording arrives with no local engine ready,
+        the take says where it would go and waits, then the student presses Transcribe now. ``engine``:
+        the workbench's own engine is there for the press (a fallback when Hermes fails)."""
+        self.use_engine(engine=False)
+        speech.TRANSCRIBER.start(t["id"])
+        asked = speech.get_take(t["id"])["transcript"]
+        self.assertEqual((asked["status"], asked.get("ask")), ("failed", "send"))
+        if self.hermes:
+            self.assertEqual(self.hermes.calls, [])  # nothing sent before the press
+        if engine:
+            self.use_engine()
+        speech.TRANSCRIBER.start(t["id"], allow_download=True)
+        return self.wait(t["id"])
+
     def wait(self, take_id):
         for _ in range(300):
             if not speech.TRANSCRIBER.busy(take_id):
@@ -137,12 +152,11 @@ class HermesFirst(WithHermes):
     def test_a_cloud_provider_set_in_hermes_makes_the_transcript(self):
         h = self.use_hermes(stt={"provider": "groq"})
         made = self.fake_wav()
-        self.use_engine()
         t = self.recorded()
-        speech.TRANSCRIBER.start(t["id"])
-        got = self.wait(t["id"])
+        got = self.press(t)
         tr = got["transcript"]
         self.assertEqual(tr["status"], "done")
+        self.assertNotIn("ask", tr)
         self.assertEqual((tr["engine"], tr["provider"], tr["local"], tr["label"]), ("hermes", "groq", False, "Groq"))
         self.assertEqual(tr["text"], "My answer is yes, through the budget.")
         self.assertEqual(tr["words"], [])  # Hermes gives text only
@@ -161,14 +175,13 @@ class HermesFirst(WithHermes):
         gets a copy of that context, as asyncio.to_thread gives the core route."""
         h = self.use_hermes(stt={"provider": "openai"})
         self.fake_wav()
-        self.use_engine()
         t = self.recorded()
         token = PROFILE.set("profile-b")
         try:
-            speech.TRANSCRIBER.start(t["id"])
+            got = self.press(t, engine=False)
         finally:
             PROFILE.reset(token)
-        self.assertEqual(self.wait(t["id"])["transcript"]["status"], "done")
+        self.assertEqual(got["transcript"]["status"], "done")
         self.assertEqual(h.calls[0]["profile"], "profile-b")
 
     def test_nous_is_the_openai_backend(self):
@@ -178,10 +191,8 @@ class HermesFirst(WithHermes):
     def test_when_nothing_converts_the_recording_goes_as_it_is(self):
         h = self.use_hermes(stt={"provider": "groq"})
         speech.to_wav = lambda src, dest: None
-        self.use_engine()
         t = self.recorded()
-        speech.TRANSCRIBER.start(t["id"])
-        self.assertEqual(self.wait(t["id"])["transcript"]["status"], "done")
+        self.assertEqual(self.press(t)["transcript"]["status"], "done")
         self.assertEqual(h.calls[0]["suffix"], ".webm")  # as Hermes's own route passes the desktop's webm
 
     def test_to_wav_says_none_when_neither_pyav_nor_ffmpeg_can(self):
@@ -200,21 +211,18 @@ class HermesFirst(WithHermes):
     def test_silence_or_a_filtered_hallucination_is_said_plainly(self):
         self.use_hermes(stt={"provider": "groq"}, result={"success": True, "transcript": "", "filtered": True})
         self.fake_wav()
-        self.use_engine()
         t = self.recorded()
-        speech.TRANSCRIBER.start(t["id"])
-        tr = self.wait(t["id"])["transcript"]
+        tr = self.press(t)["transcript"]
         self.assertEqual(tr["status"], "failed")
         self.assertEqual(tr["error"], speech.NO_SPEECH)
         self.assertEqual(self.engine_calls, [])  # not a second try that might hallucinate "Thank you."
 
     def test_a_hermes_error_falls_back_to_the_workbench(self):
-        self.use_hermes(stt={"provider": "groq"}, result={"success": False, "error": "STT provider 'groq' configured but GROQ_API_KEY not set"})
+        h = self.use_hermes(stt={"provider": "groq"}, result={"success": False, "error": "STT provider 'groq' configured but GROQ_API_KEY not set"})
         self.fake_wav()
-        self.use_engine()
         t = self.recorded()
-        speech.TRANSCRIBER.start(t["id"])
-        tr = self.wait(t["id"])["transcript"]
+        tr = self.press(t)["transcript"]
+        self.assertEqual(len(h.calls), 1)  # Hermes was tried first, after the press
         self.assertEqual((tr["status"], tr["engine"], tr["local"]), ("done", "workbench", True))
         self.assertEqual(self.engine_calls, ["base.en"])
         self.assertNotIn("GROQ_API_KEY", str(tr))  # Hermes's setup text never reaches the student
@@ -222,10 +230,8 @@ class HermesFirst(WithHermes):
     def test_a_hermes_release_that_changed_the_function_degrades(self):
         self.use_hermes(stt={"provider": "groq"}, raises=TypeError("transcribe_recording() got an unexpected keyword"))
         self.fake_wav()
-        self.use_engine()
         t = self.recorded()
-        speech.TRANSCRIBER.start(t["id"])
-        self.assertEqual(self.wait(t["id"])["transcript"]["engine"], "workbench")
+        self.assertEqual(self.press(t)["transcript"]["engine"], "workbench")
 
     def test_a_hermes_release_that_moved_the_function_degrades(self):
         self.use_hermes(stt={"provider": "groq"}, with_function=False)  # the module is there, the name is not
@@ -254,10 +260,8 @@ class HermesFirst(WithHermes):
     def test_hermes_fails_and_there_is_no_faster_whisper(self):
         self.use_hermes(stt={"provider": "groq"}, result={"success": False, "error": "No STT provider available."})
         self.fake_wav()
-        self.use_engine(engine=False)
         t = self.recorded()
-        speech.TRANSCRIBER.start(t["id"])
-        got = self.wait(t["id"])
+        got = self.press(t, engine=False)
         self.assertEqual(got["transcript"]["status"], "unavailable")  # the page shows how to set up speech-to-text
         self.assertEqual(got["stats"]["speaking"], 20.0)
         self.assertTrue(got["file"])  # kept for Transcribe now
@@ -265,10 +269,8 @@ class HermesFirst(WithHermes):
     def test_the_temp_wav_is_deleted_even_when_hermes_raises(self):
         self.use_hermes(stt={"provider": "groq"}, raises=RuntimeError("boom"))
         made = self.fake_wav()
-        self.use_engine()
         t = self.recorded()
-        speech.TRANSCRIBER.start(t["id"])
-        self.wait(t["id"])
+        self.press(t)
         self.assertTrue(made and not made[0].exists())
         self.assertEqual(list((store.data_dir() / "tmp").iterdir()), [])
 
@@ -332,6 +334,163 @@ class SettingsSeeTheRoute(WithHermes):
         self.assertTrue(st["available"])
         self.assertEqual((st["hermes"]["usable"], st["hermes"]["local"], st["hermes"]["label"]), (True, False, "ElevenLabs"))
         self.assertIn("own_folder_writable", st)
+
+
+class CloudWaitsForThePress(WithHermes):
+    """A take goes to a speech-to-text that may be off this computer only after the student presses
+    Transcribe now on a take that has said where it goes. Fails closed: no press, no ask, a changed
+    provider or a retry all mean nothing is sent."""
+
+    def arrive(self, t):
+        """The recording arrives the way the page sends it, through the plugin's own route."""
+        import base64
+        b64 = base64.b64encode(b"\x1a\x45\xdf\xa3webm-bytes").decode("ascii")
+        return run(api.post_take_audio(t["id"], {"b64": b64, "mime": "audio/webm"}))
+
+    def blank(self):
+        return speech.new_take({"event": "drill", "limit": 60, "duration": 21, "levels": levels(1, 20)})
+
+    def test_no_cloud_provider_gets_a_take_without_the_press(self):
+        for provider, label in (("openai", "OpenAI"), ("nous", "OpenAI"), ("groq", "Groq"), ("mistral", "Mistral"),
+                                ("xai", "xAI"), ("elevenlabs", "ElevenLabs"), ("deepinfra", "DeepInfra")):
+            with self.subTest(provider=provider):
+                h = self.use_hermes(stt={"provider": provider})
+                made = self.fake_wav()
+                self.use_engine(engine=False)
+                out = self.arrive(self.blank())
+                self.wait(out["id"])
+                tr = run(api.get_take(out["id"]))["transcript"]
+                self.assertEqual(h.calls, [])  # Hermes's speech-to-text was never called
+                self.assertEqual(made, [])  # the recording was not even converted for sending
+                self.assertEqual((tr["status"], tr["ask"], tr["send_label"], tr["send_local"]), ("failed", "send", label, False))
+                self.assertIn(f"Press Transcribe now to send it to {label}", tr["error"])
+                self.assertIn("still only on this computer", tr["error"])
+                h.remove()
+                self.hermes = None
+
+    def test_auto_detect_and_plugin_providers_wait_too(self):
+        sys.modules.pop("faster_whisper", None)
+        for stt, named in (({}, "the speech-to-text set up in Hermes"), ({"provider": "acme"}, "acme, the speech-to-text set up in Hermes")):
+            with self.subTest(stt=stt):
+                h = self.use_hermes(stt=stt)
+                self.use_engine(engine=False)
+                out = self.arrive(self.blank())
+                tr = speech.get_take(out["id"])["transcript"]
+                self.assertEqual(h.calls, [])
+                self.assertEqual(tr["ask"], "send")
+                self.assertIsNone(tr["send_local"])
+                self.assertIn(f"send it to {named}. That may be a service on the internet.", tr["error"])
+                h.remove()
+                self.hermes = None
+
+    def test_the_press_is_honored(self):
+        h = self.use_hermes(stt={"provider": "openai"}, result={"success": True, "transcript": "Yes, through the budget.", "provider": "openai"})
+        self.fake_wav()
+        self.use_engine(engine=False)
+        t = self.arrive(self.blank())
+        self.assertEqual(h.calls, [])
+        out = run(api.post_take_transcribe(t["id"]))  # the Transcribe now button
+        tr = self.wait(out["id"])["transcript"]
+        self.assertEqual(len(h.calls), 1)
+        self.assertEqual((tr["status"], tr["provider"], tr["local"], tr["label"]), ("done", "openai", False, "OpenAI"))
+        self.assertNotIn("ask", tr)
+
+    def test_a_press_the_take_did_not_ask_for_is_not_consent(self):
+        """A take stopped mid-way, or one that failed for another reason, has not said where it would go.
+        Its press asks first; only the next press sends."""
+        h = self.use_hermes(stt={"provider": "groq"})
+        self.fake_wav()
+        self.use_engine(engine=False)
+        t = self.recorded()
+        speech.change_take(t["id"], lambda x: x["transcript"].update(status="cancelled"))
+        out = run(api.post_take_transcribe(t["id"]))
+        self.assertEqual(h.calls, [])
+        self.assertEqual(out["transcript"]["ask"], "send")
+        run(api.post_take_transcribe(t["id"]))
+        self.wait(t["id"])
+        self.assertEqual(len(h.calls), 1)
+
+    def test_a_provider_changed_after_the_ask_asks_again(self):
+        h = self.use_hermes(stt={"provider": "groq"})
+        self.fake_wav()
+        self.use_engine(engine=False)
+        t = self.arrive(self.blank())
+        h.stt["provider"] = "openai"  # the adult changed Hermes Settings, Voice in between
+        out = run(api.post_take_transcribe(t["id"]))
+        self.assertEqual(h.calls, [])
+        self.assertIn("send it to OpenAI", out["transcript"]["error"])
+        run(api.post_take_transcribe(t["id"]))
+        self.wait(t["id"])
+        self.assertEqual(len(h.calls), 1)
+
+    def test_every_take_and_every_retry_asks_again(self):
+        h = self.use_hermes(stt={"provider": "groq"}, result={"success": False, "error": "rate limited"})
+        self.fake_wav()
+        self.use_engine(engine=False)
+        t = self.arrive(self.blank())
+        run(api.post_take_transcribe(t["id"]))
+        self.assertEqual(self.wait(t["id"])["transcript"]["status"], "unavailable")
+        self.assertEqual(len(h.calls), 1)
+        out = run(api.post_take_transcribe(t["id"]))  # one press sent it once; trying again asks again
+        self.assertEqual((out["transcript"]["ask"], len(h.calls)), ("send", 1))
+        second = self.arrive(self.blank())  # and a new take asks for itself
+        self.assertEqual((speech.get_take(second["id"])["transcript"]["ask"], len(h.calls)), ("send", 1))
+
+    def test_delete_transcripts_clears_the_ask(self):
+        h = self.use_hermes(stt={"provider": "groq"})
+        self.use_engine(engine=False)
+        t = self.arrive(self.blank())
+        run(api.post_data_delete())
+        self.assertNotIn("ask", speech.get_take(t["id"])["transcript"])
+        run(api.post_take_transcribe(t["id"]))  # the take says DELETED, not where it goes: this press asks
+        self.assertEqual(h.calls, [])
+
+    def test_the_worker_refuses_a_cloud_plan_without_the_press(self):
+        """Defense in depth: even handed a cloud plan directly, the worker does not call Hermes unless the
+        plan carries the press."""
+        h = self.use_hermes(stt={"provider": "groq"})
+        self.fake_wav()
+        t = self.recorded()
+        plan = speech.hermes_plan()
+        path = speech.audio_path(speech.get_take(t["id"]))
+        with self.assertRaises(speech.Unavailable):
+            speech.Transcriber(None)._transcribe(path, speech.DEFAULT_MODEL, True, plan)
+        r = self.use_engine()._transcribe(path, speech.DEFAULT_MODEL, True, plan)
+        self.assertEqual((r["engine"], r["local"], h.calls), ("workbench", True, []))
+        r = speech.Transcriber(None)._transcribe(path, speech.DEFAULT_MODEL, True, dict(plan, pressed=True))
+        self.assertEqual((r["engine"], len(h.calls)), ("hermes", 1))
+
+    def test_the_workbench_model_on_this_computer_needs_no_press_and_sends_nothing(self):
+        h = self.use_hermes(stt={"provider": "openai"})
+        self.faster_whisper_installed()
+        complete_model(speech.own_model_dir(speech.DEFAULT_MODEL))
+        speech.TRANSCRIBER = api.speech.TRANSCRIBER = speech.Transcriber()
+        self.assertTrue(speech.TRANSCRIBER.own_ready(speech.DEFAULT_MODEL))
+        st = run(api.get_home())["transcripts"]
+        self.assertEqual((st["own_ready"], st["press_first"]), (True, False))
+        self.use_engine()  # the stand-in for that model, so nothing loads for real
+        t = self.arrive(self.blank())
+        tr = self.wait(t["id"])["transcript"]
+        self.assertEqual((tr["status"], tr["engine"], tr["local"]), ("done", "workbench", True))
+        self.assertEqual(h.calls, [])
+
+    def test_settings_say_takes_wait_for_the_press(self):
+        self.use_hermes(stt={"provider": "groq"})
+        st = run(api.get_home())["transcripts"]
+        self.assertEqual((st["press_first"], st["own_ready"]), (True, False))
+        src = (Path(__file__).resolve().parents[1] / "desktop" / "plugin.js").read_text(encoding="utf-8")
+        self.assertIn("only when you press Transcribe now on that take. Every take asks first.", src)
+        self.assertIn('"Not sent yet"', src)
+        self.assertNotIn("Each recording goes to", src)  # the old always-sends wording is gone
+
+    def test_hermes_local_still_needs_no_press(self):
+        h = self.use_hermes(stt={"provider": "local_command"}, result={"success": True, "transcript": "words", "provider": "local_command"})
+        sys.modules.pop("faster_whisper", None)
+        self.fake_wav()
+        self.use_engine(engine=False)
+        t = self.arrive(self.blank())
+        tr = self.wait(t["id"])["transcript"]
+        self.assertEqual((tr["status"], tr["local"], len(h.calls)), ("done", True, 1))
 
 
 class DeleteTranscriptsAndBallots(WithHermes):
