@@ -1353,6 +1353,7 @@ function DrawStage({ home, modeSwitch, onStart }) {
   const [err, setErr] = useState5(null);
   const [saved, setSaved] = useState5(/* @__PURE__ */ new Set());
   const [area, setArea] = useState5("us");
+  const [prepMode, setPrepMode] = useState5("files");
   const [drawn, setDrawn] = useState5(null);
   const [own, setOwn] = useState5("");
   const [editing, setEditing] = useState5(false);
@@ -1393,7 +1394,7 @@ function DrawStage({ home, modeSwitch, onStart }) {
     setBusy("start");
     setErr(null);
     try {
-      onStart(await post("extemp/round/start", { question: text, area, mode: "files" }));
+      onStart(await post("extemp/round/start", { question: text, area, mode: prepMode }));
     } catch (e) {
       setErr(errText(e));
       setBusy(null);
@@ -1430,6 +1431,7 @@ function DrawStage({ home, modeSwitch, onStart }) {
     jsxs5("div", { className: "ldw-drawrow", children: [
       jsx5("span", { className: "ldw-meta", children: `${fileCount} saved in your file` }),
       jsx5(SegmentedControl, { value: area, onChange: setArea, options: [{ id: "us", label: "United States" }, { id: "international", label: "International" }] }),
+      jsx5(SegmentedControl, { value: prepMode, onChange: setPrepMode, "aria-label": "Prep rules", options: [{ id: "files", label: "Prep: files only" }, { id: "internet", label: "Prep: internet allowed" }] }),
       jsx5(Button4, { loading: busy === "draw", disabled: !fileCount && !pull, onClick: draw, children: "Draw three questions" })
     ] }),
     err ? jsx5(Notice, { tone: "bad", children: err }) : null,
@@ -1473,6 +1475,56 @@ function usePrepClock(round, onSave) {
   }, [running]);
   return { left, running, toggle: () => setRunning((v) => !v) };
 }
+function WebSearch({ question, onSaved }) {
+  const [q, setQ] = useState5("");
+  const [res, setRes] = useState5(null);
+  const [busy, setBusy] = useState5(null);
+  const [err, setErr] = useState5(null);
+  const [saved, setSaved] = useState5(/* @__PURE__ */ new Set());
+  const go = async () => {
+    setBusy("search");
+    setErr(null);
+    try {
+      setRes(await post("extemp/search", { query: q }));
+    } catch (e) {
+      setErr(errText(e));
+    } finally {
+      setBusy(null);
+    }
+  };
+  const save = async (r) => {
+    setBusy(r.url);
+    setErr(null);
+    try {
+      const item = await post("extemp/file", { title: r.title, url: r.url, outlet: r.site, note: r.snippet, at: Math.floor(Date.now() / 1e3), topics: [] });
+      setSaved(/* @__PURE__ */ new Set([...saved, r.url]));
+      onSaved(item);
+    } catch (e) {
+      setErr(errText(e));
+    } finally {
+      setBusy(null);
+    }
+  };
+  return jsxs5("section", { className: "ldw-web", "aria-label": "Search the web", children: [
+    jsx5("h3", { className: "ldw-h3", children: "Search the web" }),
+    jsxs5("div", { className: "ldw-pullrow", children: [
+      jsx5(Input, { className: "ldw-topic", "aria-label": "Search words", value: q, placeholder: "The question, or your own words", onChange: (e) => setQ(e.target.value), onKeyDown: (e) => {
+        if (e.key === "Enter") go();
+      } }),
+      jsx5(Button4, { loading: busy === "search", onClick: go, children: jsxs5(Fragment3, { children: [jsx5(Codicon5, { name: "search" }), "Search"] }) })
+    ] }),
+    busy === "search" ? jsx5(Thinking, { label: "Searching with your Hermes web search" }) : null,
+    err ? jsx5(Notice, { tone: "bad", children: err }) : null,
+    res && !res.results.length ? jsx5("p", { className: "ldw-meta", children: `Nothing came back for "${res.query}". Try fewer words.` }) : null,
+    res && res.results.length ? jsx5("ol", { className: "ldw-webres", children: res.results.map((r) => jsxs5("li", { children: [
+      jsxs5("div", { className: "ldw-webres-text", children: [
+        jsx5("button", { type: "button", className: "ldw-head-link", onClick: () => openLink(r.url), children: r.title }),
+        jsxs5("span", { className: "ldw-meta", children: [jsx5("b", { children: r.site }), r.snippet ? ` · ${r.snippet}` : ""] })
+      ] }),
+      saved.has(r.url) ? jsx5("span", { className: "ldw-meta", children: "In your file" }) : jsx5(Button4, { size: "sm", variant: "secondary", loading: busy === r.url, onClick: () => save(r), children: "Save as a source" })
+    ] }, r.url)) }) : null
+  ] });
+}
 function PrepStage({ round, setRound: setRound2, modeSwitch }) {
   const [outline, setOutline] = useState5(round.outline);
   const [file, setFile] = useState5([]);
@@ -1503,7 +1555,7 @@ function PrepStage({ round, setRound: setRound2, modeSwitch }) {
       { key: "speak", code: "Speak 7:00", minutes: 7, state: "later" },
       { key: "ballot", code: "Ballot", minutes: 2.4, min: 90, state: "later" }
     ] }),
-    jsx5(Slip, { kicker: [`Prep · ${AREAS[round.area]} · files only`, modeSwitch], question: round.question }),
+    jsx5(Slip, { kicker: [`Prep · ${AREAS[round.area]} · ${round.mode === "internet" ? "internet allowed" : "files only"}`, modeSwitch], question: round.question }),
     jsxs5("div", { className: "ldw-prep", children: [
       jsx5("div", { className: "ldw-outline", children: OUTLINE.map(([k, label]) => jsxs5("label", { className: "ldw-ofield", children: [
         jsx5("span", { children: label }),
@@ -1519,6 +1571,10 @@ function PrepStage({ round, setRound: setRound2, modeSwitch }) {
           jsx5("input", { type: "checkbox", checked: outline.sources.includes(i.id), onChange: () => toggleSource(i.id) }),
           jsxs5("span", { children: [jsx5("b", { children: i.outlet || "Saved link" }), ` · ${dateOf(i.at) || "no date"} · ${i.title}`] })
         ] }) }, i.id)) }) : jsx5("p", { className: "ldw-meta", children: "Your file is empty. Pull headlines and save a few before your next round." }),
+        round.mode === "internet" ? jsx5(WebSearch, { question: round.question, onSaved: (item) => {
+          setFile([item, ...file]);
+          change("sources", [...outline.sources, item.id]);
+        } }) : null,
         jsx5(Button4, { className: "ldw-big", onClick: toPodium, children: "Go to the podium" })
       ] })
     ] })
@@ -2326,6 +2382,12 @@ var FRAME_CSS = `
 .ldw-leaves{display:grid;grid-template-columns:120px minmax(0,1fr);gap:8px 16px;margin:0;font-size:14px;line-height:1.5}
 .ldw-leaves dt{font-weight:700}.ldw-leaves dd{margin:0;max-width:64ch}
 @container (max-width:900px){.ldw-set{grid-template-columns:1fr;gap:10px}}
+.ldw-web{display:grid;gap:10px;border-top:1px solid var(--hk-stroke);padding-top:14px}
+.ldw-web .ldw-topic{min-width:0}
+.ldw-webres{list-style:none;margin:0;padding:0;display:grid}
+.ldw-webres li{display:grid;gap:6px;justify-items:start;padding:9px 0;border-bottom:1px solid var(--hk-stroke)}
+.ldw-webres-text{display:grid;gap:3px;min-width:0}
+.ldw-webres-text .ldw-meta{font-size:13px;line-height:1.45}
 `;
 
 // desktop/src/plugin.js

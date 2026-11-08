@@ -264,4 +264,10 @@ export const FRAME_CSS = `
 .ldw-leaves{display:grid;grid-template-columns:120px minmax(0,1fr);gap:8px 16px;margin:0;font-size:14px;line-height:1.5}
 .ldw-leaves dt{font-weight:700}.ldw-leaves dd{margin:0;max-width:64ch}
 @container (max-width:900px){.ldw-set{grid-template-columns:1fr;gap:10px}}
+.ldw-web{display:grid;gap:10px;border-top:1px solid var(--hk-stroke);padding-top:14px}
+.ldw-web .ldw-topic{min-width:0}
+.ldw-webres{list-style:none;margin:0;padding:0;display:grid}
+.ldw-webres li{display:grid;gap:6px;justify-items:start;padding:9px 0;border-bottom:1px solid var(--hk-stroke)}
+.ldw-webres-text{display:grid;gap:3px;min-width:0}
+.ldw-webres-text .ldw-meta{font-size:13px;line-height:1.45}
 `

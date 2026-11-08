@@ -182,6 +182,55 @@ def clean_outline(o):
     return out
 
 
+# ---------- "internet allowed" prep: the student's own Hermes web search ----------
+WEB_SEARCH_OFF = ("Web search is not set up in your Hermes. In Hermes Settings, Tools, turn on web search, "
+                  "or switch this round to files only and prep from your file.")
+
+
+def web_query(question, words):
+    """The search the student typed, or the question itself; plain text, at most 200 characters."""
+    q = " ".join(str(words or question or "").split())[:200]
+    if len(q) < 3:
+        raise ValueError("Type a few words to search for.")
+    return q
+
+
+def web_results(raw, limit=8):
+    """Hermes's web_search envelope ({"success": true, "data": {"web": [...]}}) as title, link, site, snippet.
+
+    Only http(s) links are kept. Anything else (an error, a tool that is not set up) raises with a plain message."""
+    import json as _json
+    from urllib.parse import urlparse
+    data = raw
+    if isinstance(raw, (bytes, str)):
+        try:
+            data = _json.loads(raw)
+        except ValueError:
+            raise ValueError("Web search answered with something unreadable. Try again, or prep from your file.")
+    if not isinstance(data, dict):
+        raise ValueError("Web search answered with something unreadable. Try again, or prep from your file.")
+    if data.get("error"):
+        err = str(data.get("error"))
+        if "Unknown tool" in err or "not available" in err.lower() or "api key" in err.lower() or "not configured" in err.lower():
+            raise ValueError(WEB_SEARCH_OFF)
+        raise ValueError("Web search did not work this time. Try again, or prep from your file.")
+    web = ((data.get("data") or {}).get("web")) if isinstance(data.get("data"), dict) else None
+    out = []
+    for r in web if isinstance(web, list) else []:
+        if not isinstance(r, dict):
+            continue
+        url = str(r.get("url") or "").strip()
+        u = urlparse(url)
+        if u.scheme not in ("http", "https") or not u.hostname:
+            continue
+        out.append({"title": " ".join(str(r.get("title") or u.hostname).split())[:300], "url": url[:2000],
+                    "site": u.hostname[4:] if u.hostname.startswith("www.") else u.hostname,
+                    "snippet": " ".join(str(r.get("description") or "").split())[:400]})
+        if len(out) >= limit:
+            break
+    return out
+
+
 def new_round(question, area, mode="files"):
     if mode not in ("files", "internet"):
         raise ValueError("Unknown prep mode.")

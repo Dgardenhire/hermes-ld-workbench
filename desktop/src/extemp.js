@@ -185,6 +185,7 @@ function DrawStage({ home, modeSwitch, onStart }) {
   const [err, setErr] = useState(null)
   const [saved, setSaved] = useState(new Set())
   const [area, setArea] = useState('us')
+  const [prepMode, setPrepMode] = useState('files')
   const [drawn, setDrawn] = useState(null)
   const [own, setOwn] = useState('')
   const [editing, setEditing] = useState(false)
@@ -205,7 +206,7 @@ function DrawStage({ home, modeSwitch, onStart }) {
   }
   const start = async text => {
     setBusy('start'); setErr(null)
-    try { onStart(await post('extemp/round/start', { question: text, area, mode: 'files' })) } catch (e) { setErr(errText(e)); setBusy(null) }
+    try { onStart(await post('extemp/round/start', { question: text, area, mode: prepMode })) } catch (e) { setErr(errText(e)); setBusy(null) }
   }
   return jsxs(Fragment, { children: [
     jsx(Strip, { segments: [
@@ -230,6 +231,7 @@ function DrawStage({ home, modeSwitch, onStart }) {
     jsxs('div', { className: 'ldw-drawrow', children: [
       jsx('span', { className: 'ldw-meta', children: `${fileCount} saved in your file` }),
       jsx(SegmentedControl, { value: area, onChange: setArea, options: [{ id: 'us', label: 'United States' }, { id: 'international', label: 'International' }] }),
+      jsx(SegmentedControl, { value: prepMode, onChange: setPrepMode, 'aria-label': 'Prep rules', options: [{ id: 'files', label: 'Prep: files only' }, { id: 'internet', label: 'Prep: internet allowed' }] }),
       jsx(Button, { loading: busy === 'draw', disabled: !fileCount && !pull, onClick: draw, children: 'Draw three questions' }),
     ] }),
     err ? jsx(Notice, { tone: 'bad', children: err }) : null,
@@ -265,6 +267,45 @@ function usePrepClock(round, onSave) {
   return { left, running, toggle: () => setRunning(v => !v) }
 }
 
+// "Internet allowed" prep: the student's own Hermes web search. Results are titles and links; saving one
+// puts it in the file and picks it as a source for this speech.
+function WebSearch({ question, onSaved }) {
+  const [q, setQ] = useState('')
+  const [res, setRes] = useState(null)
+  const [busy, setBusy] = useState(null)
+  const [err, setErr] = useState(null)
+  const [saved, setSaved] = useState(new Set())
+  const go = async () => {
+    setBusy('search'); setErr(null)
+    try { setRes(await post('extemp/search', { query: q })) } catch (e) { setErr(errText(e)) } finally { setBusy(null) }
+  }
+  const save = async r => {
+    setBusy(r.url); setErr(null)
+    try {
+      const item = await post('extemp/file', { title: r.title, url: r.url, outlet: r.site, note: r.snippet, at: Math.floor(Date.now() / 1000), topics: [] })
+      setSaved(new Set([...saved, r.url])); onSaved(item)
+    } catch (e) { setErr(errText(e)) } finally { setBusy(null) }
+  }
+  return jsxs('section', { className: 'ldw-web', 'aria-label': 'Search the web', children: [
+    jsx('h3', { className: 'ldw-h3', children: 'Search the web' }),
+    jsxs('div', { className: 'ldw-pullrow', children: [
+      jsx(Input, { className: 'ldw-topic', 'aria-label': 'Search words', value: q, placeholder: 'The question, or your own words', onChange: e => setQ(e.target.value), onKeyDown: e => { if (e.key === 'Enter') go() } }),
+      jsx(Button, { loading: busy === 'search', onClick: go, children: jsxs(Fragment, { children: [jsx(Codicon, { name: 'search' }), 'Search'] }) }),
+    ] }),
+    busy === 'search' ? jsx(Thinking, { label: 'Searching with your Hermes web search' }) : null,
+    err ? jsx(Notice, { tone: 'bad', children: err }) : null,
+    res && !res.results.length ? jsx('p', { className: 'ldw-meta', children: `Nothing came back for "${res.query}". Try fewer words.` }) : null,
+    res && res.results.length ? jsx('ol', { className: 'ldw-webres', children: res.results.map(r => jsxs('li', { children: [
+      jsxs('div', { className: 'ldw-webres-text', children: [
+        jsx('button', { type: 'button', className: 'ldw-head-link', onClick: () => openLink(r.url), children: r.title }),
+        jsxs('span', { className: 'ldw-meta', children: [jsx('b', { children: r.site }), r.snippet ? ` · ${r.snippet}` : ''] }),
+      ] }),
+      saved.has(r.url) ? jsx('span', { className: 'ldw-meta', children: 'In your file' })
+        : jsx(Button, { size: 'sm', variant: 'secondary', loading: busy === r.url, onClick: () => save(r), children: 'Save as a source' }),
+    ] }, r.url)) }) : null,
+  ] })
+}
+
 function PrepStage({ round, setRound, modeSwitch }) {
   const [outline, setOutline] = useState(round.outline)
   const [file, setFile] = useState([])
@@ -290,7 +331,7 @@ function PrepStage({ round, setRound, modeSwitch }) {
       { key: 'speak', code: 'Speak 7:00', minutes: 7, state: 'later' },
       { key: 'ballot', code: 'Ballot', minutes: 2.4, min: 90, state: 'later' },
     ] }),
-    jsx(Slip, { kicker: [`Prep · ${AREAS[round.area]} · files only`, modeSwitch], question: round.question }),
+    jsx(Slip, { kicker: [`Prep · ${AREAS[round.area]} · ${round.mode === 'internet' ? 'internet allowed' : 'files only'}`, modeSwitch], question: round.question }),
     jsxs('div', { className: 'ldw-prep', children: [
       jsx('div', { className: 'ldw-outline', children: OUTLINE.map(([k, label]) => jsxs('label', { className: 'ldw-ofield', children: [
         jsx('span', { children: label }),
@@ -304,6 +345,7 @@ function PrepStage({ round, setRound, modeSwitch }) {
           jsx('input', { type: 'checkbox', checked: outline.sources.includes(i.id), onChange: () => toggleSource(i.id) }),
           jsxs('span', { children: [jsx('b', { children: i.outlet || 'Saved link' }), ` · ${dateOf(i.at) || 'no date'} · ${i.title}`] }),
         ] }) }, i.id)) }) : jsx('p', { className: 'ldw-meta', children: 'Your file is empty. Pull headlines and save a few before your next round.' }),
+        round.mode === 'internet' ? jsx(WebSearch, { question: round.question, onSaved: item => { setFile([item, ...file]); change('sources', [...outline.sources, item.id]) } }) : null,
         jsx(Button, { className: 'ldw-big', onClick: toPodium, children: 'Go to the podium' }),
       ] }),
     ] }),

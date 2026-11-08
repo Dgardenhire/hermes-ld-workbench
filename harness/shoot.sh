@@ -23,6 +23,16 @@ shot rhetoric-read-dark "view=rhetoric&stage=read" 1440,1300
 shot rhetoric-figures-light "view=rhetoric&stage=figures&theme=light" 1440,2400
 shot rhetoric-spot-dark "view=rhetoric&stage=spot" 1440,900
 shot ballots-light "view=ballots&theme=light" 1440,1300
-shot ld-speech-dark "view=room&scene=speech" 1440,1000
+shot ld-speech-dark "view=room&scene=speech" 1440,1150
+shot ld-speech-light "view=room&scene=speech&theme=light" 1440,1150
+shot ld-cx-light "view=room&scene=cx&theme=light" 1440,1100
+shot ld-ballot-dark "view=room&scene=ballot" 1440,1150
+shot ld-ballot-light "view=room&scene=ballot&theme=light" 1440,1150
+shot ld-setup-dark "view=room&scene=setup" 1440,1000
+shot settings-dark "view=settings" 1440,1400
+shot settings-light "view=settings&theme=light" 1440,1400
+# Screens behind a click:
+H=1300 node "$ROOT/harness/click.mjs" "view=extemp&x=prep&pm=internet" "$OUT/extemp-prep-web-dark.png" "Search" "Save as a source"
+H=1500 node "$ROOT/harness/click.mjs" "view=room&scene=ballot&theme=light" "$OUT/ld-ballot-open-light.png" "Read the full reason for decision"
 # The live recorder, from Chrome's fake microphone (a steady tone):
 cd "$ROOT" && node harness/live.mjs "$OUT" && THEME=light NAME=extemp-speaking-light node harness/live.mjs "$OUT"

@@ -949,6 +949,40 @@ async def get_extemp_round():
     return store.read("extemp_round.json")
 
 
+def _hermes_web_search(query):
+    """The user's own web_search tool, through Hermes's tool registry (what ctx.dispatch_tool calls). The
+    plugin holds no key and no scraper of its own. Outside Hermes the registry is missing: "not set up"."""
+    try:
+        import model_tools  # noqa: F401  (loads Hermes's built-in tools into the registry)
+        from tools.registry import registry
+    except Exception:
+        return {"error": "Unknown tool: web_search"}
+    return registry.dispatch("web_search", {"query": query, "limit": 8})
+
+
+WEB_SEARCH = _hermes_web_search  # tests replace this
+
+
+@router.post("/extemp/search")
+async def post_extemp_search(body: dict):
+    """Search the web during prep, only in a round started with "internet allowed"."""
+    try:
+        b = _body(body)
+        r = store.read("extemp_round.json")
+        if not r or r.get("phase") != "prep":
+            raise ValueError("Web search is for prep. Start a round first.")
+        if r.get("mode") != "internet":
+            raise ValueError("This round is files only. Prep from your file.")
+        q = extemp.web_query(r.get("question"), b.get("query"))
+        try:
+            raw = await asyncio.wait_for(asyncio.to_thread(WEB_SEARCH, q), timeout=25)
+        except asyncio.TimeoutError:
+            raise ValueError("Web search took too long. Try again, or prep from your file.")
+        return {"query": q, "results": extemp.web_results(raw)}
+    except Exception as e:
+        _fail(e)
+
+
 @router.post("/extemp/round/start")
 async def post_extemp_round_start(body: dict):
     try:

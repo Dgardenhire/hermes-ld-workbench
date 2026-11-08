@@ -221,7 +221,7 @@ export const STATE = {
  "workbench": {
   "case": {
    "id": "572f1227b6c1",
-   "name": "Live round test",
+   "name": "Aff: animal welfare first",
    "resolution": "Resolved: De-extinction is unethical.",
    "side": "aff",
    "sections": {
@@ -266,7 +266,7 @@ export const STATE = {
   "cases": [
    {
     "id": "572f1227b6c1",
-    "name": "Live round test",
+    "name": "Aff: animal welfare first",
     "resolution": "Resolved: De-extinction is unethical.",
     "side": "aff",
     "created": 1792555370.903,
@@ -275,7 +275,7 @@ export const STATE = {
    },
    {
     "id": "bdfef88fc6e7",
-    "name": "Verification case",
+    "name": "Aff: opportunity cost, short",
     "resolution": "Resolved: De-extinction is unethical.",
     "side": "aff",
     "created": 1792555322.231,
@@ -469,7 +469,7 @@ export const STATE = {
   ],
   "started_at": 1792555370,
   "case_id": "572f1227b6c1",
-  "case_name": "Live round test"
+  "case_name": "Aff: animal welfare first"
  },
  "history": {
   "rounds_started": 1,

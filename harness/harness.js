@@ -64,7 +64,7 @@ function home() {
   const h = clone(HOME)
   if (['take', 'ballot'].includes(X)) h.last_take = { drill: clone(TAKE) }
   if (X === 'prep' || X === 'speak') {
-    h.extemp_round = { id: 'r1', question: 'Can a Democratic Congress change trade policy if the President vetoes every tariff repeal?', area: 'us', mode: 'files',
+    h.extemp_round = { id: 'r1', question: 'Can a Democratic Congress change trade policy if the President vetoes every tariff repeal?', area: 'us', mode: params.get('pm') === 'internet' ? 'internet' : 'files',
       phase: X, started: 1762570000, prep_left: X === 'prep' ? 1312 : 0, take: null, ballot: null,
       outline: { attention: 'In 1930 Congress set every tariff itself.', link: 'Today the President does, and the House just changed hands.', answer: 'Partly, through the budget',
         area1: 'Veto math in the Senate', area2: 'Spending riders on tariff money', area3: 'Deals on farm relief', conclusion: '', sources: ['f1', 'f2'] } }
@@ -78,6 +78,13 @@ const FILE = { items: [
   { id: 'f3', title: "Trump's tariffs are costing this Michigan couple", outlet: 'NPR', lean: 'Lean Left', at: 1762100000, topics: ['tariffs'], note: '', url: 'https://news.google.com/', has_text: false },
 ], topics: ['tariffs'], count: 3 }
 
+// What a user's Hermes web search might return for the prep screen (titles and links only).
+const WEB = [
+  { title: 'How a veto override works, and why it rarely happens', url: 'https://www.senate.gov/about/powers-procedures/vetoes.htm', site: 'senate.gov', snippet: 'Overriding a veto takes a two-thirds vote in both the House and the Senate.' },
+  { title: 'Congressional Review of tariff actions under Section 122 and Section 232', url: 'https://crsreports.congress.gov/', site: 'crsreports.congress.gov', snippet: 'Congress has delegated much of its tariff power to the President since 1934.' },
+  { title: 'Appropriations riders: how Congress limits what agencies can spend', url: 'https://www.gao.gov/', site: 'gao.gov', snippet: 'A rider can bar funds from being used to collect or enforce a duty.' },
+]
+
 async function rest(path, options = {}) {
   await pause(30)
   if (path === 'home') return home()
@@ -89,7 +96,8 @@ async function rest(path, options = {}) {
   if (path === 'ballots') return clone(BALLOTS)
   if (path === 'outlets') return { ...clone(OUTLETS), suggested: [], labels_checked: 'Nov 7, 2026', leans: ['Left', 'Lean Left', 'Center', 'Lean Right', 'Right'], sides: ['left', 'center', 'right'] }
   if (path === 'headlines/pull') return clone(PULL)
-  if (path === 'extemp/file') return clone(FILE)
+  if (path === 'extemp/file') return options.method === 'POST' ? { ...options.body, id: `w${Date.now()}`, topics: [] } : clone(FILE)
+  if (path === 'extemp/search') return { query: 'tariff repeal veto override', results: WEB }
   if (path === 'extemp/round') return home().extemp_round
   if (/^speech\/[^/]+\/judge$/.test(path)) return X === 'take' ? new Promise(() => {}) : clone(BALLOT)
   if (path === 'speech/take') return { ...clone(TAKE), id: 'live1', levels: options.body.levels || [], duration: options.body.duration, transcript: { status: 'waiting', text: '', words: [] } }
