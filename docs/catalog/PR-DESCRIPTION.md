@@ -14,7 +14,7 @@ SHA bump for `ld-workbench` (Debate Workbench), 0.1.0 to 0.2.0, submitted by the
 
 - **A real clock and the timekeeper's cards.** The event is drawn to scale in time across the top. The microphone records in the page (MediaRecorder); the clock starts at the first sound; pauses over 2 seconds are marked on the waveform.
 - **Transcripts on the user's own machine** with faster-whisper, only when Hermes's local speech-to-text is already installed. No dependency is declared; without it every take is "timing only".
-- **Extemp:** a 60-second answer, three-openings practice, and a full round: this week's headlines on the student's topic from ten outlets on the left, center and right (user-editable, labeled by lean), a draw from the student's own saved news, 30 minutes of prep, a 7-minute speech, a ballot.
+- **Extemp:** a 60-second answer, three-openings practice, and a full round: this week's headlines on the student's topic from twelve outlets on the left, center and right, five to five by lean label (user-editable, labeled by lean), a draw from the student's own saved news, 30 minutes of prep, a 7-minute speech, a ballot.
 - **Rhetoric:** figures of speech marked in six public-domain speeches, every quote checked as an exact substring; spot, write and say drills.
 - **Ballots:** every ballot kept; patterns counted in code from a fixed tag list over the last six rounds.
 

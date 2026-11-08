@@ -39,11 +39,11 @@ The Extemp floor opens on a **60-second answer**, ready to speak.
 1. **Pull headlines.** Type a topic and press **Pull headlines**. Headlines from each outlet on your list come back in three columns: left and lean left, center and wires, right and lean right. Each outlet carries its lean label. Click a headline to open it in your browser.
 2. **Save to file.** Keep the headlines you want. They become your extemp file.
 3. **Draw.** Pick **United States** or **International** and **Prep: files only** or **Prep: internet allowed**, then **Draw three questions**. The questions come from your own saved news. Pick one. If the draw fails, write your own question.
-4. **Prep, 30 minutes.** Fill the outline: attention-getter, link, your answer, three areas, conclusion. Pick sources from your file. In an internet-allowed round, **Search the web** uses the web search you set up in Hermes, and **Save as a source** adds a result to your file.
+4. **Prep, 30 minutes.** Fill the outline: attention-getter, link, your answer, three areas, conclusion. Pick sources from your file. **Remove** takes a source out of your file for good, after you confirm. In an internet-allowed round, **Search the web** uses the web search you set up in Hermes, and **Save as a source** adds a result to your file.
 5. **Go to the podium** and give a 7-minute speech.
 6. Read the extemp ballot: did you answer the question, how many sources you named and from when, your analysis, organization, delivery and time.
 
-**Your outlets** lets you add, remove and relabel outlets. The default lean labels come from AllSides, checked Nov 7, 2026. Change any label you disagree with. The note above the editor says how many outlets sit on each side.
+**Your outlets** lets you add, remove and relabel outlets. The default lean labels come from AllSides, checked Nov 7, 2026. Change any label you disagree with. The note above the editor says how many outlets sit in each column and how many lean each way by label, and warns when one side has twice the other.
 
 ## Lincoln-Douglas
 

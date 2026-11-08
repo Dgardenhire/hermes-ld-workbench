@@ -44,7 +44,7 @@ Mark each line **Pass**, **Fail** (with the exact message on screen) or **Skip**
 
 ## 5. Headlines from inside Hermes (P5 passed only from the terminal)
 
-- [ ] Extemp, Full round: type `tariffs`, press **Pull headlines**. Time to full columns: ______ . **Pass:** ten outlets fill three columns, each with its lean label; any outlet that fails says so in its own column.
+- [ ] Extemp, Full round: type `the Federal Reserve`, press **Pull headlines**. Time to full columns: ______ . **Pass:** twelve outlets fill three columns (on Nov 7 all twelve answered through Google News in about 2 s from this Mac), each with its lean label; any outlet that fails says so in its own column.
 - [ ] Click one headline. **Pass:** it opens in your browser. If not: "Hermes could not open your browser. Copy the link instead" with the link shown.
 - [ ] Turn Wi-Fi off, pull again. **Pass:** the last pull shows with a notice, or "No outlet answered..." Turn Wi-Fi back on.
 - [ ] **Save to file** two headlines, then **Draw three questions**. **Pass:** three questions; pick one; prep starts at 30:00.
