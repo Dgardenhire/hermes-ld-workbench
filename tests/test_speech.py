@@ -242,3 +242,30 @@ class TypedWords(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class ModelCache(unittest.TestCase):
+    def test_cached_only_when_model_bin_is_there(self):
+        import os
+        import tempfile
+        from pathlib import Path
+        with tempfile.TemporaryDirectory() as d:
+            old = os.environ.get("HF_HUB_CACHE")
+            os.environ["HF_HUB_CACHE"] = d
+            try:
+                self.assertFalse(speech.model_cached("base.en"))
+                snap = Path(d) / "models--Systran--faster-whisper-base.en" / "snapshots" / "abc"
+                snap.mkdir(parents=True)
+                self.assertFalse(speech.model_cached("base.en"))
+                (snap / "model.bin").write_bytes(b"x")
+                self.assertTrue(speech.model_cached("base.en"))
+                self.assertFalse(speech.model_cached("tiny"))
+                st = speech.transcript_status("nonsense")
+                self.assertEqual(st["model"], "base.en")
+                self.assertTrue(st["cached"]["base.en"])
+                self.assertEqual(set(st["mb"]), set(speech.MODELS))
+            finally:
+                if old is None:
+                    os.environ.pop("HF_HUB_CACHE", None)
+                else:
+                    os.environ["HF_HUB_CACHE"] = old

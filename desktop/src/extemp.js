@@ -139,7 +139,7 @@ function HeadlineColumns({ pull, saved, onSave }) {
   ] })
 }
 
-function OutletEditor({ onClose }) {
+export function OutletEditor({ onClose, embedded }) {
   const [data, setData] = useState(null)
   const [rows, setRows] = useState([])
   const [err, setErr] = useState(null)
@@ -150,8 +150,8 @@ function OutletEditor({ onClose }) {
   const save = async body => { setBusy(true); setErr(null); try { const d = await post('outlets', body); setRows(d.outlets); setData({ ...data, ...d }); onClose(d) } catch (e) { setErr(errText(e)) } finally { setBusy(false) } }
   const counts = { left: 0, center: 0, right: 0 }
   rows.forEach(r => { counts[r.side] = (counts[r.side] || 0) + 1 })
-  return jsxs('section', { className: 'ldw-panel', 'aria-label': 'Your outlets', children: [
-    jsx('h3', { className: 'ldw-h2', children: 'Your outlets' }),
+  return jsxs('section', { className: embedded ? 'hk-stack ldw-outlets-embedded' : 'ldw-panel', 'aria-label': 'Your outlets', children: [
+    embedded ? null : jsx('h3', { className: 'ldw-h2', children: 'Your outlets' }),
     jsx('p', { className: 'ldw-meta', children: `${counts.left} left, ${counts.center} center, ${counts.right} right. Lean labels: AllSides, checked ${data.labels_checked}. Change any label you disagree with.` }),
     jsx('table', { className: 'ldw-outlet-table', children: jsx('tbody', { children: rows.map((r, i) => jsxs('tr', { children: [
       jsx('td', { children: jsx(Input, { 'aria-label': 'Outlet name', value: r.name, onChange: e => set(i, 'name', e.target.value) }) }),
@@ -171,7 +171,7 @@ function OutletEditor({ onClose }) {
     jsxs('div', { className: 'hk-actions', children: [
       jsx(Button, { size: 'sm', loading: busy, onClick: () => save({ outlets: rows }), children: 'Save outlets' }),
       jsx(Button, { size: 'sm', variant: 'secondary', onClick: () => save({ reset: true }), children: 'Back to the defaults' }),
-      jsx(Button, { size: 'sm', variant: 'secondary', onClick: () => onClose(null), children: 'Cancel' }),
+      embedded ? null : jsx(Button, { size: 'sm', variant: 'secondary', onClick: () => onClose(null), children: 'Cancel' }),
     ] }),
   ] })
 }

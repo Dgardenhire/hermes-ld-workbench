@@ -682,8 +682,7 @@ async def get_home():
             last.setdefault(t["event"], speech.public(t))
         hist = ballots.history()
         return {"settings": st, "next_drill": ballots.next_drill(hist), "starter": extemp.STARTER,
-                "transcripts": {"available": speech.TRANSCRIBER.available(), "model": st.get("transcript_model") or speech.DEFAULT_MODEL,
-                                "models": list(speech.MODELS)},
+                "transcripts": speech.transcript_status(st.get("transcript_model")),
                 "recordings": speech.recordings_summary(), "last_take": last, "extemp_round": store.read("extemp_round.json"),
                 "ld_round": store.read("round.json") is not None, "ballots": len(hist),
                 "patterns": ballots.patterns(hist), "file_count": len(extemp.file_items())}

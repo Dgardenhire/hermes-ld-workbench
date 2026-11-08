@@ -23,6 +23,7 @@ import { Clock, LastTake, LdSheet, LiveWave, SpeakControls, Strip, sendTake, use
 import { $home, ExtempView, loadHome } from './extemp.js'
 import { RhetoricView } from './rhetoric.js'
 import { BallotsView } from './ballotsview.js'
+import { SettingsView } from './settingsview.js'
 import { FRAME_CSS } from './styles.js'
 
 export { describeError }
@@ -1037,8 +1038,8 @@ const EVENT_IDS = ['ld', 'extemp', 'rhetoric', 'ballots']
 
 function chooseEvent(id) {
   $event.set(id)
-  post('settings', { event: id }).catch(() => {})
-  if (id === 'ballots' || id === 'extemp') loadHome()
+  if (id !== 'settings') post('settings', { event: id }).catch(() => {})
+  if (id === 'ballots' || id === 'extemp' || id === 'settings') loadHome()
 }
 
 function Rail({ event }) {
@@ -1051,10 +1052,11 @@ function Rail({ event }) {
     extemp: xr ? { prep: 'Prep', speak: 'At the podium', ballot: 'Ballot' }[xr.phase] || 'Round' : '60-second answer',
     rhetoric: 'Figures and speeches',
     ballots: home ? `${home.ballots} kept` : '',
+    settings: 'Transcripts, outlets',
   }
-  const names = { ld: 'Lincoln-Douglas', extemp: 'Extemp', rhetoric: 'Rhetoric', ballots: 'Ballots' }
-  return jsx('nav', { className: 'ldw-rail ldw-noprint', 'aria-label': 'Events', children: EVENT_IDS.map(id => jsxs('button', { type: 'button',
-    className: cls('ldw-ev', id === 'ballots' && 'ldw-ev-ballots'), 'aria-current': event === id ? 'page' : undefined, onClick: () => chooseEvent(id), children: [
+  const names = { ld: 'Lincoln-Douglas', extemp: 'Extemp', rhetoric: 'Rhetoric', ballots: 'Ballots', settings: 'Settings' }
+  return jsx('nav', { className: 'ldw-rail ldw-noprint', 'aria-label': 'Events', children: [...EVENT_IDS, 'settings'].map(id => jsxs('button', { type: 'button',
+    className: cls('ldw-ev', id === 'ballots' && 'ldw-ev-ballots', id === 'settings' && 'ldw-ev-settings'), 'aria-current': event === id ? 'page' : undefined, onClick: () => chooseEvent(id), children: [
       jsx('b', { children: names[id] }), jsx('span', { children: sub[id] }),
     ] }, id)) })
 }
@@ -1067,13 +1069,14 @@ function DebatePage() {
   const home = useValue($home)
   const picked = useValue($event)
   useEffect(() => { load(); loadHome() }, [])
-  const event = picked || (home && home.settings && EVENT_IDS.includes(home.settings.event) ? home.settings.event : 'extemp')
+  const event = picked === 'settings' ? 'settings' : picked || (home && home.settings && EVENT_IDS.includes(home.settings.event) ? home.settings.event : 'extemp')
   let body
   if (err && !st) body = jsx(Failure, { title: 'The workbench could not load', body: `${errText(err)} Check that Debate Workbench is turned on in Capabilities, Plugins, then try again.`, error: err, onRetry: () => { load(); loadHome() } })
   else if (!st || !cfg) body = jsx(Thinking, { label: 'Opening the workbench' })
   else if (event === 'extemp') body = jsx(ExtempView, {})
   else if (event === 'rhetoric') body = jsx(RhetoricView, {})
   else if (event === 'ballots') body = jsx(BallotsView, {})
+  else if (event === 'settings') body = jsx(SettingsView, {})
   else body = jsxs(Fragment, { children: [jsx(Header, {}), view === 'room' ? jsx(Room, {}) : view === 'fallacies' ? jsx(Fallacies, {}) : view === 'printbrief' ? jsx(PrintBriefing, {}) : view === 'print' ? jsx(PrintView, {}) : jsx(Bench, {})] })
   return jsx('div', { className: 'hk hk-page ldw', role: 'region', 'aria-label': 'Debate Workbench', children: jsxs('div', { className: 'ldw-frame', children: [
     jsx(Rail, { event }),
@@ -1354,6 +1357,6 @@ export default {
 
 // For the harness: open a view directly ("extemp", "rhetoric", "ballots", or a Lincoln-Douglas view).
 export function openView(view) {
-  if (EVENT_IDS.includes(view)) $event.set(view)
+  if (EVENT_IDS.includes(view) || view === 'settings') $event.set(view)
   else { $event.set('ld'); $view.set(view) }
 }

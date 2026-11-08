@@ -21,6 +21,7 @@ import re
 import secrets
 import threading
 import time
+from pathlib import Path
 from concurrent.futures import ThreadPoolExecutor
 
 try:
@@ -40,6 +41,7 @@ MAX_TAKE_SECONDS = 20 * 60
 AUDIO_TYPES = ("audio/webm", "audio/ogg", "audio/mp4", "audio/wav", "audio/x-wav", "audio/mpeg")
 DEFAULT_MODEL = "base.en"
 MODELS = ("base.en", "small.en")
+MODEL_MB = {"base.en": 145, "small.en": 485}  # model.bin in Systran/faster-whisper-<name>, downloaded once
 IDLE_UNLOAD = 300
 EVENTS = ("ld", "extemp", "drill", "rhetoric")
 
@@ -392,6 +394,38 @@ def recordings_summary():
 
 
 # ---------- transcription ----------
+def _hf_hub_dirs():
+    """Where huggingface_hub keeps downloaded models, in the order it looks."""
+    out = []
+    if os.environ.get("HF_HUB_CACHE"):
+        out.append(Path(os.environ["HF_HUB_CACHE"]))
+    if os.environ.get("HF_HOME"):
+        out.append(Path(os.environ["HF_HOME"]) / "hub")
+    xdg = os.environ.get("XDG_CACHE_HOME")
+    out.append(Path(xdg) / "huggingface" / "hub" if xdg else Path.home() / ".cache" / "huggingface" / "hub")
+    return out
+
+
+def model_cached(name):
+    """True when the speech model is already on this computer, so the first transcript needs no download."""
+    if name not in MODELS:
+        return False
+    for hub in _hf_hub_dirs():
+        snaps = hub / f"models--Systran--faster-whisper-{name}" / "snapshots"
+        try:
+            if any((d / "model.bin").exists() for d in snaps.iterdir()):
+                return True
+        except OSError:
+            continue
+    return False
+
+
+def transcript_status(chosen=None):
+    chosen = chosen if chosen in MODELS else DEFAULT_MODEL
+    return {"available": TRANSCRIBER.available(), "model": chosen, "models": list(MODELS),
+            "cached": {m: model_cached(m) for m in MODELS}, "mb": dict(MODEL_MB)}
+
+
 def whisper_installed():
     try:
         return importlib.util.find_spec("faster_whisper") is not None

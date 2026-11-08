@@ -252,4 +252,16 @@ export const FRAME_CSS = `
 .ldw-live .ldw-wave-bar{fill:var(--hk-accent)}
 .ldw-live-wait{font-size:14px}
 @container (max-width:900px){.ldw-floor{grid-template-columns:1fr}.ldw-floor .ldw-stage2{grid-template-columns:1fr}}
+.ldw-ev-settings{margin-top:28px}.ldw-ev-settings b{font-size:16px}
+.ldw-settings{display:grid;gap:4px;max-width:880px}
+.ldw-set-h1{margin:0 0 10px;font-family:var(--ldw-cond);font-size:34px;font-weight:700;text-transform:uppercase;letter-spacing:.01em}
+.ldw-set{display:grid;grid-template-columns:200px minmax(0,1fr);gap:24px;padding:20px 0;border-top:1px solid var(--hk-stroke)}
+.ldw-set-title{margin:0;font-size:16px;font-weight:700}
+.ldw-set-body{display:grid;gap:12px;min-width:0;justify-items:start}
+.ldw-set-body>.ldw-panel,.ldw-set-body>.hk-notice,.ldw-set-body>.ldw-outlets-embedded{justify-self:stretch}
+.ldw-set-status{margin:0;font-size:15px;font-weight:600}
+.ldw-set-line{margin:0;font-size:14px;line-height:1.5;max-width:64ch}
+.ldw-leaves{display:grid;grid-template-columns:120px minmax(0,1fr);gap:8px 16px;margin:0;font-size:14px;line-height:1.5}
+.ldw-leaves dt{font-weight:700}.ldw-leaves dd{margin:0;max-width:64ch}
+@container (max-width:900px){.ldw-set{grid-template-columns:1fr;gap:10px}}
 `
