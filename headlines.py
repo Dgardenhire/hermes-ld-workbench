@@ -21,7 +21,7 @@ import ssl
 import time
 import urllib.parse
 import xml.etree.ElementTree as ET
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import ThreadPoolExecutor, wait
 
 try:
     from . import engine, store
@@ -33,6 +33,7 @@ LABELS_CHECKED = "Nov 7, 2026"
 SIDES = ("left", "center", "right")
 LEANS = ("Left", "Lean Left", "Center", "Lean Right", "Right")
 TIMEOUT = 8
+DEADLINE = 20  # seconds for the whole pull
 BYTES_CAP = 250_000
 PER_OUTLET = 5
 TOPIC_CAP = 20
@@ -296,13 +297,24 @@ def clean_topic(topic):
     return t
 
 
-def pull(topic, getter=fetch):
+def pull(topic, getter=fetch, deadline=None):
     """Every outlet at once, each with its own timeout; the result is cached for the topic."""
     topic = clean_topic(topic)
+    deadline = DEADLINE if deadline is None else deadline
     items = outlets()
     hosts = allowed_hosts(items)
-    with ThreadPoolExecutor(max_workers=min(8, len(items))) as ex:
-        columns = list(ex.map(lambda o: pull_outlet(o, topic, hosts, getter), items))
+    # The socket timeout bounds each read, not a whole fetch: a server that drips a byte every few seconds
+    # could hold a column for minutes. The pull as a whole stops at DEADLINE; a late column fails alone.
+    ex = ThreadPoolExecutor(max_workers=min(8, len(items)), thread_name_prefix="ldw-headlines")
+    futures = [ex.submit(pull_outlet, o, topic, hosts, getter) for o in items]
+    wait(futures, timeout=deadline)
+    columns = []
+    for o, f in zip(items, futures):
+        if f.done() and not f.cancelled() and f.exception() is None:
+            columns.append(f.result())
+        else:
+            columns.append({"id": o["id"], "ok": False, "items": [], "via": None, "error": f"{o['name']} did not answer in time. Try again."})
+    ex.shutdown(wait=False, cancel_futures=True)
     result = {"topic": topic, "at": int(time.time()), "columns": columns, "outlets": items, "labels_checked": LABELS_CHECKED}
     key = topic.lower()
 

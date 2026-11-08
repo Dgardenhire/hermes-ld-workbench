@@ -19,6 +19,7 @@ import logging
 import os
 import re
 import secrets
+import shutil
 import threading
 import time
 from pathlib import Path
@@ -56,11 +57,7 @@ WHISPER_PROMPT = "Um, uh, like, you know, so. I mean, um."
 def _clean_levels(levels):
     out = []
     for v in levels if isinstance(levels, list) else []:
-        try:
-            f = float(v)
-        except (TypeError, ValueError):
-            f = 0.0
-        out.append(min(1.0, max(0.0, f)))
+        out.append(_num(v, 0.0, 1.0))
     return out[: MAX_TAKE_SECONDS * LEVEL_HZ]
 
 
@@ -180,7 +177,7 @@ def measure(take, transcript=None, answer=None):
     ``take``: {duration, levels}. ``transcript``: {text, words: [{word, start, end}]} or None.
     Speaking time runs from the first sound to the last. Words a minute is over that time."""
     levels = _clean_levels(take.get("levels"))
-    duration = max(0.0, min(float(take.get("duration") or 0), MAX_TAKE_SECONDS))
+    duration = _num(take.get("duration"), 0.0, MAX_TAKE_SECONDS)
     span = voiced_span(levels)
     speaking = (span[1] - span[0] + 1) / LEVEL_HZ if span else 0.0
     if not levels:
@@ -237,6 +234,18 @@ def audio_path(take):
     return p if p.exists() else None
 
 
+def _num(v, lo, hi):
+    """A finite number in [lo, hi]; anything else (text, NaN, infinity) is lo. A NaN kept in practice.json
+    would make every later answer that carries it unreadable as JSON."""
+    try:
+        f = float(v or 0)
+    except (TypeError, ValueError, OverflowError):
+        return lo
+    if f != f or f in (float("inf"), float("-inf")):
+        return lo
+    return min(max(f, lo), hi)
+
+
 def new_take(meta):
     """Record a take's facts before its audio arrives. Returns the take."""
     event = meta.get("event")
@@ -244,10 +253,10 @@ def new_take(meta):
         raise ValueError("Unknown event.")
     take = {
         "id": secrets.token_hex(6), "event": event, "segment": str(meta.get("segment") or "")[:20],
-        "limit": int(min(max(int(meta.get("limit") or 0), 0), MAX_TAKE_SECONDS)),
+        "limit": int(_num(meta.get("limit"), 0, MAX_TAKE_SECONDS)),
         "prompt": str(meta.get("prompt") or "")[:600], "answer": str(meta.get("answer") or "")[:300],
         "ref": str(meta.get("ref") or "")[:60], "at": int(time.time()),
-        "duration": round(min(max(float(meta.get("duration") or 0), 0), MAX_TAKE_SECONDS), 1),
+        "duration": round(_num(meta.get("duration"), 0, MAX_TAKE_SECONDS), 1),
         "levels": [round(v, 3) for v in _clean_levels(meta.get("levels"))],
         "typed": bool(meta.get("typed")), "file": None, "bytes": 0, "mime": None,
         "transcript": {"status": "none", "text": "", "words": [], "model": None, "error": None},
@@ -446,6 +455,7 @@ class Transcriber:
         self._lock = threading.Lock()
         self._last_used = 0.0
         self._cancel = set()
+        self._jobs = set()  # takes queued or running in this process
         self._timer = None
 
     def available(self):
@@ -489,6 +499,16 @@ class Transcriber:
     def cancel(self, take_id):
         self._cancel.add(take_id)
 
+    def busy(self, take_id):
+        return take_id in self._jobs
+
+    def _mark_cancelled(self, take_id):
+        """Cancelled, unless the student has since typed their own words (those stay)."""
+        def put(t):
+            if t["transcript"].get("status") in ("waiting", "working"):
+                t["transcript"]["status"] = "cancelled"
+        change_take(take_id, put)
+
     def start(self, take_id, model_name=DEFAULT_MODEL):
         """Queue a take. Its status moves waiting -> working -> done | failed | unavailable."""
         if model_name not in MODELS:
@@ -500,14 +520,21 @@ class Transcriber:
             change_take(take_id, lambda t: t["transcript"].update(status="unavailable", error=None))
             return get_take(take_id)
         self._cancel.discard(take_id)
+        if take_id in self._jobs:  # a second press while it is already queued or running
+            return get_take(take_id)
+        self._jobs.add(take_id)
         change_take(take_id, lambda t: t["transcript"].update(status="waiting", error=None))
-        self._pool.submit(self._run, take_id, model_name)
+        try:
+            self._pool.submit(self._run, take_id, model_name)
+        except RuntimeError:  # the pool is shutting down with Hermes
+            self._jobs.discard(take_id)
+            change_take(take_id, lambda t: t["transcript"].update(status="failed", error=INTERRUPTED))
         return get_take(take_id)
 
     def _run(self, take_id, model_name):
         try:
             if take_id in self._cancel:
-                change_take(take_id, lambda t: t["transcript"].update(status="cancelled"))
+                self._mark_cancelled(take_id)
                 return
             take = get_take(take_id)
             path = audio_path(take)
@@ -518,12 +545,14 @@ class Transcriber:
                 result = (self._engine or self._whisper)(path, model_name)
                 self._last_used = time.time()
             if take_id in self._cancel:
-                change_take(take_id, lambda t: t["transcript"].update(status="cancelled"))
+                self._mark_cancelled(take_id)
                 return
             text = str(result.get("text") or "").strip()[:40000]
             words = [w for w in (result.get("words") or []) if isinstance(w, dict)][:12000]
 
             def done(t):
+                if t["transcript"].get("status") not in ("waiting", "working"):
+                    return  # the student typed their own words meanwhile; theirs win
                 t["transcript"] = {"status": "done", "text": text, "words": words, "model": model_name, "error": None}
                 t["stats"] = measure(t, t["transcript"], t.get("answer"))
             change_take(take_id, done)
@@ -533,14 +562,33 @@ class Transcriber:
             if "download" in str(e).lower() or "huggingface" in str(e).lower() or "connect" in str(e).lower():
                 msg = "The speech model could not be downloaded. Check the internet connection, then press Transcribe now."
             try:
-                change_take(take_id, lambda t: t["transcript"].update(status="failed", error=msg))
+                def failed(t):
+                    if t["transcript"].get("status") in ("waiting", "working"):
+                        t["transcript"].update(status="failed", error=msg)
+                change_take(take_id, failed)
             except ValueError:
                 pass
         finally:
+            self._jobs.discard(take_id)
             self._unload_later()
 
 
 TRANSCRIBER = Transcriber()
+INTERRUPTED = "The transcript was interrupted (Hermes may have restarted). Press Transcribe now."
+
+
+def settle(take):
+    """A take whose transcript says waiting or working but has no job in this process (Hermes restarted
+    mid-job) is marked failed, so the page stops waiting and offers Transcribe now. Returns the take."""
+    if take["transcript"].get("status") in ("waiting", "working") and not TRANSCRIBER.busy(take["id"]):
+        def put(t):
+            if t["transcript"].get("status") in ("waiting", "working") and not TRANSCRIBER.busy(t["id"]):
+                t["transcript"].update(status="failed", error=INTERRUPTED)
+        try:
+            return change_take(take["id"], put)
+        except ValueError:
+            return take
+    return take
 
 
 def set_text(take_id, text):
@@ -625,13 +673,15 @@ def opponent_audio(text, synth):
     if not files:
         files = parse_tts(synth(words, str(_voice_dir() / f"{key}.mp3")))
         keep = []
-        for i, f in enumerate(files):  # move them under our own name so the cache and cleanup can find them
+        for i, f in enumerate(files):  # under our own name, in our own folder, so the cache and cleanup find them
             dest = _voice_dir() / (f"{key}{f.suffix.lower()}" if i == 0 else f"{key}-{i}{f.suffix.lower()}")
             if f.resolve() != dest.resolve():
+                if f.stat().st_size > VOICE_MAX_BYTES:
+                    raise ValueError("The audio for this speech is too large to play here. Read the speech instead.")
                 try:
-                    os.replace(f, dest)
+                    shutil.copyfile(f, dest)  # a copy: the tool's own file is the tool's to keep or clean up
                 except OSError:
-                    dest = f
+                    raise ValueError("The voice made audio this plugin could not keep. Try again, or read the speech.")
             keep.append(dest)
         files = keep
         olds = sorted((p for p in _voice_dir().iterdir() if p.is_file()), key=lambda p: p.stat().st_mtime, reverse=True)
@@ -647,9 +697,9 @@ def opponent_audio(text, synth):
                     pass
     parts, total = [], 0
     for f in files:
-        b = f.read_bytes()
-        total += len(b)
+        total += f.stat().st_size
         if total > VOICE_MAX_BYTES:
             raise ValueError("The audio for this speech is too large to play here. Read the speech instead.")
+        b = f.read_bytes()
         parts.append({"b64": _b64.b64encode(b).decode("ascii"), "mime": VOICE_MIMES[f.suffix.lower()]})
     return {"parts": parts, "cached": cached}

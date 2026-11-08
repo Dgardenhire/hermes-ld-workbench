@@ -1147,7 +1147,12 @@ function dateOf(t) {
   return new Date(t * 1e3).toLocaleDateString(void 0, { month: "short", day: "numeric" });
 }
 function openLink(url) {
-  if (api && api.os && typeof api.os.openExternal === "function") api.os.openExternal(url);
+  if (!/^https?:\/\//i.test(String(url || ""))) return false;
+  if (api && api.os && typeof api.os.openExternal === "function") {
+    api.os.openExternal(url);
+    return true;
+  }
+  return false;
 }
 function useJudgedTake({ event, limit, question, outline, initial, onBallot }) {
   const [take, setTake] = useState5(initial || null);

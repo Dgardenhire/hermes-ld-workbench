@@ -287,6 +287,12 @@ def export_path(chosen, ext, default_name):
     parent = p.parent.resolve()
     if parent != home and home not in parent.parents:
         raise ValueError("Save the file somewhere in your home folder.")
+    # Never into a hidden folder (~/.hermes, ~/.ssh, ~/.config) or ~/Library, where an app's own JSON
+    # lives: a stray or forged path must not be able to replace another program's settings.
+    inside = parent.relative_to(home).parts + (p.name,)
+    cloud = inside[:2] in (("Library", "Mobile Documents"), ("Library", "CloudStorage"))  # iCloud Drive, Dropbox, Google Drive
+    if any(part.startswith(".") for part in inside) or (inside[0] == "Library" and not cloud):
+        raise ValueError("Save the file in a regular folder, like Documents or Desktop.")
     if not parent.is_dir():
         raise ValueError("That folder does not exist.")
     return parent / p.name

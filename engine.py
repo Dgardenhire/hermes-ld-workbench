@@ -35,13 +35,34 @@ _log = logging.getLogger("hermes.plugins.ld-workbench")
 
 
 # ---------- model access ----------
+# Hermes gives a plugin call with no timeout its auxiliary default, 30 seconds
+# (agent/auxiliary_client.py, _DEFAULT_AUX_TIMEOUT), which a 7-minute speech or a full ballot can
+# outrun on many models. Every call here names its own limit, and a guard above it makes sure the
+# page always hears back with a plain message.
+CALL_TIMEOUT = 180.0
+GUARD_SLACK = 15.0
+SLOW = "The model took too long to answer. Try again, or pick a faster model in Hermes settings."
+
+
+def _is_timeout(e):
+    return isinstance(e, (asyncio.TimeoutError, TimeoutError)) or "timeout" in type(e).__name__.lower() \
+        or "timed out" in str(e).lower()
+
+
 class Model:
     """The two shapes of call the workbench makes, over Hermes's plugin LLM facade.
 
     ``llm`` is a PluginLlm (or a stand-in with the same async methods, in tests)."""
 
-    def __init__(self, llm=None):
+    def __init__(self, llm=None, timeout=CALL_TIMEOUT):
         self._llm = llm
+        self.timeout = timeout
+
+    async def _guarded(self, coro):
+        try:
+            return await asyncio.wait_for(coro, timeout=self.timeout + GUARD_SLACK)
+        except asyncio.TimeoutError:
+            raise RuntimeError(SLOW)
 
     @property
     def llm(self):
@@ -52,8 +73,12 @@ class Model:
 
     async def text(self, system, messages, max_tokens=16000, purpose="ld-workbench"):
         try:
-            result = await self.llm.acomplete([{"role": "system", "content": system}, *messages],
-                                              max_tokens=max_tokens, purpose=purpose)
+            result = await self._guarded(self.llm.acomplete([{"role": "system", "content": system}, *messages],
+                                                            max_tokens=max_tokens, timeout=self.timeout, purpose=purpose))
+        except RuntimeError as e:
+            if str(e) == SLOW:
+                raise
+            raise _model_error(e)
         except Exception as e:  # every model failure reaches the page as a readable message
             raise _model_error(e)
         text = (result.text or "").strip()
@@ -64,12 +89,14 @@ class Model:
     async def json(self, system, header, body, max_tokens=16000, purpose="ld-workbench"):
         """A JSON answer: Hermes's structured lane first, then a plain call parsed the web app's way."""
         try:
-            result = await self.llm.acomplete_structured(
+            result = await self._guarded(self.llm.acomplete_structured(
                 instructions=header, input=[{"type": "text", "text": body}], system_prompt=system,
-                json_mode=True, max_tokens=max_tokens, purpose=purpose)
+                json_mode=True, max_tokens=max_tokens, timeout=self.timeout, purpose=purpose))
         except Exception as e:  # includes a reply that misses the schema (ValueError); retried plainly below
             if type(e).__name__ == "PluginLlmTrustError":
                 raise _model_error(e)
+            if (isinstance(e, RuntimeError) and str(e) == SLOW) or _is_timeout(e):
+                raise RuntimeError(SLOW)  # a second, plain try would only double the wait
             _log.info("ld-workbench: structured call failed (%r); retrying as a plain call", e)
         else:
             if isinstance(result.parsed, dict):
@@ -85,6 +112,8 @@ def _model_error(e):
     if name == "PluginLlmTrustError":
         return RuntimeError("Hermes did not allow this plugin to use the model. Check the plugin's settings.")
     msg = str(e).lower()
+    if _is_timeout(e):
+        return RuntimeError(SLOW)
     if "429" in msg or "rate" in msg or "overloaded" in msg or "529" in msg:
         return RuntimeError("The coach is busy right now. Try again in a minute.")
     if "no provider" in msg or "not configured" in msg or "no api key" in msg or "credential" in msg:

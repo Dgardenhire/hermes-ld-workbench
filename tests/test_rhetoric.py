@@ -41,6 +41,38 @@ class Data(unittest.TestCase):
         for e in R.EFFECTS:
             self.assertIn(e["title"], effects)
 
+    @unittest.skipUnless(CLEARING_PATHS.exists(), "The Clearing's source is not on this computer")
+    def test_each_gloss_sits_on_the_same_figure_as_in_the_clearing(self):
+        """The Clearing lists a focus's figures in its detail line and their glosses, in the same order, in
+        its prompt. Where the two lists are the same length, each figure must carry its own gloss, not a
+        neighbour's (a substring check over the whole file cannot see a swap)."""
+        src = CLEARING_PATHS.read_text(encoding="utf-8")
+        by_name = {f["name"].lower(): f for f in R.FIGURES}
+        by_name.update({"periodic suspense": by_name["periodic sentence"], "verbless phrasing": by_name["scesis onomaton"],
+                        "exact number": by_name["the exact number"]})
+        checked = 0
+        for detail, prompt in re.findall(r"detail:'(?:Use|Test) ([^']+?)(?: to [^']*)?\.',prompt:`[^:`]*?: ([^`]+?)\. ", src):
+            names = [n.strip() for n in re.split(r",\s*(?:or\s+)?|\s+or\s+", detail) if n.strip()]
+            glosses = [g.strip() for g in re.split(r",\s*(?:or\s+)?|\s+or\s+", prompt) if g.strip()]
+            if len(names) != len(glosses) or not all(n.lower() in by_name for n in names):
+                continue
+            for n, g in zip(names, glosses):
+                f = by_name[n.lower()]
+                if f["source"] == R.CLEARING:
+                    self.assertEqual(f["definition"].rstrip(".").lower(), g.lower(), n)
+                    checked += 1
+        self.assertGreaterEqual(checked, 14)  # repetition (7), interruption (8), and more as The Clearing grows
+
+    def test_shared_glosses_are_only_the_known_pairs(self):
+        """Two figures with one gloss read as a mistake on the figure list. Zeugma and syllepsis share one in
+        The Clearing itself; merism and synecdoche share one because The Clearing gives eight image figures
+        only seven glosses. Both pairs are listed in docs/STATUS.md for Damon; nothing else may collide."""
+        seen = {}
+        for f in R.FIGURES:
+            seen.setdefault(f["definition"].lower(), []).append(f["id"])
+        shared = sorted(sorted(v) for v in seen.values() if len(v) > 1)
+        self.assertEqual(shared, [["merism", "synecdoche"], ["syllepsis", "zeugma"]])
+
     def test_no_text_from_forsyth(self):
         self.assertEqual(R.FURTHER_READING, "Mark Forsyth, The Elements of Eloquence (2013)")
         for f in R.FIGURES:

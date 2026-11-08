@@ -650,14 +650,24 @@ async def post_round_judge(body: dict):
         _fail(e)
 
 
-def _hermes_tts(text, out_path):
-    """The user's own text_to_speech tool, through Hermes's tool registry (what ctx.dispatch_tool calls)."""
+def _hermes_tool(name, args):
+    """One of the user's own Hermes tools, through the public tool registry (``tools.registry``, the
+    same ``registry.dispatch`` that ``ctx.dispatch_tool`` calls). When the dashboard process has not
+    loaded the built-in tools yet, ``discover_builtin_tools`` (public) loads them. Outside Hermes, or when
+    the tool is not there, the answer is "Unknown tool", which the page shows as "not set up"."""
     try:
-        import model_tools  # noqa: F401  (loads Hermes's built-in tools into the registry)
         from tools.registry import registry
+        if registry.get_entry(name) is None:
+            from tools.registry import discover_builtin_tools
+            discover_builtin_tools()
     except Exception:
-        return {"error": "Unknown tool: text_to_speech"}
-    return registry.dispatch("text_to_speech", {"text": text, "output_path": out_path})
+        return {"error": f"Unknown tool: {name}"}
+    return registry.dispatch(name, args)
+
+
+def _hermes_tts(text, out_path):
+    """The user's own text_to_speech tool (their configured voice provider)."""
+    return _hermes_tool("text_to_speech", {"text": text, "output_path": out_path})
 
 
 SPEAK = _hermes_tts  # tests replace this
@@ -714,7 +724,8 @@ async def get_home():
         takes = store.read("practice.json")["takes"]
         last = {}
         for t in reversed(takes):
-            last.setdefault(t["event"], speech.public(t))
+            if t["event"] not in last:
+                last[t["event"]] = speech.public(speech.settle(t))
         hist = ballots.history()
         return {"settings": st, "next_drill": ballots.next_drill(hist), "starter": extemp.STARTER,
                 "transcripts": speech.transcript_status(st.get("transcript_model")),
@@ -796,7 +807,7 @@ if File is not None and _multipart_ok():
 @router.get("/speech/{take_id}")
 async def get_take(take_id: str):
     try:
-        return speech.public(speech.get_take(take_id))
+        return speech.public(speech.settle(speech.get_take(take_id)))
     except Exception as e:
         _fail(e)
 
@@ -848,7 +859,7 @@ async def post_take_judge(take_id: str, body: dict):
     """The ballot for an extemp speech or a 60-second answer. Kept with every other ballot."""
     try:
         b = _body(body)
-        take = speech.get_take(take_id)
+        take = speech.settle(speech.get_take(take_id))
         event = take["event"] if take["event"] in ("extemp", "drill") else None
         if not event:
             raise ValueError("Only extemp takes are judged here.")
@@ -987,12 +998,7 @@ async def get_extemp_round():
 def _hermes_web_search(query):
     """The user's own web_search tool, through Hermes's tool registry (what ctx.dispatch_tool calls). The
     plugin holds no key and no scraper of its own. Outside Hermes the registry is missing: "not set up"."""
-    try:
-        import model_tools  # noqa: F401  (loads Hermes's built-in tools into the registry)
-        from tools.registry import registry
-    except Exception:
-        return {"error": "Unknown tool: web_search"}
-    return registry.dispatch("web_search", {"query": query, "limit": 8})
+    return _hermes_tool("web_search", {"query": query, "limit": 8})
 
 
 WEB_SEARCH = _hermes_web_search  # tests replace this
@@ -1026,7 +1032,9 @@ async def post_openings_coach(body: dict):
         ids = b.get("take_ids")
         if not isinstance(ids, list) or len(ids) != 3:
             raise ValueError("Give all three openings first.")
-        takes = [speech.get_take(str(i)) for i in ids]
+        if len({str(i) for i in ids}) != 3:
+            raise ValueError("Give three different openings.")
+        takes = [speech.settle(speech.get_take(str(i))) for i in ids]
         for k, t in enumerate(takes, 1):
             if t.get("event") != "opening":
                 raise ValueError("Those are not openings.")

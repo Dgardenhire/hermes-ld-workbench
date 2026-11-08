@@ -23,8 +23,11 @@ function dateOf(t) {
   if (!t) return ''
   return new Date(t * 1000).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
 }
-function openLink(url) {
-  if (api && api.os && typeof api.os.openExternal === 'function') api.os.openExternal(url)
+// Web links only, and only in the user's own browser.
+export function openLink(url) {
+  if (!/^https?:\/\//i.test(String(url || ''))) return false
+  if (api && api.os && typeof api.os.openExternal === 'function') { api.os.openExternal(url); return true }
+  return false
 }
 
 /* ------------------------------------------------------------------ the take, judged -- */
