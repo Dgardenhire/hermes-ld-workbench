@@ -3,25 +3,31 @@
 The page records with MediaRecorder and samples the level 10 times a second. Timing, pauses and the
 waveform come from those levels, so they always work, with or without a transcript.
 
-The transcript is made on the Hermes backend with faster-whisper when Hermes's local speech-to-text
-is installed (it lazy-installs faster-whisper; this plugin declares no dependency). When it is not
-installed, the take keeps its timing, pauses and playback, and "Transcribe now" works later.
+The transcript is made on the Hermes backend: first by Hermes's own speech-to-text, so it follows
+the user's Hermes voice settings, then, when that cannot, by faster-whisper with a model in this
+plugin's own data folder (see "transcription" below). When neither can, the take keeps its timing,
+pauses and playback, and "Transcribe now" works later.
 
 Takes live in the plugin's data folder: ``practice.json`` (the record of each take) and
-``recordings/<id>.webm``. The last 20 recordings are kept, and never more than 100 MB.
+``recordings/<id>.webm``. The last 20 recordings are kept, and never more than 100 MB. The speech
+model, when the plugin needs its own, is in ``models/<name>``.
 """
 
 from __future__ import annotations
 
 import base64
+import contextvars
 import importlib.util
 import logging
 import os
 import re
 import secrets
 import shutil
+import subprocess
+import sys
 import threading
 import time
+import wave
 from pathlib import Path
 from concurrent.futures import ThreadPoolExecutor
 
@@ -396,6 +402,32 @@ def delete_all_recordings():
     return n
 
 
+def delete_transcripts():
+    """Erase every transcript and the student's own words kept with a take (typed text, the outline answer).
+    Recordings and timing stay; Delete all recordings removes the audio. A transcript still being made is
+    stopped, so it cannot come back. Returns how many takes held words."""
+    held = []
+
+    def clear(p):
+        for t in p["takes"]:
+            tr = t.get("transcript") or {}
+            if tr.get("text") or tr.get("words") or t.get("answer"):
+                held.append(t["id"])
+            TRANSCRIBER.cancel(t["id"])
+            status, error = ("failed", DELETED) if t.get("file") else ("none", None)
+            t["transcript"] = {"status": status, "text": "", "words": [], "model": None, "error": error}
+            t["answer"] = ""
+            t["stats"] = measure(t)
+        return p
+    store.update("practice.json", clear)
+    return len(held)
+
+
+def transcripts_summary():
+    takes = store.read("practice.json")["takes"]
+    return sum(1 for t in takes if (t.get("transcript") or {}).get("text"))
+
+
 def recordings_summary():
     takes = store.read("practice.json")["takes"]
     with_audio = [t for t in takes if t.get("file")]
@@ -403,8 +435,77 @@ def recordings_summary():
 
 
 # ---------- transcription ----------
+#
+# Two engines, tried in this order.
+#
+# 1. Hermes's own speech-to-text: ``tools.voice_mode.transcribe_recording``, the function behind the core
+#    route ``POST /api/audio/transcribe`` (``hermes_cli/web_routers/audio.py``) that Hermes's desktop voice
+#    composer uses. It follows the user's Hermes Settings, Voice (local faster-whisper, a local whisper
+#    command, or a cloud provider), and it drops Whisper's silence hallucinations. A desktop page cannot
+#    reach that route (``ctx.rest`` is scoped to /api/plugins/<id>), but this backend runs in the same
+#    process. ``tools.voice_mode`` is not in Hermes's public plugin API (``hermes_cli/data/plugin_api.json``),
+#    so admission names this import with a warning (never a refusal). The import is guarded: when a Hermes
+#    release moves the function, transcripts fall back to engine 2 instead of breaking. Text only, no word times.
+# 2. The plugin's own faster-whisper, with its model in the plugin's data folder, never the user's shared
+#    Hugging Face cache (on some computers that cache is a link to a drive that is not mounted). The shared
+#    cache is only read, as a bonus. Gives word times. Needs faster-whisper, which Hermes's local speech-to-text
+#    installs; this plugin declares no dependency.
+#
+# No download starts until the student presses Transcribe now and has seen the size: engine 1 runs on its
+# own only when Hermes would not download a model for it, and engine 2 downloads only on that press.
+
+CLOUD_STT = ("openai", "groq", "mistral", "xai", "elevenlabs", "deepinfra")  # Hermes's built-in cloud providers
+STT_LABELS = {"openai": "OpenAI", "groq": "Groq", "mistral": "Mistral", "xai": "xAI", "elevenlabs": "ElevenLabs",
+              "deepinfra": "DeepInfra", "local": "Hermes's local speech-to-text",
+              "local_command": "Hermes's local whisper command"}
+HERMES_LOCAL_DEFAULT = "base"  # Hermes's stt.local.model when none is set (tools/transcription_common.py)
+MODEL_FILES = ("model.bin", "config.json", "tokenizer.json")
+DOWNLOAD_TIMEOUT = 30 * 60
+WAV_RATE = 16000
+NO_SPEECH = ("No words were heard in this take. Your timing and pauses are kept. "
+             "Check the microphone, then record again, or type what you said.")
+DELETED = "This transcript was deleted. Press Transcribe now to make it again, or type what you said."
+
+
+def _repo(name):
+    """The Hugging Face repository faster-whisper uses for a model name (its own table), or None."""
+    name = str(name or "").strip()
+    if re.fullmatch(r"[\w.-]+/[\w.-]+", name):
+        return name
+    if name == "large":
+        return "Systran/faster-whisper-large-v3"
+    if name in ("turbo", "large-v3-turbo"):
+        return "mobiuslabsgmbh/faster-whisper-large-v3-turbo"
+    if name == "distil-large-v3.5":
+        return "distil-whisper/distil-large-v3.5-ct2"
+    if name in ("distil-large-v2", "distil-large-v3", "distil-medium.en", "distil-small.en"):
+        return f"Systran/faster-distil-whisper-{name[7:]}"
+    if re.fullmatch(r"(tiny|base|small|medium)(\.en)?|large-v[123]", name):
+        return f"Systran/faster-whisper-{name}"
+    return None
+
+
+def _is_file(p):
+    """A file is there. A link to a drive that is not mounted, or a folder we may not read, is not."""
+    try:
+        return p.is_file() and p.stat().st_size > 0
+    except OSError:
+        return False
+
+
+def _complete(d):
+    """A model folder faster-whisper can load with no network: weights, config, tokenizer, vocabulary."""
+    try:
+        if not d.is_dir():
+            return False
+        vocab = any(_is_file(v) for v in d.glob("vocabulary.*"))
+    except OSError:
+        return False
+    return vocab and all(_is_file(d / f) for f in MODEL_FILES)
+
+
 def _hf_hub_dirs():
-    """Where huggingface_hub keeps downloaded models, in the order it looks."""
+    """Where huggingface_hub keeps downloaded models for this user, in the order it looks (read only)."""
     out = []
     if os.environ.get("HF_HUB_CACHE"):
         out.append(Path(os.environ["HF_HUB_CACHE"]))
@@ -415,24 +516,57 @@ def _hf_hub_dirs():
     return out
 
 
+def _shared_snapshot(repo):
+    """A complete copy of ``repo`` in the user's shared Hugging Face cache, or None. Never writes there."""
+    for hub in _hf_hub_dirs():
+        snaps = hub / ("models--" + repo.replace("/", "--")) / "snapshots"
+        try:
+            dirs = sorted(snaps.iterdir())
+        except OSError:  # missing, a dangling link, a drive that is not mounted, no permission
+            continue
+        for d in dirs:
+            if _complete(d):
+                return d
+    return None
+
+
+def models_dir():
+    """The plugin's own folder for speech models: plugin-data/ld-workbench/models."""
+    return store.data_dir() / "models"
+
+
+def own_model_dir(name):
+    return models_dir() / name
+
+
+def find_model(name):
+    """Where the plugin's speech model is: its own data folder first, then the user's shared Hugging Face
+    cache, read only. None when neither has a complete copy."""
+    if name not in MODELS:
+        return None
+    try:
+        own = own_model_dir(name)
+    except OSError:
+        own = None
+    if own is not None and _complete(own):
+        return own
+    return _shared_snapshot(_repo(name))
+
+
 def model_cached(name):
     """True when the speech model is already on this computer, so the first transcript needs no download."""
-    if name not in MODELS:
-        return False
-    for hub in _hf_hub_dirs():
-        snaps = hub / f"models--Systran--faster-whisper-{name}" / "snapshots"
-        try:
-            if any((d / "model.bin").exists() for d in snaps.iterdir()):
-                return True
-        except OSError:
-            continue
-    return False
+    return find_model(name) is not None
 
 
-def transcript_status(chosen=None):
-    chosen = chosen if chosen in MODELS else DEFAULT_MODEL
-    return {"available": TRANSCRIBER.available(), "model": chosen, "models": list(MODELS),
-            "cached": {m: model_cached(m) for m in MODELS}, "mb": dict(MODEL_MB)}
+def hermes_model_cached(name):
+    """True when the model Hermes's local speech-to-text would load is already on this computer, so
+    Hermes would not download it (it downloads into the shared cache on a miss)."""
+    name = str(name or HERMES_LOCAL_DEFAULT).strip()
+    p = Path(name).expanduser()
+    if p.is_absolute():
+        return _complete(p)
+    repo = _repo(name)
+    return bool(repo) and _shared_snapshot(repo) is not None
 
 
 def whisper_installed():
@@ -440,6 +574,181 @@ def whisper_installed():
         return importlib.util.find_spec("faster_whisper") is not None
     except (ImportError, ValueError):
         return False
+
+
+def _hermes_transcribe_fn():
+    """Hermes's own transcription function, or None outside Hermes or after a release that moved it."""
+    try:
+        from tools.voice_mode import transcribe_recording  # private Hermes import; see the module notes
+    except Exception:
+        return None
+    return transcribe_recording if callable(transcribe_recording) else None
+
+
+def _hermes_stt_config():
+    """The active profile's ``stt`` settings, read through Hermes's public config module (the request runs
+    in that profile's scope). {} when it cannot be read."""
+    try:
+        from hermes_cli.config import load_config_readonly
+        cfg = load_config_readonly()
+    except Exception:
+        return {}
+    stt = cfg.get("stt") if isinstance(cfg, dict) else None
+    return stt if isinstance(stt, dict) else {}
+
+
+def _off(v):
+    return v is False or (isinstance(v, (int, str)) and str(v).strip().lower() in ("0", "false", "no", "off"))
+
+
+def hermes_plan():
+    """What Hermes's own speech-to-text would do with a take, decided without starting it.
+
+    {usable, provider, local, reason, model}. ``usable`` is False when the function is not there
+    (``missing``), speech-to-text is off in Hermes (``off``), or Hermes would first download its local
+    model (``model``). ``local`` is True when the audio stays on the computer, False when it goes to a
+    cloud provider, None when Hermes decides at run time (auto-detect, or a provider from a plugin)."""
+    plan = {"usable": False, "provider": None, "local": None, "reason": None, "model": None}
+    if _hermes_transcribe_fn() is None:
+        return dict(plan, reason="missing")
+    stt = _hermes_stt_config()
+    if _off(stt.get("enabled", True)):
+        return dict(plan, reason="off")
+    provider = str(stt.get("provider") or "").strip().lower()
+    if provider == "nous":  # the managed subscription is the OpenAI backend
+        provider = "openai"
+    if provider in CLOUD_STT:
+        return dict(plan, usable=True, provider=provider, local=False)
+    if provider in ("", "local", "local_command"):
+        if whisper_installed():  # Hermes's local faster-whisper comes first, and downloads its model on a miss
+            local = stt.get("local") if isinstance(stt.get("local"), dict) else {}
+            name = str(local.get("model") or HERMES_LOCAL_DEFAULT)
+            if hermes_model_cached(name):
+                return dict(plan, usable=True, provider="local", local=True, model=name)
+            return dict(plan, provider="local", local=True, reason="model", model=name)
+        if provider == "local_command":
+            return dict(plan, usable=True, provider="local_command", local=True)
+        return dict(plan, usable=True)  # auto: a local whisper command, or a cloud key, as Hermes finds them
+    return dict(plan, usable=True, provider=provider)  # a speech-to-text provider from a Hermes plugin
+
+
+def stt_label(provider):
+    return STT_LABELS.get(provider or "", provider or "the speech-to-text set up in Hermes")
+
+
+def transcript_status(chosen=None):
+    chosen = chosen if chosen in MODELS else DEFAULT_MODEL
+    plan = hermes_plan()
+    try:
+        folder = models_dir()
+        target = folder if folder.exists() else folder.parent
+        writable = os.access(target, os.W_OK)
+    except OSError:
+        writable = False
+    return {"available": TRANSCRIBER.available(), "model": chosen, "models": list(MODELS),
+            "cached": {m: model_cached(m) for m in MODELS}, "mb": dict(MODEL_MB),
+            "hermes": dict(plan, label=stt_label(plan["provider"])), "own_folder_writable": writable,
+            "fallback": whisper_installed()}
+
+
+# ---------- turning a take into the WAV Hermes's recorder makes ----------
+def _wav_with_av(src, dest):
+    import av  # PyAV ships with faster-whisper
+    with av.open(str(src)) as box:
+        stream = next((s for s in box.streams if s.type == "audio"), None)
+        if stream is None:
+            raise ValueError("no audio stream")
+        rs = av.AudioResampler(format="s16", layout="mono", rate=WAV_RATE)
+        limit = MAX_TAKE_SECONDS * WAV_RATE
+        written = 0
+        with wave.open(str(dest), "wb") as w:
+            w.setnchannels(1)
+            w.setsampwidth(2)
+            w.setframerate(WAV_RATE)
+
+            def put(frames):
+                nonlocal written
+                for f in frames or []:
+                    n = min(f.samples, limit - written)
+                    if n > 0:
+                        w.writeframes(bytes(f.planes[0])[: n * 2])
+                        written += n
+            for frame in box.decode(stream):
+                put(rs.resample(frame))
+                if written >= limit:
+                    break
+            put(rs.resample(None))
+    return dest
+
+
+def _wav_with_ffmpeg(src, dest):
+    exe = shutil.which("ffmpeg")
+    if not exe:
+        raise FileNotFoundError("ffmpeg")
+    subprocess.run([exe, "-nostdin", "-hide_banner", "-loglevel", "error", "-y", "-i", str(src), "-vn", "-ac", "1",
+                    "-ar", str(WAV_RATE), "-sample_fmt", "s16", "-t", str(MAX_TAKE_SECONDS), str(dest)],
+                   stdin=subprocess.DEVNULL, capture_output=True, timeout=120, check=True)
+    return dest
+
+
+def to_wav(src, dest):
+    """The take as 16 kHz mono 16-bit WAV, the file Hermes's own recorder hands ``transcribe_recording``.
+    PyAV first (it comes with faster-whisper), then ffmpeg on the PATH. None when neither can do it; the
+    caller then passes the recording as it is, as Hermes's own route does with the desktop's webm."""
+    for convert in (_wav_with_av, _wav_with_ffmpeg):
+        try:
+            convert(src, dest)
+            with wave.open(str(dest), "rb") as w:
+                if w.getnframes() > 0:
+                    return dest
+        except Exception:
+            pass
+        try:
+            Path(dest).unlink()
+        except OSError:
+            pass
+    return None
+
+
+class NoSpeech(Exception):
+    """Hermes heard no words (silence, or only a Whisper hallucination, which Hermes drops)."""
+
+
+class HermesFailed(Exception):
+    """Hermes's speech-to-text answered with an error."""
+
+
+class Unavailable(Exception):
+    """No engine can make this transcript: Hermes's could not, and faster-whisper is not installed."""
+
+
+def hermes_transcribe(path, fn):
+    """One take through Hermes's own speech-to-text: converted to WAV, then ``fn(wav_path)``, the way the
+    core route calls it. Returns {text, words: [], provider}."""
+    src = Path(path)
+    wav = None
+    try:
+        target = src
+        if src.suffix.lower() != ".wav":
+            tmp = store.data_dir() / "tmp"
+            tmp.mkdir(parents=True, exist_ok=True)
+            wav = tmp / f"{src.stem}-{secrets.token_hex(4)}.wav"
+            target = to_wav(src, wav) or src
+        result = fn(str(target))
+    finally:
+        if wav is not None:
+            try:
+                wav.unlink()
+            except OSError:
+                pass
+    if not isinstance(result, dict):
+        raise HermesFailed("Hermes answered with something unreadable")
+    if result.get("success"):
+        text = str(result.get("transcript") or "").strip()
+        if not text:
+            raise NoSpeech()
+        return {"text": text, "words": [], "provider": result.get("provider")}
+    raise HermesFailed(str(result.get("error") or "transcription failed")[:300])
 
 
 class NeedsDownload(Exception):
@@ -450,16 +759,94 @@ class NeedsDownload(Exception):
         self.name = name
 
 
+class ModelFolderError(Exception):
+    """The plugin's own model folder cannot be written."""
+
+    def __init__(self, path):
+        super().__init__(str(path))
+        self.path = path
+
+
+class DownloadFailed(Exception):
+    pass
+
+
 def download_ask(name):
     mb = MODEL_MB.get(name, 150)
     return (f"Transcripts need the {name} speech model (about {mb} MB), which is not on this computer yet. "
             "Press Transcribe now to download it once from huggingface.co (no audio is sent), or type what you said.")
 
 
-class Transcriber:
-    """faster-whisper behind one worker thread, loaded on first use and unloaded after 5 idle minutes.
+def folder_message(path):
+    return (f"The speech model cannot be saved: the workbench's folder {path} is not writable. "
+            "Your timing and pauses are kept. Whoever set up Hermes can fix the folder's permissions, "
+            "or you can type what you said.")
 
-    ``engine`` can be replaced (tests): a callable (path, model_name) -> {text, words}."""
+
+DOWNLOAD_FAILED = "The speech model could not be downloaded. Check the internet connection, then press Transcribe now."
+
+# Run in its own Python, so huggingface_hub reads only the settings below: the model goes to the plugin's
+# folder, its bookkeeping and download cache too, and the user's own Hugging Face cache, settings and
+# token are never touched. Fixed arguments, no shell.
+_DOWNLOAD_SCRIPT = (
+    "import sys\n"
+    "from huggingface_hub import snapshot_download\n"
+    "snapshot_download(sys.argv[1], local_dir=sys.argv[2], token=False, allow_patterns=[\n"
+    "    'config.json', 'preprocessor_config.json', 'model.bin', 'tokenizer.json', 'vocabulary.*'])\n")
+
+
+def _writable(d):
+    try:
+        d.mkdir(parents=True, exist_ok=True)
+        probe = d / f".probe-{secrets.token_hex(4)}"
+        probe.write_bytes(b"")
+        probe.unlink()
+        return True
+    except OSError:
+        return False
+
+
+def download_model(name):
+    """Download a speech model into plugin-data/ld-workbench/models/<name>. Called only after the student
+    pressed Transcribe now. Returns the folder."""
+    repo = _repo(name)
+    if name not in MODELS or not repo:
+        raise ValueError("Unknown speech model.")
+    root = models_dir()
+    if not _writable(root):
+        raise ModelFolderError(root)
+    part, dest, hf = root / f".{name}.part", own_model_dir(name), root / ".hf"
+    shutil.rmtree(part, ignore_errors=True)
+    env = {k: v for k, v in os.environ.items() if not k.upper().startswith(("HF_", "HUGGINGFACE"))}
+    env.update(HF_HOME=str(hf), HF_HUB_CACHE=str(hf / "hub"), HF_XET_CACHE=str(hf / "xet"),
+               HF_HUB_DISABLE_TELEMETRY="1", HF_HUB_DISABLE_PROGRESS_BARS="1", HF_HUB_DISABLE_IMPLICIT_TOKEN="1")
+    try:
+        r = subprocess.run([sys.executable, "-I", "-c", _DOWNLOAD_SCRIPT, repo, str(part)], env=env, cwd=str(root),
+                           stdin=subprocess.DEVNULL, capture_output=True, text=True, timeout=DOWNLOAD_TIMEOUT)
+        failed = r.returncode != 0
+        detail = (r.stderr or "")[-400:]
+    except (OSError, subprocess.SubprocessError) as e:
+        failed, detail = True, repr(e)
+    shutil.rmtree(part / ".cache", ignore_errors=True)  # huggingface_hub's own bookkeeping
+    shutil.rmtree(hf, ignore_errors=True)
+    if failed or not _complete(part):
+        shutil.rmtree(part, ignore_errors=True)
+        _log.warning("ld-workbench: speech model download failed: %s", detail)
+        raise DownloadFailed(detail)
+    shutil.rmtree(dest, ignore_errors=True)
+    os.replace(part, dest)
+    return dest
+
+
+DOWNLOAD = download_model  # tests replace this; they never download
+
+
+class Transcriber:
+    """The two engines behind one worker thread. faster-whisper is loaded on first use and unloaded after
+    5 idle minutes.
+
+    ``engine`` can be replaced (tests): a callable (path, model_name) -> {text, words} that stands in for
+    the plugin's own faster-whisper (engine 2)."""
 
     def __init__(self, engine=None):
         self._engine = engine
@@ -472,20 +859,24 @@ class Transcriber:
         self._jobs = set()  # takes queued or running in this process
         self._timer = None
 
-    def available(self):
+    def fallback_ready(self):
         return bool(self._engine) or whisper_installed()
+
+    def available(self):
+        return self.fallback_ready() or _hermes_transcribe_fn() is not None
 
     def _load(self, name, allow_download=False):
         if self._model is not None and self._model_name == name:
             return self._model
-        os.environ.setdefault("KMP_DUPLICATE_LIB_OK", "TRUE")
-        from faster_whisper import WhisperModel
-        try:
-            self._model = WhisperModel(name, device="cpu", compute_type="int8", local_files_only=True)
-        except Exception:
+        where = find_model(name)
+        if where is None:
             if not allow_download:  # the download happens only after the student presses Transcribe now
                 raise NeedsDownload(name)
-            self._model = WhisperModel(name, device="cpu", compute_type="int8", local_files_only=False)
+            where = DOWNLOAD(name)
+        os.environ.setdefault("KMP_DUPLICATE_LIB_OK", "TRUE")
+        from faster_whisper import WhisperModel
+        # A folder path: faster-whisper loads it as it is and never looks at the Hugging Face Hub.
+        self._model = WhisperModel(str(where), device="cpu", compute_type="int8", local_files_only=True)
         self._model_name = name
         return self._model
 
@@ -499,6 +890,33 @@ class Transcriber:
             for w in seg.words or []:
                 words.append({"word": w.word.strip(), "start": round(float(w.start), 2), "end": round(float(w.end), 2)})
         return {"text": " ".join(p.strip() for p in parts).strip(), "words": words}
+
+    def _transcribe(self, path, model_name, allow_download, plan):
+        """Engine 1 when Hermes would run it without a download, else (or when it fails) engine 2."""
+        hermes_error = None
+        if plan.get("usable"):
+            fn = _hermes_transcribe_fn()
+            if fn is not None:
+                try:
+                    r = hermes_transcribe(path, fn)
+                    provider = str(r.get("provider") or plan.get("provider") or "") or None
+                    local = plan.get("local")
+                    if provider in CLOUD_STT:
+                        local = False
+                    elif provider in ("local", "local_command"):
+                        local = True
+                    return {"text": r["text"], "words": [], "engine": "hermes", "provider": provider,
+                            "label": stt_label(provider), "local": local, "model": None}
+                except NoSpeech:
+                    raise
+                except Exception as e:  # a Hermes error, or a release that changed the function
+                    hermes_error = e
+                    _log.warning("ld-workbench: Hermes's speech-to-text failed, using the workbench's own: %r", e)
+        if not self.fallback_ready():
+            raise Unavailable(hermes_error)
+        r = self._engine(path, model_name) if self._engine else self._whisper(path, model_name, allow_download)
+        return {"text": r.get("text"), "words": r.get("words"), "engine": "workbench", "provider": "faster-whisper",
+                "label": "faster-whisper on this computer", "local": True, "model": model_name}
 
     def _unload_later(self):
         def check():
@@ -529,7 +947,11 @@ class Transcriber:
         """Queue a take. Its status moves waiting -> working -> done | failed | unavailable.
 
         ``allow_download``: True only when the student pressed Transcribe now. A recording that has just
-        arrived never starts a download of the speech model; its take says what the download is and waits."""
+        arrived never starts a download; its take says what the download is and waits.
+
+        Called from a request, so it runs in the requesting profile's scope (Hermes wraps every plugin
+        route in it). The job runs in a copy of that context, so Hermes's speech-to-text reads the same
+        profile's settings and keys, as ``asyncio.to_thread`` gives the core route."""
         if model_name not in MODELS:
             model_name = DEFAULT_MODEL
         take = get_take(take_id)
@@ -541,19 +963,25 @@ class Transcriber:
         self._cancel.discard(take_id)
         if take_id in self._jobs:  # a second press while it is already queued or running
             return get_take(take_id)
-        if self._engine is None and not allow_download and not model_cached(model_name):
-            change_take(take_id, lambda t: t["transcript"].update(status="failed", error=download_ask(model_name)))
-            return get_take(take_id)
+        plan = hermes_plan()
+        if not plan["usable"] and self._engine is None and not model_cached(model_name):
+            if not whisper_installed():
+                change_take(take_id, lambda t: t["transcript"].update(status="unavailable", error=None))
+                return get_take(take_id)
+            if not allow_download:
+                change_take(take_id, lambda t: t["transcript"].update(status="failed", error=download_ask(model_name)))
+                return get_take(take_id)
         self._jobs.add(take_id)
         change_take(take_id, lambda t: t["transcript"].update(status="waiting", error=None))
+        ctx = contextvars.copy_context()
         try:
-            self._pool.submit(self._run, take_id, model_name, allow_download)
+            self._pool.submit(ctx.run, self._run, take_id, model_name, allow_download, plan)
         except RuntimeError:  # the pool is shutting down with Hermes
             self._jobs.discard(take_id)
             change_take(take_id, lambda t: t["transcript"].update(status="failed", error=INTERRUPTED))
         return get_take(take_id)
 
-    def _run(self, take_id, model_name, allow_download=False):
+    def _run(self, take_id, model_name, allow_download=False, plan=None):
         try:
             if take_id in self._cancel:
                 self._mark_cancelled(take_id)
@@ -562,13 +990,14 @@ class Transcriber:
             path = audio_path(take)
             if not path:
                 raise RuntimeError("The recording is gone.")
+
             def begin(t):  # only a waiting take starts; typed words that arrived first stay as they are
                 if t["transcript"].get("status") == "waiting":
                     t["transcript"].update(status="working", started=int(time.time()))
             if change_take(take_id, begin)["transcript"].get("status") != "working":
                 return
             with self._lock:
-                result = self._engine(path, model_name) if self._engine else self._whisper(path, model_name, allow_download)
+                result = self._transcribe(path, model_name, allow_download, plan or {"usable": False})
                 self._last_used = time.time()
             if take_id in self._cancel:
                 self._mark_cancelled(take_id)
@@ -579,20 +1008,29 @@ class Transcriber:
             def done(t):
                 if t["transcript"].get("status") not in ("waiting", "working"):
                     return  # the student typed their own words meanwhile; theirs win
-                t["transcript"] = {"status": "done", "text": text, "words": words, "model": model_name, "error": None}
+                t["transcript"] = {"status": "done", "text": text, "words": words, "model": result.get("model"),
+                                   "engine": result.get("engine"), "provider": result.get("provider"),
+                                   "label": result.get("label"), "local": result.get("local"), "error": None}
                 t["stats"] = measure(t, t["transcript"], t.get("answer"))
             change_take(take_id, done)
         except Exception as e:  # never leaves a take stuck in "working"
-            (_log.info if isinstance(e, NeedsDownload) else _log.warning)("ld-workbench: transcription of %s failed: %r", take_id, e)
-            msg = "The transcript could not be made. Your timing and pauses are kept."
+            quiet = isinstance(e, (NeedsDownload, NoSpeech, Unavailable))
+            (_log.info if quiet else _log.warning)("ld-workbench: transcription of %s failed: %r", take_id, e)
+            status, msg = "failed", "The transcript could not be made. Your timing and pauses are kept."
             if isinstance(e, NeedsDownload):
                 msg = download_ask(e.name)
-            elif "download" in str(e).lower() or "huggingface" in str(e).lower() or "connect" in str(e).lower():
-                msg = "The speech model could not be downloaded. Check the internet connection, then press Transcribe now."
+            elif isinstance(e, NoSpeech):
+                msg = NO_SPEECH
+            elif isinstance(e, Unavailable):
+                status, msg = "unavailable", None
+            elif isinstance(e, ModelFolderError):
+                msg = folder_message(e.path)
+            elif isinstance(e, DownloadFailed) or any(k in str(e).lower() for k in ("download", "huggingface", "connect")):
+                msg = DOWNLOAD_FAILED
             try:
                 def failed(t):
                     if t["transcript"].get("status") in ("waiting", "working"):
-                        t["transcript"].update(status="failed", error=msg)
+                        t["transcript"].update(status=status, error=msg)
                 change_take(take_id, failed)
             except ValueError:
                 pass

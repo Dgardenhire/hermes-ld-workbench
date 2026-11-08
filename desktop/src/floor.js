@@ -291,18 +291,25 @@ export function Stats({ take, limit }) {
   ] }, i)) })
 }
 
+// Where the transcript was made: Hermes's own speech-to-text (which may be a cloud service the adult chose
+// in Hermes) or the workbench's faster-whisper on this computer. Said on the take, so it is never a guess.
 export function transcriptLine(t) {
   const st = t.transcript.status
-  if (st === 'done') return 'Transcript, on this computer'
+  const tr = t.transcript
+  if (st === 'done') {
+    if (tr.local === false) return `Transcript by ${tr.label || tr.provider}, through Hermes`
+    if (tr.engine === 'hermes' && tr.local !== true) return "Transcript by Hermes's speech-to-text"
+    return 'Transcript, on this computer'
+  }
   if (st === 'typed') return t.typed ? 'Typed, not recorded' : 'Your words, typed'
-  if (st === 'waiting' || st === 'working') return 'Making the transcript on this computer'
+  if (st === 'waiting' || st === 'working') return 'Making the transcript'
   if (st === 'unavailable') return 'Timing only'
   if (st === 'failed') return 'Timing only'
   if (st === 'cancelled') return 'Transcript stopped'
   return ''
 }
 
-export const TRANSCRIPTS_OFF = "Transcripts need Hermes's local speech-to-text. In Hermes Settings, Voice, set the speech-to-text provider to local and use voice input once. Then press Transcribe now. Or type what you said."
+export const TRANSCRIPTS_OFF = "Transcripts need speech-to-text in Hermes. In Hermes Settings, Voice, choose a speech-to-text provider (local keeps your voice on this computer). Then press Transcribe now. Or type what you said."
 
 // The last take: header, waveform, numbers, the transcript state and what to do about it.
 export function LastTake({ take, limit, title, onChange, children }) {
@@ -317,7 +324,7 @@ export function LastTake({ take, limit, title, onChange, children }) {
     jsxs('div', { className: 'ldw-last-head', children: [jsx('h3', { className: 'ldw-h3', children: title || 'Your take' }), jsx('span', { className: 'ldw-prov', children: transcriptLine(take) })] }),
     !take.typed ? jsx(Wave, { levels: take.levels || [], duration: take.duration, pauses: s.pauses || [], answerAt: s.answer_at, startsAt: s.starts_at || 0, limit }) : null,
     jsx(Stats, { take, limit }),
-    WAITING.has(st) ? jsxs('div', { className: 'hk-row', children: [jsx(Thinking, { label: 'Making the transcript on this computer' }),
+    WAITING.has(st) ? jsxs('div', { className: 'hk-row', children: [jsx(Thinking, { label: 'Making the transcript' }),
       jsx('button', { type: 'button', className: 'hk-link', onClick: () => call(() => post(`speech/${take.id}/cancel`)), children: 'Stop' })] }) : null,
     st === 'unavailable' || st === 'failed' || st === 'cancelled' ? jsx(Notice, { tone: 'warn', children: st === 'failed' ? take.transcript.error : TRANSCRIPTS_OFF,
       action: jsxs('div', { className: 'hk-actions', children: [

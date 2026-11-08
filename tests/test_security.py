@@ -238,36 +238,48 @@ class HostileTextForTheModel(unittest.TestCase):
         self.assertEqual(len(library.list_cases()), n)
 
 
+def complete_model(folder):
+    """Write the files faster-whisper needs to load a model folder (stand-ins, not a real model)."""
+    folder.mkdir(parents=True, exist_ok=True)
+    for name in ("model.bin", "config.json", "tokenizer.json", "vocabulary.txt"):
+        (folder / name).write_bytes(b"x")
+    return folder
+
+
 class SpeechModelDownload(unittest.TestCase):
-    """F-3: a recording that had just arrived started a ~145 MB download from huggingface.co on its own."""
+    """F-4: a recording that had just arrived started a ~145 MB download from huggingface.co on its own.
+    And (Nov 8): the model now lives in the plugin's own folder, never the shared Hugging Face cache."""
 
     def setUp(self):
+        import importlib.machinery
         reset()
-        self.loaded = []
+        self.loaded, self.downloads = [], []
         loaded = self.loaded
 
         class WhisperModel:
-            def __init__(self, name, device=None, compute_type=None, local_files_only=False):
-                loaded.append(local_files_only)
-                if local_files_only:
-                    raise RuntimeError("not cached")
+            def __init__(self, where, device=None, compute_type=None, local_files_only=False):
+                loaded.append(where)
 
             def transcribe(self, *a, **k):
                 return iter([]), None
 
         fw = types.ModuleType("faster_whisper")
+        fw.__spec__ = importlib.machinery.ModuleSpec("faster_whisper", None)  # "installed"
         fw.WhisperModel = WhisperModel
         self._old_mod = sys.modules.get("faster_whisper")
         sys.modules["faster_whisper"] = fw
         self.t = speech.Transcriber()  # the real whisper path, no stand-in engine
-        self.t.available = lambda: True
-        self._old = (speech.TRANSCRIBER, speech.model_cached)
+        self._old = (speech.TRANSCRIBER, speech.model_cached, speech.DOWNLOAD)
         speech.TRANSCRIBER = api.speech.TRANSCRIBER = self.t
-        speech.model_cached = lambda name: False
+
+        def fake_download(name):
+            self.downloads.append(name)
+            return complete_model(speech.own_model_dir(name))
+        speech.DOWNLOAD = fake_download
 
     def tearDown(self):
         speech.TRANSCRIBER = api.speech.TRANSCRIBER = self._old[0]
-        speech.model_cached = self._old[1]
+        speech.model_cached, speech.DOWNLOAD = self._old[1], self._old[2]
         if self._old_mod is None:
             sys.modules.pop("faster_whisper", None)
         else:
@@ -291,13 +303,13 @@ class SpeechModelDownload(unittest.TestCase):
         self.assertEqual(tr["status"], "failed")
         self.assertIn("Press Transcribe now to download it", tr["error"])
         self.assertIn("no audio is sent", tr["error"])
-        self.assertEqual(self.loaded, [])  # not even an attempt
+        self.assertEqual((self.downloads, self.loaded), ([], []))  # not even an attempt
 
     def test_a_cached_check_that_misses_still_does_not_download(self):
-        speech.model_cached = lambda name: True  # thinks it is there; the model itself says it is not
+        speech.model_cached = lambda name: True  # thinks it is there; the folder says it is not
         out = self._take()
         tr = self._wait(out["id"])
-        self.assertEqual(self.loaded, [True])  # tried the local copy only
+        self.assertEqual((self.downloads, self.loaded), ([], []))
         self.assertIn("Press Transcribe now", tr["error"])
 
     def test_transcribe_now_is_the_consent(self):
@@ -305,7 +317,162 @@ class SpeechModelDownload(unittest.TestCase):
         self._wait(out["id"])
         run(api.post_take_transcribe(out["id"]))
         self._wait(out["id"])
-        self.assertEqual(self.loaded, [True, False])  # local first, then the download the student asked for
+        self.assertEqual(self.downloads, ["base.en"])  # the download the student asked for
+        self.assertEqual(self.loaded, [str(speech.own_model_dir("base.en"))])  # loaded from the plugin's folder
+        self.assertTrue(str(speech.own_model_dir("base.en")).startswith(str(store.data_dir())))
+
+    def test_a_model_already_in_the_plugin_folder_needs_no_press(self):
+        complete_model(speech.own_model_dir("base.en"))
+        out = self._take()
+        self.assertEqual(self._wait(out["id"])["status"], "done")
+        self.assertEqual(self.downloads, [])
+
+    def test_the_shared_cache_is_only_read(self):
+        import os
+        from pathlib import Path
+        hub = Path(os.environ["XDG_CACHE_HOME"]) / "huggingface" / "hub"
+        snap = complete_model(hub / "models--Systran--faster-whisper-base.en" / "snapshots" / "abc123")
+        before = sorted(str(p) for p in hub.rglob("*"))
+        try:
+            self.assertEqual(speech.find_model("base.en"), snap)
+            out = self._take()
+            self.assertEqual(self._wait(out["id"])["status"], "done")
+            self.assertEqual((self.loaded, self.downloads), ([str(snap)], []))
+            self.assertEqual(sorted(str(p) for p in hub.rglob("*")), before)  # nothing written there
+        finally:
+            import shutil
+            shutil.rmtree(Path(os.environ["XDG_CACHE_HOME"]) / "huggingface", ignore_errors=True)
+
+
+class SpeechModelLocation(unittest.TestCase):
+    """Must fix before release (Nov 8): on Damon's Mac ~/.cache/huggingface is a link to an external drive
+    that is often not mounted. The model must be found and saved in the plugin's own folder, and any place
+    that cannot be used must be said plainly, with timing-only mode kept."""
+
+    def setUp(self):
+        import os
+        import tempfile
+        reset()
+        self.env = {k: os.environ.get(k) for k in ("XDG_CACHE_HOME", "HF_HOME", "HF_HUB_CACHE")}
+        self.tmp = tempfile.mkdtemp(prefix="ldw-link-")
+
+    def tearDown(self):
+        import os
+        import shutil
+        for k, v in self.env.items():
+            if v is None:
+                os.environ.pop(k, None)
+            else:
+                os.environ[k] = v
+        try:
+            os.chmod(speech.models_dir(), 0o755)
+        except OSError:
+            pass
+        shutil.rmtree(self.tmp, ignore_errors=True)
+
+    def _link_cache_to(self, target):
+        import os
+        from pathlib import Path
+        xdg = Path(self.tmp) / "xdg"
+        xdg.mkdir()
+        (xdg / "huggingface").symlink_to(target)
+        os.environ["XDG_CACHE_HOME"] = str(xdg)
+        return xdg / "huggingface"
+
+    def _assert_unusable_but_quiet(self):
+        self.assertFalse(speech.model_cached("base.en"))
+        self.assertFalse(speech.hermes_model_cached("small"))
+        self.assertIsNone(speech.find_model("small.en"))
+        st = speech.transcript_status("base.en")
+        self.assertFalse(st["cached"]["base.en"])
+
+    def test_a_dangling_link_is_not_a_model_and_raises_nothing(self):
+        link = self._link_cache_to(self.tmp + "/gone/huggingface")
+        self.assertTrue(link.is_symlink() and not link.exists())
+        self._assert_unusable_but_quiet()
+
+    def test_a_drive_that_is_not_mounted_is_not_a_model(self):
+        import secrets
+        self._link_cache_to(f"/Volumes/LDW Test Drive {secrets.token_hex(4)}/runtime/huggingface")
+        self._assert_unusable_but_quiet()
+
+    def test_the_download_goes_to_the_plugin_folder_with_a_private_hugging_face_home(self):
+        """The real download_model, with the download itself stood in: the separate Python gets fixed
+        arguments, no shell, and a Hugging Face home inside the plugin's folder, so a dangling shared
+        cache, the user's settings and their token are never used."""
+        import os
+        import subprocess as sp
+        from pathlib import Path
+        self._link_cache_to(self.tmp + "/gone/huggingface")
+        os.environ["HF_HOME"] = self.tmp + "/gone/huggingface"
+        seen = {}
+
+        def fake_run(argv, **kw):
+            seen.update(argv=argv, **kw)
+            complete_model(Path(argv[-1]))
+            (Path(argv[-1]) / ".cache" / "huggingface").mkdir(parents=True)
+            return sp.CompletedProcess(argv, 0, "", "")
+        old = speech.subprocess.run
+        speech.subprocess.run = fake_run
+        try:
+            where = speech.download_model("base.en")
+        finally:
+            speech.subprocess.run = old
+        models = speech.models_dir()
+        self.assertEqual(where, models / "base.en")
+        self.assertTrue(speech._complete(where))
+        self.assertFalse((where / ".cache").exists())
+        self.assertEqual(seen["argv"][:3], [sys.executable, "-I", "-c"])
+        self.assertEqual(seen["argv"][3], speech._DOWNLOAD_SCRIPT)
+        self.assertIn("token=False", seen["argv"][3])
+        self.assertEqual(seen["argv"][4:], ["Systran/faster-whisper-base.en", str(models / ".base.en.part")])
+        self.assertNotIn("shell", seen)
+        env = seen["env"]
+        for k in ("HF_HOME", "HF_HUB_CACHE", "HF_XET_CACHE"):
+            self.assertTrue(env[k].startswith(str(models)), k)
+        self.assertFalse(any(k in env for k in ("HF_TOKEN", "HUGGING_FACE_HUB_TOKEN")))
+        self.assertEqual(speech.find_model("base.en"), where)  # found in its own folder from now on
+
+    def test_an_unwritable_plugin_folder_is_said_plainly_and_keeps_timing(self):
+        import os
+        models = speech.models_dir()
+        models.mkdir(parents=True, exist_ok=True)
+        os.chmod(models, 0o555)
+        if os.access(models, os.W_OK):
+            self.skipTest("running as a user who can write anywhere")
+        with self.assertRaises(speech.ModelFolderError):
+            speech.download_model("base.en")
+        self.assertFalse(speech.transcript_status()["own_folder_writable"])
+        t = speech.new_take({"event": "drill", "limit": 60, "duration": 12, "levels": [0.0] * 10 + [0.5] * 100})
+        speech.save_audio(t["id"], b"webm", "audio/webm")
+
+        tr = speech.Transcriber()  # the real chain: no model anywhere, the press, then the folder check
+        tr.fallback_ready = lambda: True
+        tr._jobs.add(t["id"])
+        tr._run(t["id"], "base.en", True, {"usable": False})
+        got = speech.get_take(t["id"])
+        self.assertEqual(got["transcript"]["status"], "failed")
+        self.assertIn("is not writable", got["transcript"]["error"])
+        self.assertIn("timing and pauses are kept", got["transcript"]["error"])
+        self.assertEqual(got["stats"]["speaking"], 10.0)
+
+    def test_a_failed_download_leaves_nothing_half_done(self):
+        import subprocess as sp
+        from pathlib import Path
+
+        def fake_run(argv, **kw):
+            Path(argv[-1]).mkdir(parents=True)
+            (Path(argv[-1]) / "model.bin").write_bytes(b"half")
+            return sp.CompletedProcess(argv, 1, "", "ConnectionError: offline")
+        old = speech.subprocess.run
+        speech.subprocess.run = fake_run
+        try:
+            with self.assertRaises(speech.DownloadFailed):
+                speech.download_model("small.en")
+        finally:
+            speech.subprocess.run = old
+        self.assertFalse((speech.models_dir() / ".small.en.part").exists())
+        self.assertIsNone(speech.find_model("small.en"))
 
 
 class PathsAndDisclosure(unittest.TestCase):

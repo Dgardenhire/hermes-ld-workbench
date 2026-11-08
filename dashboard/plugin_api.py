@@ -729,7 +729,7 @@ async def get_home():
         hist = ballots.history()
         return {"settings": st, "next_drill": ballots.next_drill(hist), "starter": extemp.STARTER,
                 "transcripts": speech.transcript_status(st.get("transcript_model")),
-                "recordings": speech.recordings_summary(), "last_take": last, "extemp_round": store.read("extemp_round.json"),
+                "recordings": speech.recordings_summary(), "transcripts_kept": speech.transcripts_summary(), "last_take": last, "extemp_round": store.read("extemp_round.json"),
                 "ld_round": store.read("round.json") is not None, "ballots": len(hist),
                 "patterns": ballots.patterns(hist), "file_count": len(extemp.file_items())}
     except Exception as e:
@@ -851,6 +851,23 @@ async def post_take_cancel(take_id: str):
 async def post_recordings_delete():
     try:
         return {"deleted": speech.delete_all_recordings()} | speech.recordings_summary()
+    except Exception as e:
+        _fail(e)
+
+
+@router.post("/data/delete")
+async def post_data_delete():
+    """Delete transcripts and ballots, pressed in Settings after a confirm: every transcript and the
+    student's words kept with a take, every ballot, and the rounds in progress (their speeches are
+    transcripts too). Recordings, timing, cases and the extemp file stay."""
+    try:
+        transcripts = speech.delete_transcripts()
+        gone = ballots.delete_all()
+        ended = store.read("round.json") is not None or store.read("extemp_round.json") is not None
+        store.write("round.json", None)
+        store.write("extemp_round.json", None)
+        return {"transcripts": transcripts, "ballots": gone, "round_ended": ended,
+                "transcripts_kept": speech.transcripts_summary(), "ballots_kept": len(ballots.history())}
     except Exception as e:
         _fail(e)
 

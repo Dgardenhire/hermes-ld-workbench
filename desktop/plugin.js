@@ -913,15 +913,20 @@ function Stats({ take, limit }) {
 }
 function transcriptLine(t) {
   const st = t.transcript.status;
-  if (st === "done") return "Transcript, on this computer";
+  const tr = t.transcript;
+  if (st === "done") {
+    if (tr.local === false) return `Transcript by ${tr.label || tr.provider}, through Hermes`;
+    if (tr.engine === "hermes" && tr.local !== true) return "Transcript by Hermes's speech-to-text";
+    return "Transcript, on this computer";
+  }
   if (st === "typed") return t.typed ? "Typed, not recorded" : "Your words, typed";
-  if (st === "waiting" || st === "working") return "Making the transcript on this computer";
+  if (st === "waiting" || st === "working") return "Making the transcript";
   if (st === "unavailable") return "Timing only";
   if (st === "failed") return "Timing only";
   if (st === "cancelled") return "Transcript stopped";
   return "";
 }
-var TRANSCRIPTS_OFF = "Transcripts need Hermes's local speech-to-text. In Hermes Settings, Voice, set the speech-to-text provider to local and use voice input once. Then press Transcribe now. Or type what you said.";
+var TRANSCRIPTS_OFF = "Transcripts need speech-to-text in Hermes. In Hermes Settings, Voice, choose a speech-to-text provider (local keeps your voice on this computer). Then press Transcribe now. Or type what you said.";
 function LastTake({ take, limit, title, onChange, children }) {
   const [typing, setTyping] = useState4(false);
   const [text, setText] = useState4("");
@@ -945,7 +950,7 @@ function LastTake({ take, limit, title, onChange, children }) {
     !take.typed ? jsx4(Wave, { levels: take.levels || [], duration: take.duration, pauses: s.pauses || [], answerAt: s.answer_at, startsAt: s.starts_at || 0, limit }) : null,
     jsx4(Stats, { take, limit }),
     WAITING.has(st) ? jsxs4("div", { className: "hk-row", children: [
-      jsx4(Thinking, { label: "Making the transcript on this computer" }),
+      jsx4(Thinking, { label: "Making the transcript" }),
       jsx4("button", { type: "button", className: "hk-link", onClick: () => call(() => post(`speech/${take.id}/cancel`)), children: "Stop" })
     ] }) : null,
     st === "unavailable" || st === "failed" || st === "cancelled" ? jsx4(Notice, {
@@ -2218,6 +2223,11 @@ var mb = (bytes) => `${Math.max(0.1, bytes / 1048576).toFixed(bytes < 10485760 ?
 function Section2({ title, children }) {
   return jsxs8("section", { className: "ldw-set", "aria-label": title, children: [jsx8("h2", { className: "ldw-set-title", children: title }), jsx8("div", { className: "ldw-set-body", children })] });
 }
+function hermesLine(h) {
+  if (h.local === false) return `Made by ${h.label}, the speech-to-text chosen in Hermes Settings, Voice. Each recording goes to ${h.label} to be transcribed.`;
+  if (h.local === true) return `Made on this computer by ${h.label}, as set in Hermes Settings, Voice. Your recordings stay on it.`;
+  return "Made by the speech-to-text set up in Hermes Settings, Voice. If that is a cloud service, each recording goes to it to be transcribed.";
+}
 function Transcripts({ t }) {
   const [busy, setBusy] = useState8(false);
   const [err, setErr] = useState8(null);
@@ -2233,26 +2243,28 @@ function Transcripts({ t }) {
       setBusy(false);
     }
   };
+  const h = t.hermes || {};
+  const own = !h.usable && t.fallback;
   const cached = (t.cached || {})[t.model];
   return jsxs8(Section2, { title: "Transcripts", children: [
-    jsx8("p", { className: "ldw-set-status", "data-ok": t.available ? "" : void 0, children: t.available ? "Made on this computer with faster-whisper. Your recordings stay on it." : "Not set up yet. Every take still gets real timing and pauses." }),
-    !t.available ? jsx8(Notice, { tone: "info", children: TRANSCRIPTS_OFF }) : null,
-    jsx8(SegmentedControl2, { value: t.model, onChange: pick, disabled: busy, options: (t.models || []).map((m) => ({ id: m, label: `${m}: ${MODEL_TEXT[m] || ""}` })) }),
-    t.available ? jsx8("p", { className: "ldw-set-line", children: cached ? `${t.model} is already on this computer.` : `The first transcript downloads ${t.model} (about ${(t.mb || {})[t.model] || 150} MB) from huggingface.co, once. After that it works offline.` }) : null,
+    jsx8("p", { className: "ldw-set-status", "data-ok": t.available ? "" : void 0, children: h.usable ? hermesLine(h) : own ? "Made on this computer with faster-whisper. Your recordings stay on it." : "Not set up yet. Every take still gets real timing and pauses." }),
+    own && h.reason === "model" ? jsx8("p", { className: "ldw-set-line", children: `Hermes's own speech-to-text would first download its ${h.model} model, so the workbench uses its own copy, kept in its own folder.` }) : null,
+    !t.available || !h.usable && !t.fallback ? jsx8(Notice, { tone: "info", children: TRANSCRIPTS_OFF }) : null,
+    own ? jsx8(SegmentedControl2, { value: t.model, onChange: pick, disabled: busy, options: (t.models || []).map((m) => ({ id: m, label: `${m}: ${MODEL_TEXT[m] || ""}` })) }) : null,
+    own ? jsx8("p", { className: "ldw-set-line", children: cached ? `${t.model} is already on this computer.` : `The first transcript asks before it downloads ${t.model} (about ${(t.mb || {})[t.model] || 150} MB) from huggingface.co into the workbench's own folder, once. After that it works offline.` }) : null,
+    own && t.own_folder_writable === false && !cached ? jsx8(Notice, { tone: "warn", children: "The workbench's folder for the speech model is not writable, so the model cannot be saved. Timing and pauses still work." }) : null,
     err ? jsx8(Notice, { tone: "bad", children: err }) : null
   ] });
 }
-function Recordings({ r }) {
+function DeleteWithConfirm({ label, ask, yes, no, disabled, run }) {
   const [sure, setSure] = useState8(false);
   const [busy, setBusy] = useState8(false);
   const [msg, setMsg] = useState8(null);
-  const wipe = async () => {
+  const go = async () => {
     setBusy(true);
     setMsg(null);
     try {
-      const d = await post("recordings/delete");
-      await loadHome();
-      setMsg({ tone: "good", text: `Deleted ${d.deleted} recording${d.deleted === 1 ? "" : "s"}. Your ballots, timing and transcripts are kept.` });
+      setMsg({ tone: "good", text: await run() });
     } catch (e) {
       setMsg({ tone: "bad", text: errText(e) });
     } finally {
@@ -2260,14 +2272,35 @@ function Recordings({ r }) {
       setSure(false);
     }
   };
-  return jsxs8(Section2, { title: "Recordings", children: [
-    jsxs8("p", { className: "ldw-set-line", children: [jsx8("b", { children: String(r.count) }), ` recording${r.count === 1 ? "" : "s"} on this computer, ${mb(r.bytes || 0)}. The newest ${r.keep} are kept; older ones are deleted as you go.`] }),
-    !sure ? jsx8("div", { children: jsx8(Button6, { size: "sm", variant: "secondary", disabled: !r.count, onClick: () => setSure(true), children: "Delete all recordings" }) }) : null,
-    sure ? jsx8(Notice, { tone: "warn", children: "Delete every recording? Ballots, timing and transcripts stay.", action: jsxs8("div", { className: "hk-actions", children: [
-      jsx8(Button6, { size: "sm", variant: "secondary", className: "ldw-danger", loading: busy, onClick: wipe, children: "Delete them" }),
-      jsx8(Button6, { size: "sm", variant: "secondary", onClick: () => setSure(false), children: "Keep them" })
+  return jsxs8(Fragment6, { children: [
+    !sure ? jsx8("div", { children: jsx8(Button6, { size: "sm", variant: "secondary", disabled, onClick: () => {
+      setMsg(null);
+      setSure(true);
+    }, children: label }) }) : null,
+    sure ? jsx8(Notice, { tone: "warn", children: ask, action: jsxs8("div", { className: "hk-actions", children: [
+      jsx8(Button6, { size: "sm", variant: "secondary", className: "ldw-danger", loading: busy, onClick: go, children: yes }),
+      jsx8(Button6, { size: "sm", variant: "secondary", onClick: () => setSure(false), children: no })
     ] }) }) : null,
     msg ? jsx8(Notice, { tone: msg.tone, children: msg.text }) : null
+  ] });
+}
+var plural2 = (n, one) => `${n} ${one}${n === 1 ? "" : "s"}`;
+function Recordings({ r, kept }) {
+  const wipeAudio = async () => {
+    const d = await post("recordings/delete");
+    await loadHome();
+    return `Deleted ${plural2(d.deleted, "recording")}. Your ballots, timing and transcripts are kept.`;
+  };
+  const wipeWords = async () => {
+    const d = await post("data/delete");
+    await loadHome();
+    return `Deleted ${plural2(d.transcripts, "transcript")} and ${plural2(d.ballots, "ballot")}${d.round_ended ? ", and ended the round in progress" : ""}. Recordings, timing, cases and your extemp file are kept.`;
+  };
+  return jsxs8(Section2, { title: "Recordings, transcripts and ballots", children: [
+    jsxs8("p", { className: "ldw-set-line", children: [jsx8("b", { children: String(r.count) }), ` recording${r.count === 1 ? "" : "s"} on this computer, ${mb(r.bytes || 0)}. The newest ${r.keep} are kept; older ones are deleted as you go.`] }),
+    jsx8(DeleteWithConfirm, { label: "Delete all recordings", ask: "Delete every recording? Ballots, timing and transcripts stay.", yes: "Delete them", no: "Keep them", disabled: !r.count, run: wipeAudio }),
+    jsxs8("p", { className: "ldw-set-line", children: [jsx8("b", { children: String(kept.transcripts) }), ` transcript${kept.transcripts === 1 ? "" : "s"} and `, jsx8("b", { children: String(kept.ballots) }), ` ballot${kept.ballots === 1 ? "" : "s"} on this computer.`] }),
+    jsx8(DeleteWithConfirm, { label: "Delete transcripts and ballots", ask: "Delete every transcript and ballot? A round in progress ends. Recordings, timing, cases and your extemp file stay.", yes: "Delete them", no: "Keep them", disabled: !kept.transcripts && !kept.ballots, run: wipeWords })
   ] });
 }
 function Outlets() {
@@ -2281,9 +2314,23 @@ function Outlets() {
     saved ? jsx8(Notice, { tone: "good", children: saved }) : null
   ] });
 }
+function voiceLines(t) {
+  const h = t && t.hermes || {};
+  const kept = "Recorded only while you speak and kept on the computer that runs Hermes.";
+  if (h.usable && h.local === false) return [
+    ["Your voice", `${kept} Each recording goes to ${h.label}, the speech-to-text chosen in Hermes, to be transcribed. It never goes to a model or a website otherwise.`],
+    ["Transcripts", `Made by ${h.label}, through Hermes. Change it in Hermes Settings, Voice; local keeps your voice on this computer.`]
+  ];
+  if (h.usable && h.local !== true) return [
+    ["Your voice", `${kept} If the speech-to-text set up in Hermes is a cloud service, each recording goes to it to be transcribed. Otherwise it never leaves.`],
+    ["Transcripts", "Made by the speech-to-text set up in Hermes Settings, Voice."]
+  ];
+  return [
+    ["Your voice", `${kept} It never goes to a model or a website.`],
+    ["Transcripts", h.usable ? "Made on this computer by Hermes's own speech-to-text." : "Made on the computer that runs Hermes. The only download is the workbench's speech model, once, when you ask for it."]
+  ];
+}
 var LEAVES = [
-  ["Your voice", "Recorded only while you speak and kept on the computer that runs Hermes. It never goes to a model or a website."],
-  ["Transcripts", "Made on the computer that runs Hermes. The only download is the speech model, once."],
   ["Your words", "The words of your speeches go to the model you chose in Hermes, for the opponent, the judge and the coach."],
   ["Headlines", "A pull asks Google News, or the outlet’s own feed, for headlines on your topic. Only titles, dates and links come back."],
   ["Hear it", "When you press it, the opponent’s speech goes to the voice you set up in Hermes to be read aloud."],
@@ -2296,9 +2343,9 @@ function SettingsView() {
   return jsxs8("div", { className: "ldw-settings", children: [
     jsx8("h1", { className: "ldw-set-h1", children: "Settings" }),
     jsx8(Transcripts, { t: home.transcripts || {} }),
-    jsx8(Recordings, { r: home.recordings || { count: 0, bytes: 0, keep: 20 } }),
+    jsx8(Recordings, { r: home.recordings || { count: 0, bytes: 0, keep: 20 }, kept: { transcripts: home.transcripts_kept || 0, ballots: home.ballots || 0 } }),
     jsx8(Outlets, {}),
-    jsx8(Section2, { title: "What leaves your computer", children: jsx8("dl", { className: "ldw-leaves", children: LEAVES.map(([k, v]) => jsxs8(Fragment6, { children: [jsx8("dt", { children: k }), jsx8("dd", { children: v })] }, k)) }) })
+    jsx8(Section2, { title: "What leaves your computer", children: jsx8("dl", { className: "ldw-leaves", children: voiceLines(home.transcripts).concat(LEAVES).map(([k, v]) => jsxs8(Fragment6, { children: [jsx8("dt", { children: k }), jsx8("dd", { children: v })] }, k)) }) })
   ] });
 }
 

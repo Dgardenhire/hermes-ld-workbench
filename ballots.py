@@ -130,6 +130,18 @@ def add(ballot):
     return ballot
 
 
+def delete_all():
+    """Every ballot, gone (Settings, Delete transcripts and ballots). The count of rounds started stays."""
+    gone = []
+
+    def clear(x):
+        gone.extend(x.get("history") or [])
+        x["history"] = []
+        return x
+    store.update("ballots.json", clear)
+    return len(gone)
+
+
 def set_drill_done(index, done, at=None):
     """Tick a ballot's drill. ``at`` (the ballot's time) pins the ballot: the list is trimmed to the newest
     40, so a page left open can hold an index that now points at a different ballot."""

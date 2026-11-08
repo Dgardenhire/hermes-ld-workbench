@@ -245,7 +245,7 @@ if __name__ == "__main__":
 
 
 class ModelCache(unittest.TestCase):
-    def test_cached_only_when_model_bin_is_there(self):
+    def test_cached_only_when_the_model_folder_is_complete(self):
         import os
         import tempfile
         from pathlib import Path
@@ -256,8 +256,10 @@ class ModelCache(unittest.TestCase):
                 self.assertFalse(speech.model_cached("base.en"))
                 snap = Path(d) / "models--Systran--faster-whisper-base.en" / "snapshots" / "abc"
                 snap.mkdir(parents=True)
-                self.assertFalse(speech.model_cached("base.en"))
                 (snap / "model.bin").write_bytes(b"x")
+                self.assertFalse(speech.model_cached("base.en"))  # weights alone: faster-whisper would go online for the rest
+                for f in ("config.json", "tokenizer.json", "vocabulary.txt"):
+                    (snap / f).write_bytes(b"x")
                 self.assertTrue(speech.model_cached("base.en"))
                 self.assertFalse(speech.model_cached("tiny"))
                 st = speech.transcript_status("nonsense")
@@ -269,3 +271,12 @@ class ModelCache(unittest.TestCase):
                     os.environ.pop("HF_HUB_CACHE", None)
                 else:
                     os.environ["HF_HUB_CACHE"] = old
+
+    def test_model_names_map_to_faster_whispers_repositories(self):
+        self.assertEqual(speech._repo("base.en"), "Systran/faster-whisper-base.en")
+        self.assertEqual(speech._repo("small"), "Systran/faster-whisper-small")
+        self.assertEqual(speech._repo("large"), "Systran/faster-whisper-large-v3")
+        self.assertEqual(speech._repo("distil-small.en"), "Systran/faster-distil-whisper-small.en")
+        self.assertEqual(speech._repo("turbo"), "mobiuslabsgmbh/faster-whisper-large-v3-turbo")
+        self.assertIsNone(speech._repo("../../etc"))
+        self.assertIsNone(speech._repo("whisper-1"))

@@ -15,13 +15,13 @@ Mark each line **Pass**, **Fail** (with the exact message on screen) or **Skip**
 
 - [ ] Click **Debate** in the sidebar. **Pass:** the Extemp floor opens with a 60-second answer loaded: the strip "Answer 1:00 | Ballot", the question in serif, the 1:00 clock, the cards 1, 30, TIME, and **Start speaking**.
 - [ ] Rail: Lincoln-Douglas, Extemp, Rhetoric, Ballots at the top, Settings at the foot.
-- [ ] Settings, Transcripts: says whether faster-whisper is there ("Made on this computer with faster-whisper" or "Not set up yet").
+- [ ] Settings, Transcripts: names the route. Expected on Damon's Mac (Hermes `stt.local.model: small`, not on the Mac because `~/.cache/huggingface` points to the Studio Models drive): "Made on this computer with faster-whisper", with the line that Hermes's own speech-to-text would first download its small model. Write down exactly what it says: ______ . (With a cloud provider in Hermes Settings, Voice, it would say "Made by <provider>... Each recording goes to <provider>".)
 
 ## 2. The microphone (P2, never tested inside Hermes)
 
 - [ ] **First take.** Press **Start speaking**. **Pass:** macOS asks once whether Hermes may use the microphone; after Allow, the clock waits ("The clock starts when you do") and starts at your first word; the waveform draws as you speak; the 1 card is up.
 - [ ] Stay quiet for 3 seconds mid-take. **Pass:** "Pausing" shows, then a shaded mark covers that stretch.
-- [ ] Press **Stop** before 1:00. **Pass:** the take shows time spoken, pauses, and either "Making the transcript on this computer" or "Timing only".
+- [ ] Press **Stop** before 1:00. **Pass:** the take shows time spoken, pauses, and either "Making the transcript" or a line saying what the transcript needs ("Timing only").
 - [ ] **Denied.** System Settings, Privacy & Security, Microphone: turn Hermes off. Press **Start speaking**. **Pass:** "Hermes is not allowed to use the microphone..." with the steps. Turn it back on; press again; it records. (Hermes may need a restart for macOS to apply the change; note whether it did.)
 - [ ] **Wake word.** If Hermes's wake word is on, press **Start speaking**. **Pass:** either it records, or "The microphone is busy..." shows. Note which.
 - [ ] **Cancel.** Start a take, press **Cancel this take**. **Pass:** the floor returns to ready; the macOS mic indicator turns off.
@@ -29,11 +29,13 @@ Mark each line **Pass**, **Fail** (with the exact message on screen) or **Skip**
 
 ## 3. Transcripts and the long model call (P3; timings never measured)
 
-- [ ] **First transcript.** The take first says the speech model is not on this computer and nothing downloads; press Transcribe now (downloads base.en, about 145 MB, from huggingface.co). Time it from Stop to words on screen: ______ . **Pass:** words appear and the ballot follows; Settings now says base.en is on this computer.
+- [ ] **Transcription follows Hermes's voice settings.** Before the first take, open Hermes Settings, Voice and note the speech-to-text provider and local model: ______ . If you can, switch it once to a cloud provider you already have a key for, record a 60-second take, and check: **Pass:** words appear with no download; the take's corner says "Transcript by <provider>, through Hermes"; Settings, What leaves your computer, says the recording goes to that provider. Switch it back (local) afterward. If the local model Hermes names is already downloaded, a take with local should say "Transcript, on this computer" with no Transcribe now press. Skip if no cloud key is set up.
+- [ ] **Fallback path: the workbench's own model.** With Hermes on local and its model not on the Mac (Damon's case), the take says the base.en speech model (about 145 MB) is not on this computer and nothing downloads. Check the Studio Models drive is NOT mounted for this step. Press Transcribe now. Time it from the press to words on screen: ______ . **Pass:** words appear and the ballot follows; Settings now says base.en is on this computer; the model is in `~/.hermes/plugin-data/ld-workbench/models/base.en/` (check in Finder), and nothing was written to `~/.cache/huggingface`. If it says the folder is not writable or the download failed, note the exact message (timing and pauses must still show).
 - [ ] **Second 60-second take.** Time from Stop to words: ______ (expect seconds, not minutes).
 - [ ] **The extemp ballot.** **Pass:** decision boxes, points circled, three quoted lines from what you said (none flagged "Not found" unless you really did not say it), one DRILL.
 - [ ] **One long model call.** Lincoln-Douglas, Tournament Room: start a Varsity round with any case, give the AC (type or paste is fine). The opponent writes the NC (about 1,000 words). Time it: ______ . **Pass:** the NC arrives. If it takes over 3 minutes: "The model took too long to answer..." shows with a way to try again (that is the designed path; note the model you use).
 - [ ] **7-minute transcript** (optional if time is short): give a full extemp speech or a 1AR spoken. Time from Stop to words: ______ .
+- [ ] **Delete transcripts and ballots.** At the end of the test day only (it erases the day's ballots; back up first, step 0): Settings, **Delete transcripts and ballots**, confirm. **Pass:** the counts drop to 0, recordings stay, Ballots is empty, a take's corner offers Transcribe now again.
 - [ ] **Restart mid-transcript.** Stop a take, quit Hermes while "Making the transcript" shows, reopen Debate. **Pass:** the take says the transcript was interrupted and offers **Transcribe now**; pressing it works.
 
 ## 4. Hermes tools from the dashboard (registry path never run inside Hermes)

@@ -1,10 +1,10 @@
 """Rhetoric: the figures, the speech library, and the rules for the device finder.
 
-The figures are organized by effect, in the same six groups The Clearing uses, and each figure that
-The Clearing defines carries The Clearing's own words (``shared/craft-paths.js``, path
-``memorable-language``, and ``docs/CRAFT-TECHNIQUE-MAP.md`` in the writing-bench repo). Both
-products show the same definition. A figure The Clearing does not define yet carries our own short
-definition and ``source: "workbench"``; those are the lines to copy back into The Clearing.
+The figures are organized by effect, in the same six groups The Clearing uses, and every figure The
+Clearing also lists carries The Clearing's own definition, word for word, from its figure list
+(``library/additions.json`` in hermes-clearing, ``figures.groups``). Both products show the same
+definition. A figure The Clearing does not list carries our own short definition and
+``source: "workbench"``; those are the lines to offer back to The Clearing.
 
 The figure list follows the chapters of Mark Forsyth, The Elements of Eloquence (2013), which the
 page names as further reading. No text and no examples come from that book. Every example is an
@@ -68,63 +68,59 @@ def _f(fid, name, effect, definition, source, example=None, extra=False):
             "example": ex, "classical": extra}
 
 
-# Definitions marked CLEARING are The Clearing's own glosses from craft-paths.js, sentence-cased, except
-# the eleven in CLEARING_REVISED: The Clearing gave each its own definition on Nov 8, 2026 (hermes-clearing
-# 3a97a48, library/additions.json, figures.groups), and these copy that text word for word. The first four
-# were the pairs that shared one gloss; the other seven are the figures The Clearing reworded so no two
-# definitions share a three-word run. The Clearing's examples are its own sentences; ours stay real
-# public-domain lines.
-CLEARING_REVISED = ("merism", "syllepsis", "synecdoche", "zeugma",
-                    "alliteration", "assonance", "anaphora", "epistrophe", "epanalepsis", "periodic-sentence", "parataxis")
+# Definitions marked CLEARING are The Clearing's own, copied word for word from its figure list
+# (hermes-clearing main at 0722112, library/additions.json, figures.groups; that file last changed in
+# 3a97a48). That is all 42 figures The Clearing lists. The Clearing's examples are its own sentences;
+# ours stay real public-domain lines.
 FIGURES = [
     # Sound & verbal music
     _f("alliteration", "Alliteration", "sound", "Nearby words that begin with the same consonant sound.", CLEARING,
        ("gettysburg", "Four score and seven years ago our fathers brought forth")),
     _f("assonance", "Assonance", "sound", "A vowel sound echoed inside words close together.", CLEARING),
-    _f("rhyme", "Rhyme", "sound", "Words that end with the same sound, placed where the ear will catch them.", WORKBENCH),
-    _f("versification", "Versification", "sound", "Deliberate rhythm and meter: a beat of stressed and unstressed syllables.", WORKBENCH),
+    _f("rhyme", "Rhyme", "sound", "Matching end sounds, used sparingly in prose.", CLEARING),
+    _f("versification", "Versification", "sound", "Letting a phrase fall into a steady beat.", CLEARING),
     # Repetition & return
-    _f("polyptoton", "Polyptoton", "repetition", "Related forms of one root.", CLEARING,
+    _f("polyptoton", "Polyptoton", "repetition", "One root word in different forms.", CLEARING,
        ("fdr-first-inaugural", "This great Nation will endure as it has endured")),
-    _f("anadiplosis", "Anadiplosis", "repetition", "Last-to-first chaining.", CLEARING,
+    _f("anadiplosis", "Anadiplosis", "repetition", "Ending one clause with the word that starts the next.", CLEARING,
        ("fdr-first-inaugural", "This Nation asks for action, and action now.")),
-    _f("diacope", "Diacope", "repetition", "Interrupted repetition.", CLEARING,
+    _f("diacope", "Diacope", "repetition", "A word repeated after a short break.", CLEARING,
        ("fdr-first-inaugural", "the only thing we have to fear is fear itself")),
     _f("epistrophe", "Epistrophe", "repetition", "The same ending, word for word, on several successive clauses.", CLEARING,
        ("gettysburg", "of the people, by the people, for the people")),
-    _f("epizeuxis", "Epizeuxis", "repetition", "Immediate repetition.", CLEARING),
+    _f("epizeuxis", "Epizeuxis", "repetition", "A word said twice or more in a row.", CLEARING),
     _f("epanalepsis", "Epanalepsis", "repetition", "A sentence that closes on the very word it opened with.", CLEARING),
     _f("anaphora", "Anaphora", "repetition", "Successive clauses that open on identical words.", CLEARING,
        ("anthony-vote", "To them this government has no just powers derived from the consent of the governed. To them this government is not a democracy.")),
     _f("symploce", "Symploce", "repetition", "The same beginning and the same ending repeated together.", WORKBENCH, extra=True),
     # Balance, contrast & threes
-    _f("antithesis", "Antithesis", "balance", "Two opposite ideas set side by side in matching words.", WORKBENCH,
+    _f("antithesis", "Antithesis", "balance", "Two opposed ideas set side by side in matching form.", CLEARING,
        ("gettysburg", "The world will little note, nor long remember what we say here, but it can never forget what they did here.")),
-    _f("isocolon", "Isocolon", "balance", "Balanced clauses.", CLEARING,
+    _f("isocolon", "Isocolon", "balance", "Clauses of the same length and build.", CLEARING,
        ("lincoln-second-inaugural", "With malice toward none; with charity for all")),
-    _f("tricolon", "Tricolon", "balance", "A three-part progression.", CLEARING,
+    _f("tricolon", "Tricolon", "balance", "Three parts, often rising in weight.", CLEARING,
        ("gettysburg", "we can not dedicate—we can not consecrate—we can not hallow—this ground")),
-    _f("chiasmus", "Chiasmus", "balance", "Reversed parallel structure.", CLEARING),
-    _f("paradox", "Paradox", "balance", "A statement that sounds impossible but turns out to be true.", WORKBENCH),
+    _f("chiasmus", "Chiasmus", "balance", "A pattern repeated in reverse order.", CLEARING),
+    _f("paradox", "Paradox", "balance", "A statement that seems to contradict itself and turns out true.", CLEARING),
     _f("antimetabole", "Antimetabole", "balance", "The same words repeated in reverse order.", WORKBENCH, extra=True),
     _f("climax", "Climax", "balance", "Words or ideas in order of rising strength, so the last lands hardest.", WORKBENCH, extra=True),
     # Sentence order & syntax
-    _f("hyperbaton", "Hyperbaton", "syntax", "Unusual word order.", CLEARING,
+    _f("hyperbaton", "Hyperbaton", "syntax", "Words in an unexpected order for emphasis.", CLEARING,
        ("lincoln-second-inaugural", "Fondly do we hope—fervently do we pray")),
     _f("periodic-sentence", "Periodic sentence", "syntax", "Holding back the main point until the last words.", CLEARING,
        ("lincoln-second-inaugural", "with firmness in the right, as God gives us to see the right, let us strive on to finish the work we are in")),
-    _f("hypotaxis", "Hypotaxis", "syntax", "Subordinated complexity.", CLEARING),
+    _f("hypotaxis", "Hypotaxis", "syntax", "Clauses ranked under one another to show how ideas depend.", CLEARING),
     _f("parataxis", "Parataxis", "syntax", "Clauses placed one after another with no ranking among them.", CLEARING,
        ("fdr-first-inaugural", "Values have shrunken to fantastic levels; taxes have risen; our ability to pay has fallen")),
-    _f("hendiadys", "Hendiadys", "syntax", "Noun-and-noun emphasis.", CLEARING,
+    _f("hendiadys", "Hendiadys", "syntax", "One idea said as two nouns joined by and.", CLEARING,
        ("gettysburg", "It is altogether fitting and proper that we should do this.")),
-    _f("enallage", "Enallage", "syntax", "Deliberate grammar break.", CLEARING),
+    _f("enallage", "Enallage", "syntax", "A deliberate grammatical slip that draws the ear.", CLEARING),
     _f("syllepsis", "Syllepsis", "syntax", "A single word read two ways at once, literally with one partner and figuratively with the other.", CLEARING,
        ("pope-rape-of-the-lock", "Dost sometimes counsel take—and sometimes tea.")),
     _f("zeugma", "Zeugma", "syntax", "A verb or adjective said once and left to serve every clause in a list, in the same sense each time.", CLEARING,
        ("anthony-vote", "which ordains all men sovereigns, all women subjects")),
-    _f("prolepsis", "Prolepsis", "syntax", "Anticipatory reference.", CLEARING),
-    _f("scesis-onomaton", "Scesis onomaton", "syntax", "A verbless sentence.", CLEARING,
+    _f("prolepsis", "Prolepsis", "syntax", "Naming something before its time, or answering an objection before it is raised.", CLEARING),
+    _f("scesis-onomaton", "Scesis onomaton", "syntax", "A run of phrases with no main verb.", CLEARING,
        ("douglass-fourth", "your boasted liberty, an unholy license; your national greatness, swelling vanity")),
     _f("asyndeton", "Asyndeton", "syntax", "A list with the joining words left out.", WORKBENCH,
        ("fdr-first-inaugural", "nameless, unreasoning, unjustified terror"), extra=True),
@@ -133,15 +129,15 @@ FIGURES = [
     # Image, sense & substitution
     _f("merism", "Merism", "image", "A short list of parts, often a pair of opposites, that stands for the entire range between them.", CLEARING,
        ("gettysburg", "The brave men, living and dead, who struggled here")),
-    _f("blazon", "Blazon", "image", "An extended catalog of parts.", CLEARING),
-    _f("synaesthesia", "Synaesthesia", "image", "Crossed senses.", CLEARING),
-    _f("catachresis", "Catachresis", "image", "A deliberately impossible word pairing.", CLEARING),
-    _f("metonymy", "Metonymy", "image", "An associated object standing for its subject.", CLEARING,
+    _f("blazon", "Blazon", "image", "A catalog of a thing’s parts, one by one.", CLEARING),
+    _f("synaesthesia", "Synaesthesia", "image", "Describing one sense in the terms of another.", CLEARING),
+    _f("catachresis", "Catachresis", "image", "A word pushed into a use it was not made for.", CLEARING),
+    _f("metonymy", "Metonymy", "image", "Naming a thing by something closely tied to it.", CLEARING,
        ("lincoln-second-inaugural", "every drop of blood drawn with the lash shall be paid by another drawn with the sword")),
     _f("synecdoche", "Synecdoche", "image", "One piece of something, or one member of a group, named in place of the whole it belongs to.", CLEARING,
        ("lincoln-second-inaugural", "wringing their bread from the sweat of other men's faces")),
-    _f("transferred-epithet", "Transferred epithet", "image", "A transferred modifier.", CLEARING),
-    _f("personification", "Personification", "image", "A thing or an idea given human actions or feelings.", WORKBENCH,
+    _f("transferred-epithet", "Transferred epithet", "image", "An adjective moved onto the wrong noun to show a feeling.", CLEARING),
+    _f("personification", "Personification", "image", "Giving a thing human action or will.", CLEARING,
        ("fdr-first-inaugural", "Nature still offers her bounty")),
     _f("metaphor", "Metaphor and simile", "image", "One thing described as another, with or without \"like\" or \"as\".", WORKBENCH,
        ("fdr-first-inaugural", "the withered leaves of industrial enterprise lie on every side"), extra=True),
@@ -149,17 +145,17 @@ FIGURES = [
        ("lincoln-second-inaugural", "let us judge not, that we be not judged"), extra=True),
     _f("analogy", "Analogy", "image", "A comparison that explains something new through something familiar.", WORKBENCH, extra=True),
     # Interruption, scale & force
-    _f("aposiopesis", "Aposiopesis", "force", "Deliberate unfinished speech.", CLEARING),
-    _f("rhetorical-question", "Rhetorical question", "force", "A purposeful question.", CLEARING,
+    _f("aposiopesis", "Aposiopesis", "force", "Breaking off a sentence on purpose.", CLEARING),
+    _f("rhetorical-question", "Rhetorical question", "force", "A question asked for effect, not for an answer.", CLEARING,
        ("douglass-fourth", "What have I, or those I represent, to do with your national independence?")),
-    _f("exact-number", "The exact number", "force", "An arrestingly exact number.", CLEARING,
+    _f("exact-number", "The exact number", "force", "A precise figure where a round one is expected.", CLEARING,
        ("lincoln-second-inaugural", "the bondman's two hundred and fifty years of unrequited toil")),
-    _f("litotes", "Litotes", "force", "Understatement by negation.", CLEARING),
-    _f("pleonasm", "Pleonasm", "force", "Meaningful redundancy.", CLEARING),
-    _f("hyperbole", "Hyperbole", "force", "Controlled exaggeration.", CLEARING,
+    _f("litotes", "Litotes", "force", "Saying something by denying its opposite.", CLEARING),
+    _f("pleonasm", "Pleonasm", "force", "Using more words than needed, for weight.", CLEARING),
+    _f("hyperbole", "Hyperbole", "force", "Exaggeration the reader knows is exaggeration.", CLEARING,
        ("douglass-fourth", "There is not a nation on the earth guilty of practices, more shocking and bloody, than are the people of these United States, at this very hour.")),
-    _f("adynaton", "Adynaton", "force", "Impossible exaggeration.", CLEARING),
-    _f("congeries", "Congeries", "force", "A heaped list.", CLEARING,
+    _f("adynaton", "Adynaton", "force", "Exaggeration so large it names an impossibility.", CLEARING),
+    _f("congeries", "Congeries", "force", "A heap of words or phrases piled up for force.", CLEARING,
        ("douglass-fourth", "mere bombast, fraud, deception, impiety, and hypocrisy")),
     _f("hypophora", "Hypophora", "force", "Asking a question and then answering it yourself.", WORKBENCH,
        ("douglass-fourth", "What, to the American slave, is your 4th of July? I answer:"), extra=True),

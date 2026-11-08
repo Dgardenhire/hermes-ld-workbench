@@ -13,7 +13,7 @@ SHA bump for `ld-workbench` (Debate Workbench), 0.1.0 to 0.2.0, submitted by the
 0.2 turns the Lincoln-Douglas workbench into practice for three events, spoken out loud:
 
 - **A real clock and the timekeeper's cards.** The event is drawn to scale in time across the top. The microphone records in the page (MediaRecorder); the clock starts at the first sound; pauses over 2 seconds are marked on the waveform.
-- **Transcripts on the user's own machine** with faster-whisper, only when Hermes's local speech-to-text is already installed. No dependency is declared; without it every take is "timing only".
+- **Transcripts that follow the user's Hermes voice settings.** Each take goes first to Hermes's own speech-to-text (the one Hermes's voice input uses: local or the cloud provider the user chose), then, when Hermes cannot without a download of its own, to faster-whisper with a model in the plugin's own data folder. No dependency is declared; without either every take is "timing only".
 - **Extemp:** a 60-second answer, three-openings practice, and a full round: this week's headlines on the student's topic from twelve outlets on the left, center and right, five to five by lean label (user-editable, labeled by lean), a draw from the student's own saved news, 30 minutes of prep, a 7-minute speech, a ballot.
 - **Rhetoric:** figures of speech marked in six public-domain speeches, every quote checked as an exact substring; spot, write and say drills.
 - **Ballots:** every ballot kept; patterns counted in code from a fixed tag list over the last six rounds.
@@ -34,22 +34,24 @@ Full list: `CHANGELOG.md`. Manual: `docs/MANUAL.md`.
 ## Disclosure (rule 13)
 
 - **Microphone:** opened with `getUserMedia` only while the student presses Start speaking; stopped on finish, cancel, error or leaving the page.
-- **Recordings:** saved only in `$HERMES_HOME/plugin-data/ld-workbench/recordings/`; newest 20 and at most 100 MB kept; delete-all in Settings.
-- **Transcription:** faster-whisper in one worker thread inside the Hermes backend, when Hermes's local speech-to-text is installed. Its speech model is downloaded from huggingface.co only when the student presses Transcribe now (no audio is sent); a new recording never starts the download. With a remote Hermes backend, the recording goes to that backend.
+- **Recordings:** saved only in `$HERMES_HOME/plugin-data/ld-workbench/recordings/`; newest 20 and at most 100 MB kept; delete-all in Settings. A second Settings button deletes every transcript and ballot (and a round in progress), with a confirm.
+- **Transcription, engine 1: Hermes's own speech-to-text.** One worker thread in the Hermes backend converts the take to 16 kHz mono WAV (PyAV, or ffmpeg when PyAV is missing, fixed arguments) and calls `tools.voice_mode.transcribe_recording`, in a copy of the request's context so it runs in the requesting profile's config scope, as the core route does through `asyncio.to_thread`. It uses the user's `stt` provider and Hermes's hallucination filter. **If that provider is a cloud service, the recording goes to it**; Settings and each take name the provider. It runs on its own only when Hermes would not first download a model (its local model must already be in the cache); otherwise engine 2 is used.
+- **Transcription, engine 2: faster-whisper**, when Hermes's local speech-to-text installed it. Its model lives in `$HERMES_HOME/plugin-data/ld-workbench/models/`, never in the shared Hugging Face cache (which on some machines is a link to an unmounted drive; that cache is only read, as a bonus). The model is downloaded from huggingface.co only when the student presses Transcribe now after seeing the size (no audio is sent); a new recording never starts a download. The download runs in one separate Python process (`sys.executable -I -c <fixed script> <repo> <folder>`, no shell) with `HF_HOME`, the hub cache and the xet cache inside the plugin folder and `token=False`, so the user's Hugging Face settings and token are never used. With a remote Hermes backend, the recording goes to that backend.
+- **Private Hermes import (rule 9), disclosed:** `tools.voice_mode.transcribe_recording` is not in `hermes_cli/data/plugin_api.json`, so admission lists it as a warning. Reason: it is the only way a plugin can use the user's configured speech-to-text; a desktop page cannot call the core `/api/audio/transcribe` route (`ctx.rest` is scoped to `/api/plugins/<id>/`), and `agent.transcription_provider` is for registering a provider, not calling one. Fallback: the import is guarded; if a release moves or changes the function, transcripts fall back to engine 2, and timing-only mode always works. The profile's `stt` settings are read through the public `hermes_cli.config`. We would like to propose a public plugin transcription call (the "declared-capability seam" `apps/desktop/src/api/plugins.ts` mentions) after the contest.
 - **Third-party network calls, each only on a button press:**
   1. Headline pull: a Google News RSS search per outlet on the student's list, plus those outlets' own RSS feeds as fallback. Https only, listed hosts only, public addresses only, 8-second timeout, 250 KB cap, 20 seconds for the whole pull. Headlines and links only.
   2. A link saved to the extemp file or added as a topic source: one public page, every redirect re-checked, 20-second timeout, first 30,000 characters.
 - **Hermes tools, each only on a button press, through the public `tools.registry`:** `web_search` (extemp prep, only in rounds started with internet allowed) and `text_to_speech` (Hear it, the AI opponent's speech). The plugin holds no keys.
 - **Model calls:** through `PluginLlm` to the user's own model; each call has a 180-second limit.
-- **Never:** credentials, telemetry, shell commands, separate processes, cron or blueprints, self-updates, compiled binaries, private Hermes imports.
+- **Never:** credentials, telemetry, shell commands, cron or blueprints, self-updates, compiled binaries. Separate processes only as listed above (the model download; ffmpeg when PyAV is missing). One private Hermes import, listed above.
 - **Registers:** no tools, hooks or middleware; a Desktop page and a dashboard API only.
 - **Files:** reads a .docx, .txt or backup file only when the user picks one; writes exports only to a save-dialog path (never a hidden folder or ~/Library) or its own exports folder.
 - **Not affiliated** with Nous Research, the National Speech & Debate Association, AllSides or any news outlet.
 
 ## Checks run on the pinned commit
 
-- `/usr/bin/python3 -m unittest discover -s tests`: 169 tests pass.
-- Hermes's full admission validator (`hermes_cli.plugin_validate.validate_plugin_dir`) on a copy: passes, no warnings.
+- `/usr/bin/python3 -m unittest discover -s tests`: all tests pass (count filled in at the pinned commit; 235 on Nov 8).
+- Hermes's full admission validator (`hermes_cli.plugin_validate.validate_plugin_dir`) on a copy: expected to pass with one warning, the private import of `tools.voice_mode` (re-run before opening this PR).
 - `scripts/validate_plugin_catalog.py` on this entry: OK.
 - Desktop bundle built with the shared UI kit and current (`build.mjs --check`); imports only `react`, `react/jsx-runtime` and `@hermes/plugin-sdk`.
 - gitleaks: no leaks. No `.pyc`, no binaries, no archives.

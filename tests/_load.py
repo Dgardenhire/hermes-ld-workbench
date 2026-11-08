@@ -10,6 +10,11 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 os.environ["LDW_DATA_DIR"] = tempfile.mkdtemp(prefix="ldw-test-")
+# Never the user's own Hugging Face cache: on some computers it is a link to a drive that is not mounted,
+# and on others it holds a real model that would change what these tests see.
+for _k in ("HF_HOME", "HF_HUB_CACHE", "HF_XET_CACHE", "HF_TOKEN", "HUGGINGFACE_HUB_CACHE"):
+    os.environ.pop(_k, None)
+os.environ["XDG_CACHE_HOME"] = tempfile.mkdtemp(prefix="ldw-test-cache-")
 
 try:
     import fastapi  # noqa: F401

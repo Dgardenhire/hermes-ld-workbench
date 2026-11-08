@@ -59,7 +59,7 @@ Tests: 208, all passing (`/usr/bin/python3 -m unittest discover -s tests`), up f
 | F-3 | Medium | `engine.py:434` | Fixed |
 | F-4 | Medium | `speech.py:472`, `dashboard/plugin_api.py:776` | Fixed |
 | F-5 | Low | `engine.py:417`, `engine.py:690` | Fixed |
-| F-6 | Low | `speech.py:380` | Disclosed; product change recommended |
+| F-6 | Low | `speech.py:380` | Disclosed; built after the audit (Nov 8) |
 | F-7 | Low | `README.md` | Fixed |
 | F-8 | Info | `engine.py:338` | Open, accepted |
 | F-9 | Info | `engine.py:338`, `headlines.py:152` | Open, accepted |
@@ -115,7 +115,7 @@ page says, before and after, that ballots, timing and transcripts stay. There is
 transcripts (newest 200 takes) or ballots (newest 40); only deleting `plugin-data/ld-workbench` does. For a
 student product a parent may want everything gone in one press. The README now says exactly what stays and
 how to erase it. Recommendation (not built here; it needs a desktop rebuild): a second button in Settings,
-"Delete transcripts and ballots", with the same confirm.
+"Delete transcripts and ballots", with the same confirm. **Built after the audit (Nov 8):** the button is in Settings, beside Delete all recordings, with a confirm (`dashboard/plugin_api.py` `post_data_delete`; tests in `tests/test_transcription.py`).
 
 **F-7. The README did not say plainly what a student sends.** Fixed with a "Students and minors" section; see
 the privacy check below.
@@ -206,6 +206,12 @@ true and the difference matters: a headline topic and a prep search also leave, 
 search the user set up. Neither identifies the student unless the student types something identifying. The
 new README section says this in plain words, and that the privacy terms of whatever model, search and voice
 the adult set up apply.
+
+**Changed after the audit (Nov 8, not re-audited):** transcripts now go first through Hermes's own
+speech-to-text. When the adult has chosen a cloud speech-to-text provider in Hermes Settings, Voice, each
+recording goes to that provider to be transcribed. Settings, the take, the README and the catalog text all
+say so and name the provider; choosing local in Hermes keeps the voice on the computer. This new path needs
+the independent audit's sign-off before release.
 
 ## Also in this pass (step 0)
 

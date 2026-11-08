@@ -138,7 +138,11 @@ def main():
     for b in hist:
         b.setdefault("tags", [])
     home = {"settings": {"transcript_model": "base.en", "event": "extemp"}, "next_drill": B.next_drill(hist), "starter": E.STARTER,
-            "transcripts": {"available": True, "model": "base.en", "models": list(S.MODELS), "cached": {m: False for m in S.MODELS}, "mb": dict(S.MODEL_MB)}, "recordings": {"count": 9, "bytes": 2100000, "keep": 20},
+            "transcripts": {"available": True, "model": "base.en", "models": list(S.MODELS), "cached": {m: False for m in S.MODELS}, "mb": dict(S.MODEL_MB),
+                            # Damon's Mac: Hermes's local model (small) is not on it, so the workbench uses its own
+                            "hermes": {"usable": False, "provider": "local", "local": True, "reason": "model", "model": "small", "label": S.stt_label("local")},
+                            "own_folder_writable": True, "fallback": True},
+            "recordings": {"count": 9, "bytes": 2100000, "keep": 20}, "transcripts_kept": 9,
             "last_take": {}, "extemp_round": None, "ld_round": False, "ballots": len(hist), "patterns": B.patterns(hist), "file_count": 6}
     starter_take = dict(take, prompt=E.STARTER[0]["text"])
     data = {"HOME": home, "TAKE": starter_take, "BALLOT": dict(ballot, question=E.STARTER[0]["text"]), "PULL": pull,
