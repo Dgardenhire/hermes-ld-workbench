@@ -11,6 +11,13 @@ Files:
 - ``round.json``      the practice round in progress (null when none)
 - ``ballots.json``    how many rounds were started, and every ballot written, newest last
 - ``briefings.json``  topic briefings, keyed by resolution and topic source, the 20 most recent
+- ``practice.json``   spoken takes: timing, levels at 10 Hz, transcript, measured stats (speech.py)
+- ``recordings/``     the audio of the newest takes, at most 20 files and 100 MB
+- ``extemp_file.json``  saved headlines and links, with notes and topics (extemp.py)
+- ``extemp_round.json`` the extemp round in progress (null when none)
+- ``outlets.json``    the student's outlet list and lean labels (null: the defaults in headlines.py)
+- ``headlines.json``  the last headline pull per topic, the 20 most recent
+- ``settings.json``   the transcript model and the event last chosen
 
 Every write goes to a temporary file in the same folder, is flushed to disk, then renamed over the old
 file, so a crash mid-write leaves the previous version intact. One lock serializes read-modify-write.
@@ -33,6 +40,13 @@ DEFAULTS = {
     "round.json": None,
     "ballots.json": {"rounds_started": 0, "history": []},
     "briefings.json": {"items": {}},
+    # 0.2, additive only: a 0.1 data folder opens unchanged.
+    "practice.json": {"takes": []},
+    "extemp_file.json": {"items": []},
+    "extemp_round.json": None,
+    "outlets.json": {"outlets": None},
+    "headlines.json": {"topics": {}},
+    "settings.json": {"transcript_model": "base.en", "event": "extemp"},
 }
 BRIEFING_CAP = 20
 HISTORY_CAP = 40

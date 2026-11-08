@@ -46,6 +46,7 @@ spec = importlib.util.spec_from_file_location("plugin_api_under_test", ROOT / "d
 api = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(api)
 engine, store, room, M, library = api.engine, api.store, api.room, api.M, api.library
+speech, headlines, extemp, ballots, R = api.speech, api.headlines, api.extemp, api.ballots, api.R
 HTTPException = sys.modules["fastapi"].HTTPException
 
 
@@ -104,4 +105,4 @@ def reset():
     import shutil
     d = Path(os.environ["LDW_DATA_DIR"])
     shutil.rmtree(d, ignore_errors=True)
-    d.mkdir(parents=True)
+    d.mkdir(parents=True, exist_ok=True)

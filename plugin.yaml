@@ -2,12 +2,12 @@
 manifest_version: 2
 name: ld-workbench
 label: Debate Workbench
-version: 0.1.0
-description: Practice Lincoln-Douglas debate. Build your own case with a coach that asks hard questions, then debate a full NSDA practice round against an AI opponent and get a judge's ballot. Uses your own Hermes model. It never writes your case for you.
+version: 0.2.0
+description: Practice speech and debate out loud. Lincoln-Douglas rounds against an AI opponent, extemp from this week's headlines on both sides, and rhetoric drills on real speeches. Every speech is timed with a real clock and the timekeeper's cards, and a judge's ballot follows, with patterns counted across rounds. Uses your own Hermes model. It never writes your case or your speech for you.
 author: Damon Gardenhire
 license: MIT
 kind: standalone
 requires_hermes: ">=0.22.0"
-tags: [debate, education, desktop]
+tags: [debate, speech, education, desktop]
 provides_tools: []
 provides_hooks: []

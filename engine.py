@@ -21,6 +21,7 @@ import logging
 import re
 import socket
 import ssl
+import time
 import urllib.parse
 from html.parser import HTMLParser
 
@@ -66,13 +67,14 @@ class Model:
             result = await self.llm.acomplete_structured(
                 instructions=header, input=[{"type": "text", "text": body}], system_prompt=system,
                 json_mode=True, max_tokens=max_tokens, purpose=purpose)
+        except Exception as e:  # includes a reply that misses the schema (ValueError); retried plainly below
+            if type(e).__name__ == "PluginLlmTrustError":
+                raise _model_error(e)
+            _log.info("ld-workbench: structured call failed (%r); retrying as a plain call", e)
+        else:
             if isinstance(result.parsed, dict):
                 return result.parsed
             return parse_json(result.text or "")
-        except RuntimeError:
-            raise
-        except Exception as e:
-            _log.info("ld-workbench: structured call failed (%r); retrying as a plain call", e)
         return parse_json(await self.text(system, [{"role": "user", "content": f"{header}\n{body}"}],
                                           max_tokens=max_tokens, purpose=purpose))
 
@@ -254,7 +256,7 @@ async def run_flow(p, model):
 
 async def run_judge(p, model):
     judge = M.JUDGES[p.get("judge", "traditional")]
-    system = judge["prompt"] + "\n\n" + M.JUDGE_OUTPUT
+    system = judge["prompt"] + "\n\n" + M.JUDGE_OUTPUT + ld_tag_rule()
     header = (f"Resolution: {p['resolution']}\nThe student debated {side_name(p['student_side'])}. "
               "The AI opponent debated the other side.\n")
     body = (f"FULL ROUND:\n{transcript_text(p.get('transcript'))}\n\n"
@@ -557,6 +559,8 @@ def tidy_ballot(b):
                    for d in (b.get("drills") or []) if isinstance(d, dict)][:5] if isinstance(b.get("drills"), list) else [],
         "decisive": [{"speech": s(d.get("speech"), 10), "line": s(d.get("line"), 600), "effect": s(d.get("effect"), 600)}
                      for d in (b.get("decisive") or []) if isinstance(d, dict)][:6] if isinstance(b.get("decisive"), list) else [],
+        "tags": _mod("ballots").judge_tags("ld", b.get("tags")),
+        "event": "ld",
     }
 
 
@@ -576,3 +580,88 @@ def config():
         "import_sections": M.IMPORT_SECTIONS,
         "fallacies": M.FALLACIES,
     }
+
+
+# ---------- 0.2: extemp, the 60-second answer, rhetoric, and ballot tags ----------
+def _mod(name):
+    """Sibling modules, loaded the same way this one was (package inside Hermes, loose in tests)."""
+    import importlib
+    pkg = __package__
+    return importlib.import_module(f"{pkg}.{name}" if pkg else name)
+
+
+LD_TAGS_RULE = ("\n\nAlso return \"tags\": a list chosen ONLY from these keys, every one that clearly applies to the "
+                "student (not the opponent): {keys}. Return [] when none apply.")
+
+
+def ld_tag_rule():
+    B = _mod("ballots")
+    return LD_TAGS_RULE.format(keys=", ".join(B.JUDGE_TAGS["ld"]))
+
+
+def check_lines(text, lines):
+    """Mark each quoted line the judge gave as checked when it really appears in what the student said."""
+    R = _mod("rhetoric_method")
+    for d in lines:
+        d["checked"] = bool(text) and R.find_span(text, d.get("line")) is not None
+    return lines
+
+
+async def run_extemp_judge(take, question, outline, sources_cited, model, event="extemp"):
+    E, B = _mod("extemp"), _mod("ballots")
+    system = E.JUDGE_PROMPT.format(tags=", ".join(B.JUDGE_TAGS["extemp"]))
+    stats = take.get("stats") or {}
+    tr = take.get("transcript") or {}
+    said = tr.get("text") or ""
+    limit = take.get("limit") or 0
+    numbers = {k: stats.get(k) for k in ("speaking", "wpm", "fillers", "answer_at", "words") if stats.get(k) is not None}
+    numbers["pauses_over_2s"] = len(stats.get("pauses") or [])
+    numbers["time_limit_seconds"] = limit
+    if take.get("typed"):
+        numbers["note"] = "typed, not spoken; time is an estimate at 140 words a minute"
+    header = f"Question: {question}\nEvent: {'a 60-second answer drill' if event == 'drill' else 'a 7-minute extemp speech'}\n"
+    body = (f"OUTLINE (the student's own notes):\n" + "\n".join(f"{k}: {v}" for k, v in (outline or {}).items() if v and k != "sources")
+            + f"\n\nSOURCES NAMED ALOUD (found in the transcript by code): "
+            + (", ".join(f"{s['outlet']} ({time.strftime('%b %d, %Y', time.localtime(s['at'])) if s.get('at') else 'no date'})" for s in sources_cited) or "none")
+            + f"\n\nMEASURED NUMBERS: {json.dumps(numbers)}\n\nWHAT THE STUDENT SAID:\n<<<\n{said[:12000] or '(no transcript; judge from the outline and the numbers, and say so)'}\n>>>")
+    raw = await model.json(system, header, body, max_tokens=6000, purpose=f"ld-workbench.{event}.judge")
+    ballot = B.tidy_extemp(raw if isinstance(raw, dict) else {}, event)
+    check_lines(said, ballot["decisive"])
+    ballot["measured_tags"] = B.measured_tags(stats, limit, event)
+    ballot["measured"] = {k: stats.get(k) for k in ("speaking", "wpm", "fillers", "answer_at", "duration")} | {
+        "pauses": len(stats.get("pauses") or []), "limit": limit, "typed": bool(take.get("typed")),
+        "transcript": (tr.get("status") in ("done", "typed"))}
+    ballot["sources_cited"] = sources_cited
+    return ballot
+
+
+async def run_draw(area, lines, model):
+    E = _mod("extemp")
+    if not lines:
+        raise ValueError("Pull headlines or save a few to your file first.")
+    data = await model.json(E.draw_prompt(area), "THE NEWS:", "\n".join(lines), max_tokens=3000, purpose="ld-workbench.extemp.draw")
+    return E.check_questions(data)
+
+
+async def run_marks(text, model):
+    R = _mod("rhetoric_method")
+    text = (text or "")[:R.FINDER_LIMIT]
+    if len(text.split()) < 12:
+        raise ValueError("Paste a longer passage first.")
+    data = await model.json(R.finder_prompt(), "THE TEXT:", text, max_tokens=8000, purpose="ld-workbench.rhetoric.marks")
+    marks, dropped = R.check_marks(text, (data or {}).get("marks") if isinstance(data, dict) else [])
+    if dropped:
+        _log.info("ld-workbench: device finder dropped %d marks that failed the exact-quote check", dropped)
+    return {"marks": marks, "counts": R.counts(marks), "checked": True, "dropped": dropped}
+
+
+async def run_critique(figure, line, model):
+    R = _mod("rhetoric_method")
+    line = " ".join(str(line or "").split())
+    if len(line.split()) < 4:
+        raise ValueError("Write a full line first.")
+    if len(line) > 600:
+        raise ValueError("Keep it to one or two sentences.")
+    text = await model.text(R.critique_prompt(figure), [{"role": "user", "content": f"The student's line:\n<<<\n{line}\n>>>"}],
+                            max_tokens=1500, purpose="ld-workbench.rhetoric.critique")
+    return {"text": text}
