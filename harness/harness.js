@@ -64,25 +64,27 @@ function home() {
   const h = clone(HOME)
   if (['take', 'ballot'].includes(X)) h.last_take = { drill: clone(TAKE) }
   if (X === 'prep' || X === 'speak') {
-    h.extemp_round = { id: 'r1', question: 'Can a Democratic Congress change trade policy if the President vetoes every tariff repeal?', area: 'us', mode: params.get('pm') === 'internet' ? 'internet' : 'files',
+    h.extemp_round = { id: 'r1', question: 'Should the Federal Reserve raise rates again before the end of the year?', area: 'us', mode: params.get('pm') === 'internet' ? 'internet' : 'files',
       phase: X, started: 1762570000, prep_left: X === 'prep' ? 1312 : 0, take: null, ballot: null,
-      outline: { attention: 'In 1930 Congress set every tariff itself.', link: 'Today the President does, and the House just changed hands.', answer: 'Partly, through the budget',
-        area1: 'Veto math in the Senate', area2: 'Spending riders on tariff money', area3: 'Deals on farm relief', conclusion: '', sources: ['f1', 'f2'] } }
+      outline: { attention: 'The Fed held rates steady in October.', link: 'A strong jobs report since then has put another hike on the table.', answer: 'Yes, one small hike',
+        area1: 'Prices are still above the 2% goal', area2: 'The jobs market can take it', area3: 'Waiting costs more later', conclusion: '', sources: ['f1', 'f2'] } }
   }
   if (X === 'draw' || X === 'prep' || X === 'speak') h.extemp_round = X === 'draw' ? null : h.extemp_round
   return h
 }
 const FILE = { items: [
-  { id: 'f1', title: 'Top US House Democrat on trade issues committed to reversing tariffs', outlet: 'Reuters', lean: 'Center', at: 1762300000, topics: ['tariffs'], note: '', url: 'https://news.google.com/', has_text: false },
-  { id: 'f2', title: 'Repeal the Tariffs', outlet: 'National Review', lean: 'Lean Right', at: 1762200000, topics: ['tariffs'], note: 'Editorial board, from the right', url: 'https://news.google.com/', has_text: false },
-  { id: 'f3', title: "Trump's tariffs are costing this Michigan couple", outlet: 'NPR', lean: 'Lean Left', at: 1762100000, topics: ['tariffs'], note: '', url: 'https://news.google.com/', has_text: false },
-], topics: ['tariffs'], count: 3 }
+  // Real headlines from a pull on the Federal Reserve, Nov 7, 2026 (harness/make_fixtures.py's PULL).
+  { id: 'f1', title: 'Fed policymakers consider rate hike after strong jobs report', outlet: 'Reuters', lean: 'Center', at: 1793998714, topics: ['federal reserve'], note: '', url: 'https://news.google.com/', has_text: false },
+  { id: 'f2', title: 'Does Anyone Know Why the Fed Didn’t Raise Rates?', outlet: 'National Review', lean: 'Lean Right', at: 1793170800, topics: ['federal reserve'], note: '', url: 'https://news.google.com/', has_text: false },
+  { id: 'f3', title: 'Hiring jumps: The economy added 165,000 jobs last month', outlet: 'NPR', lean: 'Lean Left', at: 1793972961, topics: ['federal reserve'], note: '', url: 'https://news.google.com/', has_text: false },
+], topics: ['federal reserve'], count: 3 }
 
-// What a user's Hermes web search might return for the prep screen (titles and links only).
+// What a user's Hermes web search might return for the prep screen (titles and links only). Real pages;
+// titles and snippets as the pages read on Nov 7, 2026.
 const WEB = [
-  { title: 'How a veto override works, and why it rarely happens', url: 'https://www.senate.gov/about/powers-procedures/vetoes.htm', site: 'senate.gov', snippet: 'Overriding a veto takes a two-thirds vote in both the House and the Senate.' },
-  { title: 'Congressional Review of tariff actions under Section 122 and Section 232', url: 'https://crsreports.congress.gov/', site: 'crsreports.congress.gov', snippet: 'Congress has delegated much of its tariff power to the President since 1934.' },
-  { title: 'Appropriations riders: how Congress limits what agencies can spend', url: 'https://www.gao.gov/', site: 'gao.gov', snippet: 'A rider can bar funds from being used to collect or enforce a duty.' },
+  { title: 'The Fed - What economic goals does the Federal Reserve seek to achieve through its monetary policy?', url: 'https://www.federalreserve.gov/faqs/what-economic-goals-does-federal-reserve-seek-to-achieve-through-monetary-policy.htm', site: 'federalreserve.gov', snippet: 'Congress has assigned the Fed to conduct the nation\'s monetary policy to support the goals of maximum employment and stable prices.' },
+  { title: 'The Fed Explained - Monetary Policy', url: 'https://www.federalreserve.gov/aboutthefed/fedexplained/monetary-policy.htm', site: 'federalreserve.gov', snippet: 'Meeting the Fed\'s "Dual Mandate" in Practice.' },
+  { title: 'Federal Reserve Board - Monetary Policy', url: 'https://www.federalreserve.gov/monetarypolicy.htm', site: 'federalreserve.gov', snippet: '' },
 ]
 
 // A few seconds of silence as a WAV file, standing in for the user's Hermes voice.
@@ -110,7 +112,7 @@ async function rest(path, options = {}) {
   if (/^extemp\/file\/[^/]+\/delete$/.test(path)) return { ok: true }
   if (path === 'extemp/file') return options.method === 'POST' ? { ...options.body, id: `w${Date.now()}`, topics: [] } : clone(FILE)
   if (path === 'round/listen') return { parts: [{ b64: silentWav(5), mime: 'audio/wav' }], cached: false }
-  if (path === 'extemp/search') return { query: 'tariff repeal veto override', results: WEB }
+  if (path === 'extemp/search') return { query: 'fed dual mandate rate hike', results: WEB }
   if (path === 'extemp/round') return home().extemp_round
   if (/^speech\/[^/]+\/judge$/.test(path)) return X === 'take' ? new Promise(() => {}) : clone(BALLOT)
   if (path === 'speech/take' && options.body.typed) {
@@ -198,7 +200,7 @@ if (params.get('stage')) {
 if (X === 'draw') {
   click('Full round'); await pause(300)
   const inp = document.querySelector('input[aria-label="Topic"]')
-  Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(inp, 'tariffs')
+  Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(inp, 'the Federal Reserve')
   inp.dispatchEvent(new Event('input', { bubbles: true })); await pause(100)
   click('Pull headlines'); await pause(500)
 }

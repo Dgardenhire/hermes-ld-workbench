@@ -26,12 +26,13 @@ DRILL_SECONDS = 60
 ROUND_CAP = 30
 
 # Evergreen questions for the 60-second answer drill on a first run, before anything is saved.
-# Written to stay answerable whatever this week's news is.
+# Written to stay answerable whatever this week's news is. The floor opens on the first one, so the
+# least partisan come first (Damon, Nov 7, 2026: the demo film uses the Federal Reserve question).
 STARTER = [
-    {"area": "us", "text": "Can Congress change trade policy when the President controls tariffs?"},
     {"area": "us", "text": "Should the Federal Reserve care more about prices or about jobs right now?"},
-    {"area": "us", "text": "Should states, not Washington, decide how much homework counts in a school's rating?"},
     {"area": "us", "text": "Is a four-day school week good for rural districts?"},
+    {"area": "us", "text": "Should states, not Washington, decide how much homework counts in a school's rating?"},
+    {"area": "us", "text": "Can Congress change trade policy when the President controls tariffs?"},
     {"area": "international", "text": "Can sanctions change a government's behavior, or only punish its people?"},
     {"area": "international", "text": "Should wealthy countries pay poorer ones to keep their forests standing?"},
     {"area": "international", "text": "Is the United Nations Security Council still able to stop a war?"},

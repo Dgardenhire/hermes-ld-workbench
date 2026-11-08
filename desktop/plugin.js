@@ -1301,7 +1301,7 @@ function OpeningCard({ n, take, setTake, best, note, active, onRedo }) {
 }
 function OpeningsFloor({ home, modeSwitch }) {
   const pool = (home.starter || []).concat();
-  const [i, setI] = useState5(1);
+  const [i, setI] = useState5(0);
   const q = pool.length ? pool[i % pool.length] : { area: "us", text: "Should your town spend more on roads or on parks?" };
   const [takes, setTakes] = useState5([null, null, null]);
   const [slot, setSlot] = useState5(0);

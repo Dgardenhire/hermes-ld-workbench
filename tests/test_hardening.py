@@ -236,6 +236,13 @@ class DrillCheckboxPinnedToBallot(unittest.TestCase):
 class DemoSeed(unittest.TestCase):
     """harness/seed_demo.py writes the practice ballots once and never overwrites real ones by itself."""
 
+    def test_the_floor_opens_on_the_low_partisan_question(self):
+        import extemp
+        self.assertEqual(extemp.STARTER[0]["text"], "Should the Federal Reserve care more about prices or about jobs right now?")
+        code = (ROOT / "desktop" / "plugin.js").read_text(encoding="utf-8")
+        starts = re.findall(r"useState\w*\((\d+)\);\s*const q = pool\.length \? pool\[i % pool\.length\]", code)
+        self.assertEqual(starts, ["0", "0"])  # the drill and the openings lab both open on it
+
     def test_seed_then_refuse(self):
         import importlib.util, io, contextlib
         spec = importlib.util.spec_from_file_location("seed_demo", ROOT / "harness" / "seed_demo.py")
@@ -252,6 +259,12 @@ class DemoSeed(unittest.TestCase):
                 self.assertEqual(mod.main([str(target.parent)]), 2)  # not the plugin's folder
                 self.assertEqual(mod.main([str(target), "--force"]), 0)
             self.assertTrue(any(p.name.startswith("ballots.json.bak-") for p in target.iterdir()))
+            hist = json.loads((target / "ballots.json").read_text())["history"]
+            # Low-partisan on purpose (Damon, Nov 7, 2026): the film's question is the Federal Reserve one.
+            self.assertEqual(hist[-1]["question"], "Should the Federal Reserve care more about prices or about jobs right now?")
+            seeded = json.dumps(hist).lower()
+            for partisan in ("tariff", "carbon tax", "trump", "democrat", "republican"):
+                self.assertNotIn(partisan, seeded)
         finally:
             if old is None:
                 os.environ.pop("LDW_DATA_DIR", None)

@@ -20,13 +20,15 @@ import rhetoric_method as R  # noqa: E402
 import speech as S  # noqa: E402
 
 rng = random.Random(7)
-Q = "Can Congress change trade policy when the President controls tariffs?"
-SAID = ("Um, so the question is whether Congress can change trade policy when the President holds the tariff power. "
-        "My answer is partly, through the budget. First, the veto math. A repeal needs two thirds of the Senate, and "
-        "that is not there, because most senators in the President's party will not vote against him on trade. Second, money. Congress writes the spending bills, and it can, uh, attach riders that "
-        "limit how tariff money is spent, or block new rules until the White House negotiates. That is slower, but it works. Third, farm relief. According to Reuters, farm state members want relief "
-        "payments, and that gives them leverage in any deal, since the relief money has to pass Congress too. So Congress cannot simply repeal the tariffs, but it can "
-        "shape them through the purse.")
+# A low-partisan question for anything seeded or filmed (Damon, Nov 7, 2026). The Reuters line is a real
+# headline from a pull on Nov 7, 2026 ("Fed policymakers consider rate hike after strong jobs report", Nov 6).
+Q = "Should the Federal Reserve care more about prices or about jobs right now?"
+SAID = ("Um, so the question is whether the Fed should care more about prices or about jobs right now. "
+        "My answer is prices, for now. First, the law. Congress gave the Fed two goals, stable prices and maximum employment, "
+        "so the real question is which one is further off. Second, the jobs side is holding up. According to Reuters, Fed policymakers "
+        "are weighing a rate hike after a strong jobs report, which tells you hiring is not the emergency. Third, the cost of waiting. "
+        "Prices that run hot for a year are, uh, harder to bring down, and they hurt the same workers the jobs goal is meant to protect. "
+        "So the Fed should lean on prices now, and watch the jobs numbers every month.")
 
 
 def levels_for(seconds, pauses):
@@ -58,7 +60,7 @@ def drill_take():
     pauses = [(21.4, 2.6), (37.0, 2.2)]
     lv = levels_for(59.2, pauses) + [0.004] * 6
     words = words_for(SAID, 0.7, 58.6, pauses)
-    take = {"id": "a1b2c3d4e5f6", "event": "drill", "segment": "answer", "limit": 60, "prompt": Q, "answer": "Partly, through the budget",
+    take = {"id": "a1b2c3d4e5f6", "event": "drill", "segment": "answer", "limit": 60, "prompt": Q, "answer": "Prices, for now",
             "ref": "", "at": 1762570800, "duration": 59.8, "levels": lv, "typed": False, "file": "x.webm", "bytes": 240000, "mime": "audio/webm",
             "transcript": {"status": "done", "text": SAID, "words": words, "model": "base.en", "error": None}}
     take["stats"] = S.measure(take, take["transcript"], take["answer"])
@@ -67,13 +69,13 @@ def drill_take():
 
 def extemp_ballot(take):
     b = B.tidy_extemp({"answered": "yes", "points": 27.5, "summary": "A clear answer with three areas, in time",
-                       "decisive": [{"line": "My answer is partly, through the budget.", "effect": "The answer came in the first ten seconds, then every area returned to it."},
-                                    {"line": "Congress writes the spending bills", "effect": "The strongest area: it explains how, not just that."},
-                                    {"line": "According to Reuters, farm state members want relief payments", "effect": "One source named aloud, but with no date."}],
+                       "decisive": [{"line": "My answer is prices, for now.", "effect": "The answer came in the first ten seconds, then every area returned to it."},
+                                    {"line": "so the real question is which one is further off", "effect": "The strongest area: it turns a yes-or-no into a comparison a judge can weigh."},
+                                    {"line": "According to Reuters, Fed policymakers are weighing a rate hike after a strong jobs report", "effect": "One source named aloud, but with no date."}],
                        "reason": ("You answered the question early and kept coming back to it, which is what a judge listens for in a one-minute answer. "
-                                  "Your three areas were in a sensible order: what Congress cannot do, what it can do, and why members would want to. "
-                                  "The money area was the best analysis, because you explained the mechanism. The farm relief area needed one more step: "
-                                  "say what the relief would buy in a deal. You named Reuters but gave no date, so the judge cannot tell how current it is. "
+                                  "Your three areas were in a sensible order: what the law asks of the Fed, where the jobs side stands, and what waiting would cost. "
+                                  "The first area was the best analysis, because it turned the question into a comparison you could win. The jobs area needed one more step: "
+                                  "say what number would change your answer. You named Reuters but gave no date, so the judge cannot tell how current it is. "
                                   "Delivery was steady. Two long pauses came at the turns between areas, which reads as searching for the next point."),
                        "strengths": ["Answer in the first ten seconds", "Three areas, each a different reason"],
                        "drill": {"name": "Source and date in one breath", "how": "Say five sources from your file aloud as 'Outlet, month and day' until each takes under two seconds. Then answer again."},
@@ -82,13 +84,13 @@ def extemp_ballot(take):
     b["measured_tags"] = B.measured_tags(take["stats"], 60, "drill")
     b["measured"] = {k: take["stats"].get(k) for k in ("speaking", "wpm", "fillers", "answer_at", "duration")} | {
         "pauses": len(take["stats"]["pauses"]), "limit": 60, "typed": False, "transcript": True}
-    b["sources_cited"] = [{"outlet": "Reuters", "at": None, "title": "Top US House Democrat on trade issues committed to reversing tariffs"}]
+    b["sources_cited"] = [{"outlet": "Reuters", "at": None, "title": "Fed policymakers consider rate hike after strong jobs report"}]
     b.update({"question": Q, "take_id": take["id"], "at": 1762571000})
     return b
 
 
 def history(latest):
-    res = "Resolved: The United States ought to adopt a carbon tax."
+    res = "Resolved: Civil disobedience in a democracy is morally justified."
     ld_rows = [(1, ["dropped-2ar", "no-voters"], "neg", 27.0), (2, ["framework-unweighed"], "aff", 28.0), (3, ["dropped-2ar", "framework-unweighed"], "neg", 27.5),
                (4, ["dropped-2ar"], "aff", 28.5), (5, ["no-clash", "dropped-2ar"], "neg", 27.0), (6, ["framework-unweighed"], "neg", 27.5)]
     out = []
@@ -99,10 +101,10 @@ def history(latest):
                     "drills": [{"name": "Answer-or-drop audit", "why": "The 2AR skipped the NR's turn.", "how": "Mark every NR answer on your flow, then redo the 2AR."}],
                     "drill_done": n < 4, "reason": "", "decisive": []})
     out.append({**latest, "event": "drill", "at": 1762400000, "tags": ["no-sources"], "measured_tags": ["late-answer"], "answered": "partly", "points": 26.5,
-                "question": "Should the Federal Reserve care more about prices or about jobs right now?", "drill_done": False,
+                "question": "Is a four-day school week good for rural districts?", "drill_done": False,
                 "measured": {**latest["measured"], "answer_at": 31.0}})
     out.append({**latest, "event": "extemp", "at": 1762480000, "tags": ["undated-sources"], "measured_tags": ["late-answer"], "answered": "yes", "points": 27.0,
-                "question": "Will farm relief money change any votes on tariffs?", "drill_done": False, "measured": {**latest["measured"], "limit": 420, "speaking": 401, "wpm": 158, "answer_at": 95.0}})
+                "question": "Is the United Nations Security Council still able to stop a war?", "drill_done": False, "measured": {**latest["measured"], "limit": 420, "speaking": 401, "wpm": 158, "answer_at": 95.0}})
     out.append(latest)
     for i, b in enumerate(out):
         b["index"] = i

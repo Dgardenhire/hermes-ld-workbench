@@ -9,9 +9,9 @@ The film's structure is the round's own clock (from the film critique): speaking
 1. **A separate Hermes profile for filming**, dark theme, window 1440x900, the default blue accent.
 2. **Seed the practice history** so Ballots has patterns to show:
    `/usr/bin/python3 harness/seed_demo.py <the demo profile's Hermes home>/plugin-data/ld-workbench`
-   It writes nine practice ballots (six Lincoln-Douglas rounds on a carbon tax, three extemp answers) and refuses a folder that already has ballots. If Ballots appears in the film, the frame says so ("Six earlier practice rounds, seeded").
+   It writes nine practice ballots (six Lincoln-Douglas rounds on civil disobedience, three extemp answers) and refuses a folder that already has ballots. If Ballots appears in the film, the frame says so ("Six earlier practice rounds, seeded").
 3. **Download the transcript model first.** Do one throwaway 60-second take and wait for its transcript (the first one downloads base.en, about 145 MB). Settings, Transcripts should then say "base.en is already on this computer". Delete that take's recording in Settings if you like.
-4. **Pick the question.** The floor opens on "Can Congress change trade policy when the President controls tariffs?". For a low-partisan film, press **Another question** once for "Should the Federal Reserve care more about prices or about jobs right now?", or three times for "Is a four-day school week good for rural districts?". Damon's call (film plan decision D2).
+4. **The question.** Decided Nov 7 (D2): a low-partisan question. The floor now opens on "Should the Federal Reserve care more about prices or about jobs right now?"; press **Another question** once for "Is a four-day school week good for rural districts?". The seeded ballots are low-partisan too (civil disobedience for Lincoln-Douglas; the Fed, a four-day school week and the UN Security Council for extemp).
 5. Turn off notifications and Hermes's wake word.
 
 ## The moments, in film order

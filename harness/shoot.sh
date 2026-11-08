@@ -47,7 +47,7 @@ H=1500 node "$ROOT/harness/click.mjs" "view=room&scene=ballot&theme=light" "$OUT
 # in it (a machine voice, used only to drive the meter); elsewhere the fake mic is a steady tone.
 WAV="${TMPDIR:-/tmp}/ldw-answer.wav"
 if command -v say >/dev/null 2>&1; then
-  say -o "$WAV" --data-format=LEI16@44100 "[[volm 0.22]] My answer is partly, through the budget. First, the veto math. A repeal needs two thirds of the Senate, and that is not there. [[slnc 2600]] Second, money. Congress writes the spending bills, and it can attach riders that limit how tariff money is spent."
+  say -o "$WAV" --data-format=LEI16@44100 "[[volm 0.22]] My answer is prices, for now. First, the law. Congress gave the Fed two goals, stable prices and maximum employment. [[slnc 2600]] Second, the jobs side is holding up. According to Reuters, Fed policymakers are weighing a rate hike after a strong jobs report."
   export SPEECH_WAV="$WAV" SPEAK_MS=17000
 fi
 cd "$ROOT" && node harness/live.mjs "$OUT" && THEME=light NAME=extemp-speaking-light node harness/live.mjs "$OUT"

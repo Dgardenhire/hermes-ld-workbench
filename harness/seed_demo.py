@@ -1,7 +1,8 @@
 """Seed a Debate Workbench data folder with a practice history, so the Ballots view has patterns to show
 on camera. These are the same practice ballots the screenshots use (harness/make_fixtures.py): six
-Lincoln-Douglas rounds on a carbon tax and three extemp answers on tariffs and the Fed. No client
-material and nothing about any contest.
+Lincoln-Douglas rounds on civil disobedience and three extemp answers (the Federal Reserve, a four-day
+school week, the UN Security Council), low-partisan on purpose. No client material and nothing about
+any contest.
 
     /usr/bin/python3 harness/seed_demo.py <the plugin's data folder>
 
