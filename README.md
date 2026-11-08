@@ -10,7 +10,7 @@ It uses the AI model you already set up in Hermes. It never writes your speeches
 
 ## What you can do
 
-**Speak, on the clock.** Every event shares one floor. A strip across the top shows the event drawn to scale in time, so a 7-minute speech looks seven times longer than a 1-minute one. The big clock starts when you start talking. The time cards flip at each minute, at 30 seconds, and at Time. While you speak, your voice is drawn as it comes in, with a mark over every pause longer than 2 seconds. No microphone? Type your speech and the time is estimated at 140 words a minute, and it says so.
+**Speak, on the clock.** Every event shares one floor. A strip across the top shows the event drawn to scale in time: each part is as wide as its minutes. The big clock starts when you start talking. The time cards flip at each minute, at 30 seconds, and at Time. While you speak, your voice is drawn as it comes in, with a mark over every pause longer than 2 seconds. No microphone? Type your speech and the time is estimated at 140 words a minute, and it says so.
 
 **Extemp.** It opens on a 60-second answer, ready to speak: one question, one minute, a ballot in under a minute. Openings gives you 45 seconds, three times, to open the same question three different ways; the coach says which one is strongest and why, and never writes one for you. The full round works like a tournament. Pull this week's headlines on your topic from outlets on the left, the center and the right, side by side and labeled by lean. Save the ones you want to your extemp file. Draw three questions from your own saved news, pick one, and prep for 30 minutes with an outline: attention-getter, link, answer, three areas, conclusion, and sources from your file. Prep files only, or with the internet allowed, through your own Hermes web search. Then give a 7-minute speech and get an extemp ballot: did you answer the question, your analysis, your organization, how many sources you named and when they were from, delivery and time.
 
@@ -39,7 +39,7 @@ Prefer the terminal? Run `hermes plugins install Dgardenhire/hermes-ld-workbench
 
 To check that everything is in place, run `hermes plugins doctor ld-workbench`. It should say OK.
 
-The full manual, with pictures: https://linchpin.studio/hermes/ld-workbench/manual/
+The manual is in [docs/MANUAL.md](docs/MANUAL.md), including what to do when something goes wrong. What changed in 0.2: [CHANGELOG.md](CHANGELOG.md).
 
 ## Where your work is saved
 
@@ -55,6 +55,17 @@ Your cases, coach notes, rounds, ballots, topic briefings, recordings, transcrip
 - **A link you save or add as a topic source.** Debate Workbench opens that one public web page to read its text. It only opens public addresses, and it keeps the first 30,000 characters.
 
 Nothing else is sent anywhere. Lean labels are from the AllSides Media Bias Ratings, checked Nov 7, 2026, and you can change any of them. Debate Workbench is not made or endorsed by Nous Research, the National Speech & Debate Association, AllSides or any news outlet.
+
+## Disclosures
+
+- **Microphone.** Hermes may ask once for microphone permission. The microphone is open only while you are speaking a take, never in the background.
+- **Recordings of students.** Recordings and transcripts stay on the computer that runs Hermes. If a minor uses it, a parent or coach can delete every recording in Settings at any time.
+- **The opponent, the judge and the coach are an AI model,** the one you chose in Hermes. Their ballots are practice ballots, not the ruling of a real judge. Patterns across ballots are counted in code from a fixed list; quoted lines are checked against what was said and flagged when they are not there.
+- **Transcripts are optional.** Debate Workbench does not install faster-whisper. It uses it only when Hermes's own local speech-to-text is already set up. Without it, takes keep real timing and pauses.
+- **News.** Headlines and links only, from Google News RSS and the outlets' own feeds. Lean labels are from the AllSides Media Bias Ratings, checked Nov 7, 2026, and every label can be changed. Inclusion of an outlet is not an endorsement.
+- **Speeches and definitions.** The six speeches in Rhetoric are public domain (texts from Wikisource). The figure definitions are shared with The Clearing, another plugin by the same author. Further reading: Mark Forsyth, *The Elements of Eloquence* (Icon Books, 2013).
+- **Not affiliated.** Debate Workbench is an independent community plugin. It is not made or endorsed by Nous Research, the National Speech & Debate Association, AllSides or any news outlet.
+- **Nothing runs on its own.** No background jobs, no telemetry, no shell commands, no self-updates. Every network call starts with a button you press.
 
 ## The coaching rule
 

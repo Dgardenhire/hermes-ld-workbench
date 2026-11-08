@@ -1,105 +1,84 @@
 # Debate Workbench 0.2: status
 
-Updated Nov 7, 2026, end of stage 3 (adversarial review and fix). Branch `v0.2`, not pushed. Packet: `claude-test/.planning/hackathon-2026-11/debate-workbench/` (SPEC.md, DESIGN.md). Build deadline: Monday Nov 9, 6 PM CT.
+Updated Nov 7, 2026, end of stage 4 (polish and package). Branch `v0.2`, not pushed. Packet: `claude-test/.planning/hackathon-2026-11/debate-workbench/` (SPEC.md, DESIGN.md with the step 7 review at ship). Build deadline: Monday Nov 9, 6 PM CT. Tuesday: live test and filming.
 
-**Tests: 164, all passing** (`/usr/bin/python3 -m unittest discover -s tests`, about 2 s): stage 2's 149, plus 13 in `test_hardening.py` and 2 new Clearing checks in `test_rhetoric.py`. The desktop bundle is current (`build.mjs . --check`). Hermes's **full** admission validator (`hermes_cli.plugin_validate.validate_plugin_dir`, run on a copy with a scratch HOME) passes all 16 checks with **no warnings**; the draft catalog entry passes `validate_plugin_catalog.py`. gitleaks: no leaks.
+**Tests: 168, all passing** (`/usr/bin/python3 -m unittest discover -s tests`, about 2 s). Stage 3 had 164; this stage added 3 for the drill checkbox and 1 for the demo seed. The desktop bundle is current (`build.mjs . --check`). Hermes's full admission validator (`hermes_cli.plugin_validate.validate_plugin_dir`, on a copy with a scratch HOME) passes 16 of 16 checks, no warnings. The draft catalog entry passes `validate_plugin_catalog.py` with the current HEAD in place of PINSHA. gitleaks: no leaks.
 
-**Every SPEC MUST is built** except M14 (the demo video, Tuesday) and the live checks inside Hermes (Tuesday). SHOULD done: S1, S2. Not started: S3 to S6.
+Every SPEC MUST is built except M14 (the film, Tuesday) and the live checks inside Hermes (Tuesday). SHOULD done: S1, S2. Not started: S3 to S6.
 
-## Stage 3, what the review found and fixed (commit c0c9ec3)
+## Stage 4, what changed
 
-1. **Every model call would have stopped at 30 seconds.** A `PluginLlm` call with no `timeout` gets Hermes's auxiliary default, `_DEFAULT_AUX_TIMEOUT = 30.0` (`agent/auxiliary_client.py`, same in v0.22.0). The opponent's 7-minute speech, the LD ballot and the briefing (up to 16,000 tokens) can outrun that on many models, and the student would have seen "The coach could not answer". Now every call passes `timeout=180`, an `asyncio.wait_for` guard sits 15 s above it, a timed-out structured call is not retried as a plain call (that doubled the wait), and the page gets "The model took too long to answer. Try again, or pick a faster model in Hermes settings."
-2. **A private Hermes import, while the catalog text said "No private Hermes imports".** Web search and Hear it imported `model_tools`, which Hermes's own private-import lint flags (catalog rule 9; `model_tools` is not in `hermes_cli/data/plugin_api.json`). They now use only the public `tools.registry`: `registry.dispatch` (the call `ctx.dispatch_tool` makes), loading the built-in tools with the public `discover_builtin_tools()` when the dashboard process has not. The full validator now reports no warnings.
-3. **A take could wait forever.** If Hermes restarted during a transcript, the take stayed "waiting" or "working" on disk: the page polled every 1.5 s forever and the ballot refused ("still being made"). Now a waiting take with no job in this process is released as failed with "The transcript was interrupted (Hermes may have restarted). Press Transcribe now."
-4. **Typed words could be overwritten.** If the student typed their words while a transcript ran, the job's cancel path then marked the take "cancelled", and a finished job could replace the typed text. The student's words now always win. A second press of Transcribe now no longer queues a second job.
-5. **One bad number could break the floor.** `duration: NaN` (or "nan" as text) was stored in practice.json; every later `/home` answer would carry NaN, which is not valid JSON, so the page could not open. Every take number is now finite and clamped (`speech._num`); text like "abc" no longer gives a raw Python error.
-6. **A slow outlet could hold the headline pull.** The 8-second socket timeout bounds each read, not a fetch; a server dripping bytes could hold a column for minutes. The pull now ends at 20 s and a late outlet fails alone ("did not answer in time").
-7. **An export path could replace another app's JSON.** The backup export accepted any `.json` path inside home, including `~/.hermes/auth.json`, if a forged request supplied it (the page itself only sends save-dialog paths). Hidden folders and `~/Library` are now refused; iCloud Drive and `~/Library/CloudStorage` stay allowed.
-8. **Hear it moved the tool's file and could read any audio path.** It now copies the tool's file into `plugin-data/ld-workbench/voice/` and checks the size before reading (the 20 MB cap was checked only after reading).
-9. **Page links**: `openLink` opens only http(s) (the backend already filtered; now both do).
-10. **The Clearing check was too weak.** The old test only looked for each gloss anywhere in `craft-paths.js`, so a gloss on the wrong figure passed (checked by swapping diacope's gloss: the old test passed, the new one fails). The new test pairs each figure with its gloss in The Clearing's own order (15 figures checked); a second test pins the two figure pairs that share one gloss (see "Decisions").
-11. Catalog draft disclosure updated: transcription runs in one worker thread inside Hermes; every model call has a 180 s limit; exports never go into hidden folders or ~/Library; web search and Hear it go through the public tool registry.
+**Design step 7 on the real screens** (light, dark, red and green accents, 760px and 1920px windows). Full write-up in the packet's DESIGN.md, "Step 7 at ship". Fixed:
 
-Checked and found sound: the headline fetcher (https only, listed hosts only, pinned public IP, DTD refused, 250 KB cap, redirects re-checked); take ids and recording file names (ids matched against the record, file names refused with slashes or a leading dot); case ids (`^[a-f0-9]{12}$`); backup import (new ids, every field cut to size); web results (http(s) only, text only); model output rendered as React text, never HTML; no eval, no script injection, no app DOM reach (Hermes's desktop lint passes); declared tools, hooks and middleware match `register()`; no secrets, no credentials, no shell, no cron or blueprint (nothing runs unattended except the transcript thread and the background flow, both in-process); delete-all recordings and case delete each need a confirm; no route sends anything anywhere without a button press.
+1. Narrow pane: the rail row clipped "Settings"; now it wraps, names only, current event underlined.
+2. Narrow pane: a 107px empty band above the strip (stretched grid rows).
+3. Narrow pane: the ballot header's second row was indented with a stray rule.
+4. Wide pane: the floor now stops at 1240px; the drill row's label pins right.
+5. Rail spacing (2, 18, 28px) made into a system: events together, Ballots below, Settings at the foot.
+6. Accent kept to its jobs: the stripe on the live Recording panel and the accent rule on the Spot quote are gone.
+7. "0 pauses over 2 seconds" reads "No pauses over 2 seconds".
+8. The speaking screenshot now comes from a spoken answer with a pause (macOS `say` as the fake mic), so the waveform shows a real envelope and a pause mark.
 
-## Stage 2, what changed
+Recorded in the look ledger (`design_ledger.py add`, project `debate-workbench-0.2`).
 
-1. **Lincoln-Douglas in the 0.2 frame (M1).** The round is drawn to scale (6-3-7-3-4-6-3, then Ballot) with who speaks under each part. Speeches, cross-ex, the opponent's speech (the student's prep) and redo use the big clock with the time cards; the speak button, Finish speech, prep and the facts sit beside it; the speech and the last ballot sit under it. The 0.1 paper ballot is the same paper as the new sheet (no more yellow tint in dark mode).
-2. **The 10-second LD ballot (M5, LD).** Decision boxes, YOU WON / YOU LOST, points on the 20-30 scale, the first sentence of the reason, the three lines that decided it (each tagged with its speech and clickable to the flow), one drill stamped. Folded: full reason, framework, ownership, more lines, strengths, the other drills. **Every quoted line is checked against the speeches** (`engine.check_ld_lines`: the named speech first, then the whole round; "..." elisions checked piece by piece); a line not found is flagged "Not found in the NR as given. Check it on the flow."
-3. **Live waveform while speaking (M2).** The level is drawn as it comes in, on the same timeline as the finished take, starting at the first sound, with a mark over each pause of 2 s or more and "Pausing" while one is going. Extemp, the 60-second answer, openings and LD speeches.
-4. **Settings view** (rail, below Ballots): transcript model with whether it is already downloaded (`speech.model_cached` looks in the Hugging Face cache) and its size (base.en about 145 MB, small.en about 485 MB), recordings with Delete all (confirm step), the outlet editor, and "What leaves your computer".
-5. **Internet-allowed extemp prep (M9).** Chosen at the draw ("Prep: files only / internet allowed"). In prep, "Search the web" uses the user's own Hermes `web_search` tool (through Hermes's tool registry, the same call `ctx.dispatch_tool` makes; no key or scraper of ours). Results are titles, links and snippets; "Save as a source" puts one in the file and picks it for this speech. Refused in files-only rounds; plain messages when web search is not set up, errors or takes over 25 s.
-6. **Hear the opponent (S1).** "Hear it" above each opponent speech: the user's own Hermes `text_to_speech` reads it; play, pause, 1x / 1.25x, time. Cached by the speech's words (newest 8 kept in `plugin-data/ld-workbench/voice/`); plain message when no voice is set up.
-7. **Openings lab (S2).** Extemp gains a third mode: three 45-second openings for one question, spoken or typed, each on its own card with the words and time; the coach picks the strongest, says why, gives one fix per opening and one thing to try. It never writes an opening (rule in the prompt; test checks it).
-8. **Polish.** Every fixed corner in 0.1's styles now follows the host radius; every 10 and 11px size raised to 12px. Demo case names no longer read as test data. README rewritten for 0.2; the catalog draft and Settings disclose web search and Hear it.
-9. **Harness.** `harness/click.mjs` opens a harness URL, clicks buttons by their text, types into the last text box, and screenshots (used for prep search, the open LD ballot, openings, Hear it). `shoot.sh` renders 27 screens; all were looked at in light and dark.
+**Copy audit** of every screen (rendered text of 17 views) and every Python error message:
+
+- "Bad case.", "Bad request." and six like them now say what could not be read.
+- "The model did not return the expected format" is now "The model's answer could not be read. Try again."
+- "Something went wrong on our end" is now "Something went wrong. Try again. If it keeps happening, restart Hermes."
+- "The workbench is not connected." now adds "Close Debate and open it again."
+- Settings, What leaves your computer: "never sent anywhere" was not exact with a remote backend; now "kept on the computer that runs Hermes. It never goes to a model or a website." Web search added to the list. Saved links names both ways a page is read.
+- The harness had shown "Live round test" and "Verification case" as case names. The fixtures were already fixed; the headless profile was serving a cached old copy. `click.mjs` and `live.mjs` now disable the cache.
+
+**Behavior fixes found on the way:**
+
+- Ballots: the drill checkbox now sends the ballot's time, so a list trimmed to 40 cannot tick the wrong ballot (stage 3 open item 3). 3 tests.
+- When Hermes cannot open the browser (`openExternal` false or missing), the link is shown to copy (stage 3 open item 4). Checked in the harness.
+- After a 60-second answer is judged, the drill under the floor is the new one (the home data now reloads after the ballot). Before, "Try it again" showed the previous drill.
+- The drill checkbox has an accessible name.
+
+**Package:**
+
+- `README.md`: a Disclosures section (microphone, recordings of students, AI judges, optional transcripts, news labels, public-domain speeches and The Clearing's definitions, not affiliated, nothing runs on its own); links to the manual and changelog; the strip described accurately.
+- `docs/MANUAL.md`: a short manual, including a table of every message a student may hit and what to do.
+- `CHANGELOG.md`: 0.2.0 and 0.1.0.
+- `LICENSE`: MIT, unchanged (the packet names no other).
+- `docs/card.png` (1200x600) from `docs/card.html`: the real speaking screen, cropped, with the name and the three events.
+- `docs/catalog/ld-workbench.yaml`: the draft entry, image now the card, docs_url now `docs/MANUAL.md`, every pin `PINSHA` (replace at release). `docs/catalog/PR-DESCRIPTION.md`: the draft SHA-bump PR with the rule 13 disclosure. Neither is submitted.
+- Screenshots for the PR: `docs/shots/v02/` (31 screens; `harness/shoot.sh` remakes them). New: `extemp-ready-red-accent`, `extemp-ready-narrow-light`, `extemp-ready-wide-dark`, `ld-ballot-narrow-light`.
+- `docs/LIVE-TEST.md`: Tuesday's checklist, riskiest first. `docs/DEMO-NOTES.md`: the moments to film, with steps.
+- `harness/seed_demo.py`: writes the nine practice ballots into a chosen `plugin-data/ld-workbench` folder for the film. It refuses any other folder name and any folder that already has ballots (unless `--force`, which backs up first). Never run against a real profile by me.
 
 ## What works now
 
-End to end in the harness, with the real backend code under the tests:
-
-1. **The frame.** Event rail (Lincoln-Douglas, Extemp, Rhetoric, Ballots), the strip drawn to scale in time, the 190px condensed clock with the timekeeper's cards (7..1, 30, Time). The page opens on Extemp with a 60-second answer loaded and ready to speak (the cross-set fix: the speaking state is the default screen and the catalog image, `docs/shots/v02/extemp-speaking-dark.png`). Corners follow the host's radius; nothing under 12px; 0.1's 10 and 11px labels raised.
-2. **The recorder** (M2). MediaRecorder plus an analyser at 20 Hz, kept at 10 Hz. The clock starts at the first sound. Auto-stop 60 s past time, or after 2 minutes of silence. Mic denied, missing, busy, unsupported, broken mid-take and never answering (15 s timeout) each have a plain message; "Type instead" always works and is labeled "estimated at 140 words a minute". Verified with Chrome's fake microphone over the DevTools protocol (`harness/live.mjs`): the clock ran 1:00 to 0:55, the take uploaded, the floor showed its numbers, no page errors.
-3. **Takes and transcripts** (M3). `speech.py`: upload through ctx.rest's single-file upload with a base64-in-JSON fallback; 30 MB cap, audio MIME check, atomic write; newest 20 recordings and 100 MB kept; delete-all. faster-whisper runs in one worker thread when installed (base.en default, small.en offered, unloaded after 5 idle minutes); otherwise the take is marked "Timing only" and keeps its recording for "Transcribe now". "Type what you said" gives real timing plus the student's words. Speaking time and pauses over 2 s come from the levels; words a minute, fillers ("fillers the transcript caught") and time to the answer from the transcript.
-4. **Extemp** (M7, M8, M9, M10). The 60-second answer floor, judged; the full round: Pull headlines (10 outlets in parallel, each column failing alone, cache per topic, offline falls back to the last pull), Save to file, Draw three questions from the file and this pull (model), with a write-your-own fallback when the model fails or answers badly (no model needed), 30:00 prep with the outline and file sources, 7:00 speech, ballot.
-5. **The ballot sheet** (M5, extemp and drill). Answered Yes / Partly / No boxes and the points circle in the user's accent (the judge's pen), the decisive lines in the student's own words (serif) checked against the transcript ("Not found in your transcript. Check it." when not), one DRILL, the reason folded with its word count computed.
-6. **Ballot tags and patterns** (M6). Fixed tag lists per event; off-list tags dropped. Measured tags from numbers only (pace over 175 or under 115, over time past a 5 s grace, under three quarters of the time, late answer, fillers over 4 a minute, three or more long pauses). The Ballots view counts "N of M" over the last 6 with R1-R6 chips marked W or L (the cross-set fix replacing Proving Ground's tally squares), and checks off drills. A 0.1 data folder opens unchanged (tested).
-7. **Rhetoric** (M11, part of M12). The figures in The Clearing's six effect groups with **The Clearing's own definitions, word for word** (a test compares them with `writing-bench/shared/craft-paths.js` whenever that file is on the computer); 28 examples, each an exact line from one of six public-domain speeches (Wikisource texts; Anthony's opening line corrected from a vandalized copy). The device finder keeps a mark only if the figure is on the list and the quote is an exact substring after whitespace is normalized (curly quotes and dashes folded); at most 40. Spot the figure is model-free (the answer is known). Write your own line gets a coach critique that never writes. Say it records 0:30. "Further reading: Mark Forsyth, The Elements of Eloquence (2013)" on the figure list.
-8. **Lincoln-Douglas** (M1, M4, M5). The room in the 0.2 frame (stage 2, above); each of the student's speeches can be spoken with the same recorder, the transcript replaces the box (with "Bring back my typed draft"), the real speaking time replaces the estimate, and measured tags from every spoken speech ride on the LD ballot. The browser dictation button is gone. The LD judge now also returns tags from the fixed list.
-
-## Spikes (SPEC section 8)
-
-| Spike | Result |
-|---|---|
-| P1 webkitSpeechRecognition in Hermes | Not run live (no Hermes runs here). Removed per SPEC; a test proves the bundle no longer contains it. |
-| P2 mic in a plugin page | **Passed in Chrome** with a fake mic (live.mjs). Not yet in Hermes 0.23 Electron: the first macOS prompt, denied-then-retry, and the wake word holding the mic are Tuesday checks. |
-| P3 faster-whisper | **Partly passed.** Hermes's venv imports faster_whisper 1.2.1 in 1.6 s; PyAV decodes a webm/opus file at 16 kHz with no system ffmpeg; `transcribe()` takes word_timestamps, initial_prompt and vad_filter. **No speech model is cached on this Mac** (no `models--Systran--faster-whisper-*` anywhere), so the first transcript downloads base.en (about 140 MB) from huggingface.co. I did not download it (a download needs Damon's OK); the 60 s and 7 min timings are still unmeasured. Turn-on wording settled from Hermes's Settings labels: "In Hermes Settings, Voice, set the speech-to-text provider to local and use voice input once." |
-| P4 TTS through dispatch_tool | Not started (SHOULD S1). |
-| P5 headlines | **Passed from this Mac** through the plugin's own fetcher (not yet from inside the gateway or behind a proxy): all 10 default outlets answered in 1.2 s. Google News works for every outlet including City Journal (which has no RSS feed of its own). Own feeds checked with curl: National Review, AEI, UnHerd 200; City Journal none. Google's feed terms allow personal feed-reader use, which this is. |
-
-## Damon's addition: the center-right outlets
-
-Added National Review (AllSides **Lean Right** for its news pages, high confidence; its opinion pages are rated Right), City Journal of the Manhattan Institute (**Right**, low confidence), AEI (**Lean Right**, low confidence; the AllSides page also says "far right" in one line and is inconsistent) and UnHerd. **UnHerd is rated Center by AllSides** (moved from Lean Right in July 2023, low confidence), so it sits in the center column with Reuters and AP, labeled Center. Every label and side is the student's to change.
-
-**The default set is now lopsided: 2 left (NPR, NYT), 3 center (Reuters, AP, UnHerd), 5 right (Examiner, Washington Times, National Review, City Journal, AEI).** `headlines.balance()` reports it. Center-left counterparts that would rebalance it, labels checked on AllSides Nov 7:
-
-- **The Atlantic** (Left), the magazine of ideas opposite National Review and City Journal.
-- **Washington Monthly** (Lean Left), the policy magazine opposite City Journal.
-- **Brookings** (rated Center, not left), the think tank opposite AEI; it would join the center column.
-
-Recommendation: add The Atlantic and Washington Monthly to the defaults (4 left, 3 center, 5 right), keep Brookings as a suggestion. They are already offered under "Your outlets"; making them defaults is a two-line change in `headlines.DEFAULT_OUTLETS`. Damon decides.
+Unchanged from stage 3 except the fixes above; see the stage 3 notes in git history (`git show 0497c0c:docs/STATUS.md`). In short: the frame (rail, strip to scale, clock, time cards) for every event; the recorder with live waveform and pause marks; takes, transcripts with faster-whisper when present, timing-only otherwise; extemp (60-second answer, openings, full round with the headline pull from ten outlets on three sides, draw, prep files-only or internet-allowed, speech, ballot); the 10-second ballot with quoted lines checked against the transcript; Ballots with patterns counted in code and R1 to R6 chips; Rhetoric with The Clearing's definitions and exact-quote marks; Lincoln-Douglas spoken, with Hear it; Settings.
 
 ## What is left, in priority order
 
-1. **Tuesday live checks in Hermes 0.23** (Damon installs with a backup): mic prompt, denied-then-retry and the wake word (P2); one 60 s take with transcription, which downloads base.en the first time (P3); **web search and Hear it from the dashboard process** through `tools.registry` (unverified there: whether the built-in tools load, whether the web and tts toolsets must be on, and that the call works with no session scope); headlines from inside the gateway (P5); **one long model call** (the opponent's NC, about 1,000 words) to confirm the 180 s limit is honored on Damon's provider.
-2. **Security bar** (`../SECURITY-BAR.md`): bandit and semgrep, the hostile-content red-team tests, docs/SECURITY-AUDIT.md by a separate auditor. This stage's review is not that audit.
-3. **Ballot drill checkbox is addressed by list position** (`/ballots/{index}/drill`). With 40 ballots kept, a new ballot trims the oldest and shifts every index, so a Ballots view left open could tick the drill on the wrong ballot. Fix: address a ballot by its `at` time and round. Small; not done.
-4. **"Open in your browser" fails quietly** if Hermes has no browser bridge (`ctx.os.openExternal` resolves false). Show "Copy the link instead" when it returns false. Small.
-5. **Card image.** `docs/card.png` is still the 0.1 card; the catalog draft uses the speaking screenshot, so it is optional.
-6. **SHOULD, in SPEC order:** S3 Delivery lab, S4 token meter (needs a registered aux task), S5 spoken cross-ex answers, S6 extemp drills.
-7. **Rhetoric:** pick the figure under the Write step from the marked text; "Say it" ties back to the line written.
-8. **Model routing:** registering `ld_judge` and friends as auxiliary tasks is still held back (a registered task defaults to provider "auto"). With the explicit 180 s limit, a registered task would no longer inherit the 30 s default either.
-9. `POST /extemp/file/{id}/delete` exists but no button uses it; either add a remove control with a confirm or drop the route.
-10. Manual (linchpin.studio/hermes/ld-workbench/manual/), re-pin the catalog sha and screenshot URLs at release, version bump PR. Persona testers through the harness.
+1. **Tuesday's live test** (`docs/LIVE-TEST.md`). The four never-run paths: the microphone inside Hermes Electron, the first transcript (base.en download) and its timing, one long model call against the 180 s limit, and web search and Hear it through `tools.registry` from the dashboard process. Then headlines from inside the gateway.
+2. **The film** (`docs/DEMO-NOTES.md`), after the live test passes.
+3. **Security bar** (`../SECURITY-BAR.md`): bandit and semgrep, the hostile-content tests, and a separate auditor's sign-off before release.
+4. **Release:** push `v0.2`, merge, replace `PINSHA` in `docs/catalog/ld-workbench.yaml` and the PR text, check each image URL opens, open the PR (Damon's call).
+5. **The web manual** at linchpin.studio/hermes/ld-workbench/manual/ still describes 0.1. The catalog draft now points at `docs/MANUAL.md` instead. Update the web page or leave it as 0.1's.
+6. `POST /extemp/file/{id}/delete` has no button. Add a remove control with a confirm, or drop the route.
+7. SHOULD, in SPEC order: S3 Delivery lab, S4 token meter, S5 spoken cross-ex answers, S6 extemp drills.
+8. Rhetoric: pick the figure under Write from the marked text; tie Say it to the line written.
+9. Model routing: registering `ld_judge` and friends as auxiliary tasks is still held back.
 
 ## Known risks
 
-- **Slow models.** A call now waits up to 180 s, then shows "took too long". A slow local model on a 7-minute speech can still hit that; the student can press again or pick a faster model.
-- **Transcripts are unverified live.** No model is cached, so the first take on Damon's Mac downloads about 140 MB before any words appear, and a 7-minute take on CPU may take a while (unmeasured). The page shows "Making the transcript on this computer" with Stop, and the ballot waits for the words. Tuesday: run one 60 s take before filming.
-- **Recording in Hermes Electron** is verified only in Chrome. The wake word can hold the mic; the message names it.
-- **Accent collisions.** With a red accent the judge's pen and the DRILL stamp are both red, and with a green accent the pen matches "right" answers. Meaning is still carried by shape and word (X in a box, a circle on the scale, underlines, the word DRILL), so nothing becomes ambiguous; screenshots: `extemp-ballot-red-accent.png`, `extemp-ballot-green-accent.png`.
-- **The Clearing's glosses are terse** ("Interrupted repetition.", "Circular return."). They are shared word for word as asked; each figure with an example shows the real line beside it. 18 figures (alliteration, assonance, rhyme, versification, antithesis, paradox, personification and the classical additions) have no Clearing gloss yet and carry ours (`source: "workbench"` in `rhetoric_method.py`); copy those back into The Clearing so both agree. 25 figures still have no example line.
-- **Google News links** are redirect wrappers that open only in a browser; "Save to file" keeps the wrapper link. Article text is never fetched.
-- Python 3.9 (system) runs the tests; Hermes runs 3.11. Nothing newer than 3.9 syntax is used.
+- **Microphone and transcripts are verified only in Chrome**, not in Hermes Electron. The wake word may hold the mic; the message names it.
+- **First transcript downloads about 145 MB.** Do one throwaway take before filming. 60 s and 7 min timings unmeasured.
+- **Slow models** can hit the 180 s limit on a 7-minute speech; the student sees "took too long" and can retry.
+- **Web search and Hear it from a REST route** use `tools.registry`; if the registry is not loaded in the dashboard process or the toolset is off, the student sees the plain "not set up" message. Verify Tuesday.
+- **Accent collisions:** with a red accent, the pen, the primary button and DRILL share a hue; meaning rides on shape and words. Screens: `extemp-ballot-red-accent.png`, `extemp-ready-red-accent.png`.
+- **Google News links** are redirect wrappers; they open in a browser only. Article text is never fetched.
+- Tests run on Python 3.9; Hermes runs 3.11. Nothing newer than 3.9 syntax is used.
 
-- **Web search and Hear it from a REST route.** Both call Hermes's public tool registry from the dashboard API process (`registry.dispatch`, loading built-ins with `discover_builtin_tools()` if needed). In tests and the harness they are replaced. If the registry is not loaded there, or the toolset is off, the student sees the plain "not set up" message and can keep going (files only; read the speech). Verify Tuesday.
-- **Hear it on long speeches.** A 7-minute NC is about 1,000 words; synthesis time depends on the user's provider (timeout 120 s). Audio over 20 MB is refused with a message.
-- **Autoplay.** After "Hear it" the audio tries to start by itself; if the window blocks it, Play is there and no error shows.
+## Decisions for Damon (open)
 
-## Decisions for Damon (still open)
-
-1. Make The Atlantic and Washington Monthly default outlets to rebalance the set (recommended), or leave the right column heavier.
-2. OK to download the base.en speech model (about 140 MB from huggingface.co) on this Mac for the P3 timing run, before Tuesday?
-3. The Clearing's short definitions: keep them word for word (current), or let both products add one plain sentence under each.
-4. **Two pairs of figures show the same definition.** Zeugma and syllepsis share "One governing word across clauses." in The Clearing itself. Merism and synecdoche both read "Parts standing for a whole." because The Clearing names eight image figures but gives only seven glosses. On the figure list this reads as a mistake. Recommendation: give merism "A whole named by listing its parts." and syllepsis "One word used in two senses at once." in both products (edit The Clearing's prompt line too, so they still agree). A test pins the two pairs today, so the change is one line in `rhetoric_method.py` plus that test.
-5. **The default outlets are lopsided: 2 left, 3 center, 5 right** (unchanged from stage 2; `headlines.balance()` flags it on the page). Recommendation stands: add The Atlantic (Left) and Washington Monthly (Lean Left) to the defaults for 4 / 3 / 5, keep Brookings (Center) as a suggestion. Two lines in `headlines.DEFAULT_OUTLETS`.
+1. **The default outlets are lopsided.** By column: 2 left (NPR, NYT), 3 center (Reuters, AP, UnHerd), 5 right (Washington Examiner, Washington Times, National Review, City Journal, AEI). By AllSides label it is 3 leaning left (AP is rated Lean Left but sits in the center column as a wire), 2 Center, 5 leaning right. **Recommendation:** add **The Atlantic** (AllSides: Left) and **Washington Monthly** (Lean Left) as defaults, the magazines opposite National Review and City Journal. That makes 4 left, 3 center, 5 right by column and 5 to 5 by label. Keep **Brookings** (rated Center, the think tank opposite AEI) as a suggestion. Two lines in `headlines.DEFAULT_OUTLETS`; both are already offered under Your outlets. The page flags the imbalance today (`headlines.balance()`).
+2. **The film's question** (DEMO-NOTES): the default tariffs question, or a lower-partisan one already in the starter list (the Fed, or a four-day school week). Recommendation: the Fed question.
+3. **Two figure pairs share one definition** (zeugma and syllepsis; merism and synecdoche), because The Clearing shares them. Recommendation: merism "A whole named by listing its parts.", syllepsis "One word used in two senses at once.", in both products.
+4. OK to download base.en (about 145 MB from huggingface.co) on this Mac before Tuesday to time the transcripts?
+5. The web manual (item 5 above): update it for 0.2, or leave it.

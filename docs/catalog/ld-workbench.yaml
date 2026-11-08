@@ -1,0 +1,29 @@
+# DRAFT, not submitted. The 0.2 entry for plugin-catalog/ld-workbench.yaml in hermes-agent (a SHA-bump PR, rule 4).
+# Before submitting: push v0.2, merge it, then replace every PINSHA below with the merge commit (40 hex characters)
+# and check that each image URL opens. The PR text is docs/catalog/PR-DESCRIPTION.md.
+name: ld-workbench
+title: Debate Workbench
+repo: https://github.com/Dgardenhire/hermes-ld-workbench
+sha: PINSHA
+description: "Practice speech and debate out loud: Lincoln-Douglas, extemp and rhetoric. Speeches are recorded and timed with a real clock and the timekeeper's cards; a transcript, words a minute, pauses and fillers are worked out on this computer. Extemp pulls this week's headlines on the student's topic from outlets on the left, the center and the right, side by side and labeled by lean, draws three questions from the student's own saved news, and runs 30 minutes of prep and a 7-minute speech. Rhetoric marks the figures in public-domain speeches, checking every quote against the text. A judge's ballot follows every round, and every ballot is kept so patterns show across rounds. Lincoln-Douglas keeps the case workbench, topic briefing, full NSDA practice round against an AI opponent and fallacies tools. Every model call goes to the user's own Hermes model through the plugin LLM helper. Debate Workbench is an independent community plugin. It is not made or endorsed by Nous Research, the National Speech & Debate Association, AllSides or any news outlet. Disclosure — microphone: opened only while the student presses Start speaking, and stopped on finish, cancel, error or leaving the page; recordings: saved only in $HERMES_HOME/plugin-data/ld-workbench/recordings/, newest 20 and at most 100 MB kept, delete-all button; transcribed on the Hermes backend with faster-whisper when Hermes's local speech-to-text is installed (no dependency declared); on first use faster-whisper downloads its speech model from huggingface.co (no audio is sent); with a remote Hermes backend, the recording is sent to that backend. Network calls of its own, only when the student presses a button: (1) headline pull: a Google News RSS search per outlet on the student's list, plus those outlets' own RSS feeds as fallback (https only, listed hosts only, public addresses checked, 8-second timeout, 250 KB cap, headlines and links only, no article text); (2) a link the student saves to the extemp file or adds as a topic source (one public page, checked on every redirect, 20-second timeout, first 30,000 characters). In an extemp round the student starts with internet allowed, a search the student types during prep goes to the user's own Hermes web_search tool (whatever search backend they set up in Hermes; no key or scraper in the plugin), and only titles, links and snippets come back. When the student presses Hear it, the AI opponent's speech text goes to the user's own Hermes text_to_speech tool (their configured voice provider); the audio is kept in $HERMES_HOME/plugin-data/ld-workbench/voice/, newest 8. No credentials, telemetry, shell commands, separate processes or self-updates; transcription runs in one worker thread inside Hermes and the model unloads after 5 idle minutes. Every model call carries its own 180-second limit. Links open in the user's browser; if Hermes cannot open one, the link is shown to copy. Registers no tools, hooks or middleware, only a Desktop page and a dashboard API. Stores cases, rounds, ballots, briefings, takes, the extemp file and headline pulls in $HERMES_HOME/plugin-data/ld-workbench/. Reads a .docx, .txt or backup file only when the user picks one; writes an export only to a path the user picks in the save dialog (never into a hidden folder or ~/Library), or into its own exports folder. Web search and Hear it go through Hermes's public tool registry (tools.registry, the call ctx.dispatch_tool makes); no private Hermes imports."
+maintainer: Dgardenhire
+tier: community
+category: desktop
+requires_hermes: ">=0.22.0"
+docs_url: https://github.com/Dgardenhire/hermes-ld-workbench/blob/PINSHA/docs/MANUAL.md
+version: "0.2.0"
+image: "https://raw.githubusercontent.com/Dgardenhire/hermes-ld-workbench/PINSHA/docs/card.png"
+screenshots:
+  - "https://raw.githubusercontent.com/Dgardenhire/hermes-ld-workbench/PINSHA/docs/shots/v02/extemp-speaking-dark.png"
+  - "https://raw.githubusercontent.com/Dgardenhire/hermes-ld-workbench/PINSHA/docs/shots/v02/extemp-ballot-dark.png"
+  - "https://raw.githubusercontent.com/Dgardenhire/hermes-ld-workbench/PINSHA/docs/shots/v02/extemp-draw-dark.png"
+  - "https://raw.githubusercontent.com/Dgardenhire/hermes-ld-workbench/PINSHA/docs/shots/v02/ld-ballot-light.png"
+  - "https://raw.githubusercontent.com/Dgardenhire/hermes-ld-workbench/PINSHA/docs/shots/v02/rhetoric-read-dark.png"
+  - "https://raw.githubusercontent.com/Dgardenhire/hermes-ld-workbench/PINSHA/docs/shots/v02/ballots-light.png"
+readme: true
+platforms: []
+capabilities:
+  provides_tools: []
+  provides_hooks: []
+  provides_middleware: []
+  requires_env: []

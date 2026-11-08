@@ -1243,7 +1243,9 @@ function DrillFloor({ home, modeSwitch }) {
   const [i, setI] = useState5(0);
   const q = pool.length ? pool[i % pool.length] : { area: "us", text: "Should your town spend more on roads or on parks?" };
   const last = home.last_take && home.last_take.drill;
-  const jt = useJudgedTake({ event: "drill", limit: DRILL, question: q.text, initial: last && last.prompt === q.text ? last : null });
+  const jt = useJudgedTake({ event: "drill", limit: DRILL, question: q.text, initial: last && last.prompt === q.text ? last : null, onBallot: () => {
+    loadHome();
+  } });
   const live = jt.recorder.state === "live" || jt.recorder.state === "armed";
   const another = () => {
     if (!live) {

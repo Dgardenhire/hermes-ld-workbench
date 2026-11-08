@@ -218,3 +218,29 @@ class DrillCheckboxPinnedToBallot(unittest.TestCase):
     def test_gone_ballot_says_so(self):
         with self.assertRaises(ValueError):
             self.B.set_drill_done(0, True, at=9999)
+
+
+class DemoSeed(unittest.TestCase):
+    """harness/seed_demo.py writes the practice ballots once and never overwrites real ones by itself."""
+
+    def test_seed_then_refuse(self):
+        import importlib.util, io, contextlib
+        spec = importlib.util.spec_from_file_location("seed_demo", ROOT / "harness" / "seed_demo.py")
+        mod = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(mod)
+        old = os.environ.get("LDW_DATA_DIR")
+        try:
+            target = Path(tempfile.mkdtemp(prefix="ldw-seed-")) / "ld-workbench"
+            target.mkdir()
+            with contextlib.redirect_stdout(io.StringIO()):
+                self.assertEqual(mod.main([str(target)]), 0)
+                self.assertEqual(len(json.loads((target / "ballots.json").read_text())["history"]), 9)
+                self.assertEqual(mod.main([str(target)]), 1)  # already has ballots
+                self.assertEqual(mod.main([str(target.parent)]), 2)  # not the plugin's folder
+                self.assertEqual(mod.main([str(target), "--force"]), 0)
+            self.assertTrue(any(p.name.startswith("ballots.json.bak-") for p in target.iterdir()))
+        finally:
+            if old is None:
+                os.environ.pop("LDW_DATA_DIR", None)
+            else:
+                os.environ["LDW_DATA_DIR"] = old
