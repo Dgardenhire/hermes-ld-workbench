@@ -200,10 +200,12 @@ def _unprefix(chunk):
 
 
 def parse_feed(raw):
-    """Items from RSS or Atom: [{title, url, at, source}]. Refuses a document with a DTD, so no
-    entity can expand. A cut-off document (the byte cap) keeps the items that closed before the cut."""
+    """Items from RSS or Atom: [{title, url, at, source}]. Refuses a document with a DTD anywhere in it, so
+    no entity can expand (a long comment can push a DOCTYPE past any prefix check, and the expat in older
+    Pythons has no entity-expansion limit). External entities are never fetched: ElementTree does not
+    resolve them. A cut-off document (the byte cap) keeps the items that closed before the cut."""
     text = raw.decode("utf-8", errors="replace") if isinstance(raw, bytes) else str(raw)
-    if re.search(r"<!DOCTYPE|<!ENTITY", text[:4000], re.I):
+    if engine.has_dtd(text):
         raise RuntimeError("feed has a DTD")
     try:
         root = ET.fromstring(text)

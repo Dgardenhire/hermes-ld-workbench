@@ -35,7 +35,7 @@ Full list: `CHANGELOG.md`. Manual: `docs/MANUAL.md`.
 
 - **Microphone:** opened with `getUserMedia` only while the student presses Start speaking; stopped on finish, cancel, error or leaving the page.
 - **Recordings:** saved only in `$HERMES_HOME/plugin-data/ld-workbench/recordings/`; newest 20 and at most 100 MB kept; delete-all in Settings.
-- **Transcription:** faster-whisper in one worker thread inside the Hermes backend, when Hermes's local speech-to-text is installed. First use downloads its speech model from huggingface.co (no audio is sent). With a remote Hermes backend, the recording goes to that backend.
+- **Transcription:** faster-whisper in one worker thread inside the Hermes backend, when Hermes's local speech-to-text is installed. Its speech model is downloaded from huggingface.co only when the student presses Transcribe now (no audio is sent); a new recording never starts the download. With a remote Hermes backend, the recording goes to that backend.
 - **Third-party network calls, each only on a button press:**
   1. Headline pull: a Google News RSS search per outlet on the student's list, plus those outlets' own RSS feeds as fallback. Https only, listed hosts only, public addresses only, 8-second timeout, 250 KB cap, 20 seconds for the whole pull. Headlines and links only.
   2. A link saved to the extemp file or added as a topic source: one public page, every redirect re-checked, 20-second timeout, first 30,000 characters.

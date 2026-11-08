@@ -29,7 +29,7 @@ Mark each line **Pass**, **Fail** (with the exact message on screen) or **Skip**
 
 ## 3. Transcripts and the long model call (P3; timings never measured)
 
-- [ ] **First transcript** (downloads base.en, about 145 MB, from huggingface.co). Time it from Stop to words on screen: ______ . **Pass:** words appear and the ballot follows; Settings now says base.en is on this computer.
+- [ ] **First transcript.** The take first says the speech model is not on this computer and nothing downloads; press Transcribe now (downloads base.en, about 145 MB, from huggingface.co). Time it from Stop to words on screen: ______ . **Pass:** words appear and the ballot follows; Settings now says base.en is on this computer.
 - [ ] **Second 60-second take.** Time from Stop to words: ______ (expect seconds, not minutes).
 - [ ] **The extemp ballot.** **Pass:** decision boxes, points circled, three quoted lines from what you said (none flagged "Not found" unless you really did not say it), one DRILL.
 - [ ] **One long model call.** Lincoln-Douglas, Tournament Room: start a Varsity round with any case, give the AC (type or paste is fine). The opponent writes the NC (about 1,000 words). Time it: ______ . **Pass:** the NC arrives. If it takes over 3 minutes: "The model took too long to answer..." shows with a way to try again (that is the designed path; note the model you use).

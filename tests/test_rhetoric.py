@@ -8,7 +8,17 @@ from pathlib import Path
 from _load import HTTPException, R, api, fake_model, reset, run
 
 HERMES_CLEARING = Path(__file__).resolve().parents[2] / "hermes-clearing"
-CLEARING_PATHS = Path.home() / "Documents/Codex/2026-09-06/https-every-to-guides-compound-writing/outputs/writing-bench/shared/craft-paths.js"
+CLEARING_AT = "3a97a48"  # the hermes-clearing commit these definitions were copied from
+
+
+def clearing_file(path):
+    """A file from The Clearing's repo, checked out beside this one, as it was at CLEARING_AT (read only)."""
+    import subprocess
+    return subprocess.run(["git", "-C", str(HERMES_CLEARING), "show", f"{CLEARING_AT}:{path}"],
+                          capture_output=True, text=True, check=True).stdout
+
+
+HAS_CLEARING = (HERMES_CLEARING / ".git").exists()
 
 
 class Data(unittest.TestCase):
@@ -43,37 +53,41 @@ class Data(unittest.TestCase):
         self.assertTrue(all(f["effect"] in {e["id"] for e in R.EFFECTS} for f in R.FIGURES))
         self.assertEqual(len({f["id"] for f in R.FIGURES}), len(R.FIGURES))
 
-    @unittest.skipUnless(CLEARING_PATHS.exists(), "The Clearing's source is not on this computer")
+    @unittest.skipUnless(HAS_CLEARING, "The Clearing's repo is not beside this one")
     def test_clearing_definitions_are_word_for_word(self):
-        src = CLEARING_PATHS.read_text(encoding="utf-8").lower()
+        src = clearing_file("library/craft-paths.json")
+        low = src.lower()
         for f in R.FIGURES:
             if f["source"] == R.CLEARING and f["id"] not in R.CLEARING_REVISED:  # revised in hermes-clearing; see below
-                gloss = f["definition"].rstrip(".").lower()
-                self.assertIn(gloss, src, f["id"])
-        effects = re.findall(r"title:'([^']+)'", CLEARING_PATHS.read_text(encoding="utf-8"))
+                self.assertIn(f["definition"].rstrip(".").lower(), low, f["id"])
+        effects = {fc["title"] for pth in json.loads(src)["paths"] for fc in pth["focuses"]}
         for e in R.EFFECTS:
             self.assertIn(e["title"], effects)
 
-    @unittest.skipUnless(CLEARING_PATHS.exists(), "The Clearing's source is not on this computer")
+    @unittest.skipUnless(HAS_CLEARING, "The Clearing's repo is not beside this one")
     def test_each_gloss_sits_on_the_same_figure_as_in_the_clearing(self):
         """The Clearing lists a focus's figures in its detail line and their glosses, in the same order, in
         its prompt. Where the two lists are the same length, each figure must carry its own gloss, not a
         neighbour's (a substring check over the whole file cannot see a swap)."""
-        src = CLEARING_PATHS.read_text(encoding="utf-8")
         by_name = {f["name"].lower(): f for f in R.FIGURES}
         by_name.update({"periodic suspense": by_name["periodic sentence"], "verbless phrasing": by_name["scesis onomaton"],
                         "exact number": by_name["the exact number"]})
         checked = 0
-        for detail, prompt in re.findall(r"detail:'(?:Use|Test) ([^']+?)(?: to [^']*)?\.',prompt:`[^:`]*?: ([^`]+?)\. ", src):
-            names = [n.strip() for n in re.split(r",\s*(?:or\s+)?|\s+or\s+", detail) if n.strip()]
-            glosses = [g.strip() for g in re.split(r",\s*(?:or\s+)?|\s+or\s+", prompt) if g.strip()]
-            if len(names) != len(glosses) or not all(n.lower() in by_name for n in names):
-                continue
-            for n, g in zip(names, glosses):
-                f = by_name[n.lower()]
-                if f["source"] == R.CLEARING and f["id"] not in R.CLEARING_REVISED:
-                    self.assertEqual(f["definition"].rstrip(".").lower(), g.lower(), n)
-                    checked += 1
+        for pth in json.loads(clearing_file("library/craft-paths.json"))["paths"]:
+            for fc in pth["focuses"]:
+                d = re.match(r"(?:Use|Test) (.+?)(?: to [^.]*)?\.$", fc.get("detail") or "")
+                g = re.match(r"[^:]*?: (.+?)\. ", fc.get("prompt") or "")
+                if not d or not g:
+                    continue
+                names = [n.strip() for n in re.split(r",\s*(?:or\s+)?|\s+or\s+", d.group(1)) if n.strip()]
+                glosses = [x.strip() for x in re.split(r",\s*(?:or\s+)?|\s+or\s+", g.group(1)) if x.strip()]
+                if len(names) != len(glosses) or not all(n.lower() in by_name for n in names):
+                    continue
+                for n, gl in zip(names, glosses):
+                    f = by_name[n.lower()]
+                    if f["source"] == R.CLEARING and f["id"] not in R.CLEARING_REVISED:
+                        self.assertEqual(f["definition"].rstrip(".").lower(), gl.lower(), n)
+                        checked += 1
         self.assertGreaterEqual(checked, 12)  # repetition (4 left on the gloss), interruption (8), and more as The Clearing grows
 
     def test_no_two_figures_share_a_definition(self):
@@ -90,27 +104,21 @@ class Data(unittest.TestCase):
         self.assertEqual(len(set(quotes)), len(quotes))
         self.assertTrue(all(by[i]["example"] for i in ("merism", "syllepsis", "synecdoche", "zeugma")))
 
-    @staticmethod
-    def _clearing_at(path):
-        import subprocess
-        return subprocess.run(["git", "-C", str(HERMES_CLEARING), "show", f"3a97a48:{path}"],
-                              capture_output=True, text=True, check=True).stdout
-
-    @unittest.skipUnless((HERMES_CLEARING / ".git").exists(), "The Clearing's repo is not beside this one")
+    @unittest.skipUnless(HAS_CLEARING, "The Clearing's repo is not beside this one")
     def test_the_revised_definitions_match_the_clearing_word_for_word(self):
-        theirs = {f[0]: f[1] for g in json.loads(self._clearing_at("library/additions.json"))["figures"]["groups"] for f in g["figures"]}
+        theirs = {f[0]: f[1] for g in json.loads(clearing_file("library/additions.json"))["figures"]["groups"] for f in g["figures"]}
         by = {f["id"]: f for f in R.FIGURES}
         self.assertEqual(len(R.CLEARING_REVISED), 11)
         for fid in R.CLEARING_REVISED:
             self.assertEqual(by[fid]["source"], R.CLEARING, fid)
             self.assertEqual(by[fid]["definition"], theirs[by[fid]["name"].lower()], fid)
 
-    @unittest.skipUnless((HERMES_CLEARING / ".git").exists(), "The Clearing's repo is not beside this one")
+    @unittest.skipUnless(HAS_CLEARING, "The Clearing's repo is not beside this one")
     def test_every_shared_figure_matches_a_clearing_text_word_for_word(self):
         """Every figure marked CLEARING carries The Clearing's words: the eleven revised ones its figure list
         (library/additions.json), the rest the gloss its craft-path prompts still use (library/craft-paths.json)."""
-        listed = {f[0] for g in json.loads(self._clearing_at("library/additions.json"))["figures"]["groups"] for f in g["figures"]}
-        paths = self._clearing_at("library/craft-paths.json").lower()
+        listed = {f[0] for g in json.loads(clearing_file("library/additions.json"))["figures"]["groups"] for f in g["figures"]}
+        paths = clearing_file("library/craft-paths.json").lower()
         shared = [f for f in R.FIGURES if f["source"] == R.CLEARING]
         self.assertEqual(len(shared), 37)
         for f in shared:

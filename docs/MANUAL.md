@@ -6,7 +6,7 @@ Version 0.2. For students practicing speech and debate on their own, and for the
 
 - Hermes Desktop 0.22 or newer, with a model set up. Debate Workbench uses that model for the opponent, the judge and the coach.
 - A microphone, if you want to speak. Without one you can type everything.
-- For transcripts: Hermes's local speech-to-text. In Hermes Settings, Voice, set the speech-to-text provider to local and use voice input once. The first transcript downloads the speech model (about 145 MB) from huggingface.co; after that it works offline. Without it, every take still gets real timing and pauses.
+- For transcripts: Hermes's local speech-to-text. In Hermes Settings, Voice, set the speech-to-text provider to local and use voice input once. The first time, the take says the speech model is not on this computer yet; press Transcribe now to download it (about 145 MB) from huggingface.co, once; after that it works offline. Without it, every take still gets real timing and pauses.
 
 Open it from **Debate** in the Hermes sidebar. The rail on the left holds the events: Lincoln-Douglas, Extemp, Rhetoric, then Ballots and Settings.
 
@@ -84,7 +84,7 @@ Each ballot's drill has a checkbox. Tick it when you have done the drill.
 | "Hermes is not allowed to use the microphone." | On a Mac: System Settings, Privacy & Security, Microphone, turn on Hermes. On Windows: Settings, Privacy & security, Microphone, let desktop apps use it. Or press **Type instead**. |
 | "The microphone is busy." | Turn off Hermes's wake word for now, or close other apps that use the mic. |
 | "Timing only" on a take | Transcripts are not set up. Follow the steps under "Before you start", then press **Transcribe now**. Or type what you said. |
-| "Making the transcript on this computer" for a long time | The first transcript downloads the speech model. Later ones are faster. A 7-minute speech takes longer than a 1-minute answer. |
+| "Making the transcript on this computer" for a long time | The first Transcribe now downloads the speech model. Later ones are faster. A 7-minute speech takes longer than a 1-minute answer. |
 | "The model took too long to answer." | Press the button again, or pick a faster model in Hermes settings. |
 | "Hermes does not have a model set up yet." | Choose a model in Hermes settings. |
 | An outlet column says it did not answer | That outlet failed on its own; the others still work. Pull again later, or work from your saved file. |

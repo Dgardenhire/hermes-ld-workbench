@@ -17,6 +17,12 @@ Debate Workbench now covers three events and listens to you speak.
 - **Lincoln-Douglas, spoken.** Speak any of your speeches in the practice round; the transcript replaces the typed draft (you can bring the draft back) and the real time replaces the estimate. Hear it: the opponent's speech read aloud by the voice you set up in Hermes.
 - **Settings.** Transcript model and whether it is already downloaded, recordings, the outlet editor, and what leaves your computer.
 
+### Security (audit, Nov 8, 2026; see docs/SECURITY-AUDIT.md)
+
+- A new recording never downloads the speech model. When the model is not on the computer yet, the take says how big it is and waits; Transcribe now is the only thing that downloads it.
+- Feeds and Word files with a DTD are refused wherever the DTD sits and in any encoding, so no entity can expand.
+- Web pages and headlines sent to the model can no longer close the block they are quoted in.
+
 ### Changed
 
 - The case workbench, topic briefing, practice round, judges and fallacies tools from 0.1 now sit inside the new frame. The ballot paper is white in light mode and a lit page in dark mode.

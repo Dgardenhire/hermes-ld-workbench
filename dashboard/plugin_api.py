@@ -828,8 +828,9 @@ async def get_take_audio(take_id: str):
 
 @router.post("/speech/{take_id}/transcribe")
 async def post_take_transcribe(take_id: str):
+    """Transcribe now, pressed by the student: the one place the speech model may be downloaded."""
     try:
-        return speech.public(speech.TRANSCRIBER.start(take_id, _model_name()))
+        return speech.public(speech.TRANSCRIBER.start(take_id, _model_name(), allow_download=True))
     except Exception as e:
         _fail(e)
 

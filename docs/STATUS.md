@@ -2,7 +2,7 @@
 
 Updated Nov 8, 2026, after Damon's four decisions (stage 4 follow-up). Branch `v0.2`, not pushed. Packet: `claude-test/.planning/hackathon-2026-11/debate-workbench/` (SPEC.md, DESIGN.md with the step 7 review at ship). Build deadline: Monday Nov 9, 6 PM CT. Tuesday: live test and filming.
 
-**Tests: 181, all passing** (`/usr/bin/python3 -m unittest discover -s tests`, about 2 s). Stage 4 ended at 169. The desktop bundle is current (`build.mjs . --check`). gitleaks: no leaks. Hermes's admission validator and the catalog validator were not re-run this pass (no manifest or catalog-schema change; the PR text and LIVE-TEST were edited).
+**Tests: 208, all passing** (`/usr/bin/python3 -m unittest discover -s tests`, about 2 s), after the Nov 8 security audit (`docs/SECURITY-AUDIT.md`: four medium findings fixed, two items open that need Hermes itself). Stage 4 ended at 169. The desktop bundle is current (`build.mjs . --check`). gitleaks: no leaks. Hermes's admission validator and the catalog validator were not re-run this pass (no manifest or catalog-schema change; the PR text and LIVE-TEST were edited).
 
 ## Follow-up, Nov 7 to 8: Damon's decisions, built
 

@@ -442,6 +442,20 @@ def whisper_installed():
         return False
 
 
+class NeedsDownload(Exception):
+    """The speech model is not on this computer and the student has not asked for it yet."""
+
+    def __init__(self, name):
+        super().__init__(name)
+        self.name = name
+
+
+def download_ask(name):
+    mb = MODEL_MB.get(name, 150)
+    return (f"Transcripts need the {name} speech model (about {mb} MB), which is not on this computer yet. "
+            "Press Transcribe now to download it once from huggingface.co (no audio is sent), or type what you said.")
+
+
 class Transcriber:
     """faster-whisper behind one worker thread, loaded on first use and unloaded after 5 idle minutes.
 
@@ -461,20 +475,22 @@ class Transcriber:
     def available(self):
         return bool(self._engine) or whisper_installed()
 
-    def _load(self, name):
+    def _load(self, name, allow_download=False):
         if self._model is not None and self._model_name == name:
             return self._model
         os.environ.setdefault("KMP_DUPLICATE_LIB_OK", "TRUE")
         from faster_whisper import WhisperModel
         try:
             self._model = WhisperModel(name, device="cpu", compute_type="int8", local_files_only=True)
-        except Exception:  # not cached yet: first use downloads the model from huggingface.co
+        except Exception:
+            if not allow_download:  # the download happens only after the student presses Transcribe now
+                raise NeedsDownload(name)
             self._model = WhisperModel(name, device="cpu", compute_type="int8", local_files_only=False)
         self._model_name = name
         return self._model
 
-    def _whisper(self, path, name):
-        model = self._load(name)
+    def _whisper(self, path, name, allow_download=False):
+        model = self._load(name, allow_download)
         segments, _info = model.transcribe(str(path), word_timestamps=True, initial_prompt=WHISPER_PROMPT,
                                            vad_filter=False, condition_on_previous_text=False, beam_size=5, language="en")
         words, parts = [], []
@@ -509,8 +525,11 @@ class Transcriber:
                 t["transcript"]["status"] = "cancelled"
         change_take(take_id, put)
 
-    def start(self, take_id, model_name=DEFAULT_MODEL):
-        """Queue a take. Its status moves waiting -> working -> done | failed | unavailable."""
+    def start(self, take_id, model_name=DEFAULT_MODEL, allow_download=False):
+        """Queue a take. Its status moves waiting -> working -> done | failed | unavailable.
+
+        ``allow_download``: True only when the student pressed Transcribe now. A recording that has just
+        arrived never starts a download of the speech model; its take says what the download is and waits."""
         if model_name not in MODELS:
             model_name = DEFAULT_MODEL
         take = get_take(take_id)
@@ -522,16 +541,19 @@ class Transcriber:
         self._cancel.discard(take_id)
         if take_id in self._jobs:  # a second press while it is already queued or running
             return get_take(take_id)
+        if self._engine is None and not allow_download and not model_cached(model_name):
+            change_take(take_id, lambda t: t["transcript"].update(status="failed", error=download_ask(model_name)))
+            return get_take(take_id)
         self._jobs.add(take_id)
         change_take(take_id, lambda t: t["transcript"].update(status="waiting", error=None))
         try:
-            self._pool.submit(self._run, take_id, model_name)
+            self._pool.submit(self._run, take_id, model_name, allow_download)
         except RuntimeError:  # the pool is shutting down with Hermes
             self._jobs.discard(take_id)
             change_take(take_id, lambda t: t["transcript"].update(status="failed", error=INTERRUPTED))
         return get_take(take_id)
 
-    def _run(self, take_id, model_name):
+    def _run(self, take_id, model_name, allow_download=False):
         try:
             if take_id in self._cancel:
                 self._mark_cancelled(take_id)
@@ -546,7 +568,7 @@ class Transcriber:
             if change_take(take_id, begin)["transcript"].get("status") != "working":
                 return
             with self._lock:
-                result = (self._engine or self._whisper)(path, model_name)
+                result = self._engine(path, model_name) if self._engine else self._whisper(path, model_name, allow_download)
                 self._last_used = time.time()
             if take_id in self._cancel:
                 self._mark_cancelled(take_id)
@@ -561,9 +583,11 @@ class Transcriber:
                 t["stats"] = measure(t, t["transcript"], t.get("answer"))
             change_take(take_id, done)
         except Exception as e:  # never leaves a take stuck in "working"
-            _log.warning("ld-workbench: transcription of %s failed: %r", take_id, e)
+            (_log.info if isinstance(e, NeedsDownload) else _log.warning)("ld-workbench: transcription of %s failed: %r", take_id, e)
             msg = "The transcript could not be made. Your timing and pauses are kept."
-            if "download" in str(e).lower() or "huggingface" in str(e).lower() or "connect" in str(e).lower():
+            if isinstance(e, NeedsDownload):
+                msg = download_ask(e.name)
+            elif "download" in str(e).lower() or "huggingface" in str(e).lower() or "connect" in str(e).lower():
                 msg = "The speech model could not be downloaded. Check the internet connection, then press Transcribe now."
             try:
                 def failed(t):
