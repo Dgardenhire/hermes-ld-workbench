@@ -540,7 +540,11 @@ class Transcriber:
             path = audio_path(take)
             if not path:
                 raise RuntimeError("The recording is gone.")
-            change_take(take_id, lambda t: t["transcript"].update(status="working", started=int(time.time())))
+            def begin(t):  # only a waiting take starts; typed words that arrived first stay as they are
+                if t["transcript"].get("status") == "waiting":
+                    t["transcript"].update(status="working", started=int(time.time()))
+            if change_take(take_id, begin)["transcript"].get("status") != "working":
+                return
             with self._lock:
                 result = (self._engine or self._whisper)(path, model_name)
                 self._last_used = time.time()

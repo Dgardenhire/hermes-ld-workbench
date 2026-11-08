@@ -48,7 +48,7 @@ Full list: `CHANGELOG.md`. Manual: `docs/MANUAL.md`.
 
 ## Checks run on the pinned commit
 
-- `/usr/bin/python3 -m unittest discover -s tests`: 168 tests pass.
+- `/usr/bin/python3 -m unittest discover -s tests`: 169 tests pass.
 - Hermes's full admission validator (`hermes_cli.plugin_validate.validate_plugin_dir`) on a copy: passes, no warnings.
 - `scripts/validate_plugin_catalog.py` on this entry: OK.
 - Desktop bundle built with the shared UI kit and current (`build.mjs --check`); imports only `react`, `react/jsx-runtime` and `@hermes/plugin-sdk`.

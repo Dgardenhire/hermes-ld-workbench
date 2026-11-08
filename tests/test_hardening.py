@@ -103,6 +103,19 @@ class TakesNeverStick(unittest.TestCase):
         tr = speech.get_take(t["id"])["transcript"]
         self.assertEqual((tr["status"], tr["text"]), ("typed", "my own words for this take"))
 
+    def test_a_job_that_starts_after_the_student_typed_does_not_run(self):
+        # The window the first test hits only sometimes: the job passes its cancel check, then the student's
+        # words land before it marks the take "working". It must leave the typed words alone.
+        calls = []
+        speech.TRANSCRIBER._engine = lambda path, model: (calls.append(1), {"text": "machine words", "words": []})[1]
+        t = self.recorded()
+        speech.change_take(t["id"], lambda x: x["transcript"].update(status="waiting"))
+        speech.set_text(t["id"], "typed before the job began")
+        speech.TRANSCRIBER._jobs.add(t["id"])
+        speech.TRANSCRIBER._run(t["id"], "base.en")
+        tr = speech.get_take(t["id"])["transcript"]
+        self.assertEqual((tr["status"], tr["text"], calls), ("typed", "typed before the job began", []))
+
     def test_a_second_press_does_not_queue_a_second_job(self):
         gate = threading.Event()
         calls = []

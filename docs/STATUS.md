@@ -2,7 +2,7 @@
 
 Updated Nov 7, 2026, end of stage 4 (polish and package). Branch `v0.2`, not pushed. Packet: `claude-test/.planning/hackathon-2026-11/debate-workbench/` (SPEC.md, DESIGN.md with the step 7 review at ship). Build deadline: Monday Nov 9, 6 PM CT. Tuesday: live test and filming.
 
-**Tests: 168, all passing** (`/usr/bin/python3 -m unittest discover -s tests`, about 2 s). Stage 3 had 164; this stage added 3 for the drill checkbox and 1 for the demo seed. The desktop bundle is current (`build.mjs . --check`). Hermes's full admission validator (`hermes_cli.plugin_validate.validate_plugin_dir`, on a copy with a scratch HOME) passes 16 of 16 checks, no warnings. The draft catalog entry passes `validate_plugin_catalog.py` with the current HEAD in place of PINSHA. gitleaks: no leaks.
+**Tests: 169, all passing** (`/usr/bin/python3 -m unittest discover -s tests`, about 2 s; run 8 times in a row piped, all green). Stage 3 had 164; this stage added 3 for the drill checkbox, 1 for the demo seed and 1 for the transcript race below. The desktop bundle is current (`build.mjs . --check`). Hermes's full admission validator (`hermes_cli.plugin_validate.validate_plugin_dir`, on a copy with a scratch HOME) passes 16 of 16 checks, no warnings. The draft catalog entry passes `validate_plugin_catalog.py` with the current HEAD in place of PINSHA. gitleaks: no leaks.
 
 Every SPEC MUST is built except M14 (the film, Tuesday) and the live checks inside Hermes (Tuesday). SHOULD done: S1, S2. Not started: S3 to S6.
 
@@ -32,6 +32,7 @@ Recorded in the look ledger (`design_ledger.py add`, project `debate-workbench-0
 
 **Behavior fixes found on the way:**
 
+- **A real race in the transcript job, found by a flaky test.** Stage 3's `test_typed_words_survive_a_late_transcript` failed whenever its output was piped (slower scheduling). The job marked the take "working" without checking it was still waiting, so typed words that landed between its cancel check and that write were overwritten: the take ended "cancelled", and with no cancel flag the machine's words replaced the student's. The job now starts only from "waiting" and stops if the student's words are already there (`speech.Transcriber._run`). A new test drives that exact window and failed before the fix (`('done', 'machine words')`).
 - Ballots: the drill checkbox now sends the ballot's time, so a list trimmed to 40 cannot tick the wrong ballot (stage 3 open item 3). 3 tests.
 - When Hermes cannot open the browser (`openExternal` false or missing), the link is shown to copy (stage 3 open item 4). Checked in the harness.
 - After a 60-second answer is judged, the drill under the floor is the new one (the home data now reloads after the ballot). Before, "Try it again" showed the previous drill.
