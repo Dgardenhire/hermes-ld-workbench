@@ -151,7 +151,7 @@ class Pull(unittest.TestCase):
     def test_each_outlet_fails_alone(self):
         get = getter_for({"site%3Anpr.org": RSS, "site%3Areuters.com": RuntimeError("status 503"),
                           "site%3Anationalreview.com": RuntimeError("status 429"), "nationalreview.com/feed": ATOM})
-        out = headlines.pull("tariff vote", get)
+        out = headlines.pull("tariffs", get)
         cols = {c["id"]: c for c in out["columns"]}
         self.assertTrue(cols["npr-org"]["ok"])
         self.assertEqual(cols["npr-org"]["items"][0]["title"], "Senate weighs tariff repeal")  # Google order kept among topic matches
@@ -159,14 +159,14 @@ class Pull(unittest.TestCase):
         self.assertEqual(cols["reuters-com"]["error"], "Reuters did not answer. Try again.")
         self.assertEqual(cols["nationalreview-com"]["via"], "own feed")
         self.assertEqual([i["title"] for i in cols["nationalreview-com"]["items"]], ["Tariff vote slips a week"])  # filtered by topic
-        self.assertEqual(headlines.cached("Tariff Vote")["topic"], "tariff vote")
+        self.assertEqual(headlines.cached("Tariffs")["topic"], "tariffs")
 
     def test_route_offline_uses_the_cache_then_says_so(self):
-        headlines.pull("tariff vote", getter_for({"site%3A": RSS}))
+        headlines.pull("tariffs", getter_for({"site%3A": RSS}))
         real = headlines.pull
         headlines.pull = lambda topic, getter=None: real(topic, getter_for({}))
         try:
-            out = run(api.post_headlines_pull({"topic": "tariff vote"}))
+            out = run(api.post_headlines_pull({"topic": "tariffs"}))
             self.assertTrue(out["stale"])
             with self.assertRaises(HTTPException) as e:
                 run(api.post_headlines_pull({"topic": "a topic never pulled"}))
@@ -183,7 +183,7 @@ class Pull(unittest.TestCase):
     def test_cache_keeps_twenty_topics(self):
         for i in range(23):
             store.update("headlines.json", lambda h, i=i: (h["topics"].__setitem__(f"t{i}", {"topic": f"t{i}", "at": i, "columns": []}), h)[1])
-        headlines.pull("newest topic", getter_for({"site%3A": RSS}))
+        headlines.pull("tariffs", getter_for({"site%3A": RSS}))
         self.assertEqual(len(store.read("headlines.json")["topics"]), headlines.TOPIC_CAP)
 
 

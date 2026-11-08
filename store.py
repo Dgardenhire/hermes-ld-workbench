@@ -18,6 +18,8 @@ Files:
 - ``outlets.json``    the student's outlet list and lean labels (null: the defaults in headlines.py)
 - ``headlines.json``  the last headline pull per topic, the 20 most recent
 - ``settings.json``   the transcript model and the event last chosen
+- ``questions.json``  the 60-second questions the student or coach added, built-in ones hidden, "only mine",
+                      and where the floor opens next visit (extemp.py)
 
 Every write goes to a temporary file in the same folder, is flushed to disk, then renamed over the old
 file, so a crash mid-write leaves the previous version intact. One lock serializes read-modify-write.
@@ -47,6 +49,7 @@ DEFAULTS = {
     "outlets.json": {"outlets": None},
     "headlines.json": {"topics": {}},
     "settings.json": {"transcript_model": "base.en", "event": "extemp"},
+    "questions.json": {"custom": [], "hidden": [], "mine_only": False, "next": 0},
 }
 BRIEFING_CAP = 20
 HISTORY_CAP = 40

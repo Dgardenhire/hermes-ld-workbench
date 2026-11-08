@@ -54,7 +54,7 @@ class DrillValidation(unittest.TestCase):
         run(api.get_state())
         run(api.post_spot({"text": "Everyone I know likes it, so it must be good for the whole country and all people."}))
         call = self.llm.calls[-1]
-        self.assertEqual(call["messages"][0]["content"], M.COACHING_STANCE + "\n\n" + M.TOOLS["spot"]["prompt"])
+        self.assertEqual(call["messages"][0]["content"], M.COACHING_STANCE + "\n\n" + M.TOOLS["spot"]["prompt"] + engine.QUOTE_FORMAT)
         self.assertIn("(The case is empty so far.)", call["messages"][1]["content"])
         self.assertTrue(call["messages"][-1]["content"].startswith("Find the fallacies in this argument:"))
         with self.assertRaises(HTTPException):

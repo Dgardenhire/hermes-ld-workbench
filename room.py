@@ -19,6 +19,15 @@ try:
 except ImportError:  # loaded as a loose module
     import ld_method as M  # type: ignore
 
+# The judges a round can have: the method's three (shared with the web app), and a circuit judge the plugin
+# adds on its own (ld_method.py is a mirror and stays word for word the web app's).
+CIRCUIT_JUDGE = {
+    "label": "Circuit judge",
+    "summary": "National-circuit judge. Fine with speed. Evaluates theory, kritiks, plans and counterplans if they are run.",
+    "prompt": """You are a national-circuit Lincoln-Douglas judge. You flow fast speeches without trouble and never penalize speed that stays clear. You decide on the flow: a dropped argument is a conceded argument, and you evaluate any argument that is made and extended, including theory, kritiks, plans and counterplans, by the standards the debaters set for it. Absent other instructions, you weigh the framework first. You reward clean extensions, explicit weighing and line-by-line answers, and you say plainly when an argument was too underdeveloped to vote on. In a traditional round with none of those arguments, you judge it as a careful flow judge would.""",
+}
+JUDGES = {**M.JUDGES, "circuit": CIRCUIT_JUDGE}
+
 READ_SECTIONS = ["Resolution analysis", "Definitions", "Value", "Criterion", "Contention 1", "Contention 2", "Contention 3"]
 SPEECH_LIMIT = 12000
 CX_TURN_LIMIT = 1500
@@ -54,7 +63,7 @@ def new_round(*, side, level, judge, resolution, case, round_no):
         raise ValueError("Unknown side.")
     if level not in M.LEVELS:
         raise ValueError("Unknown level.")
-    if judge not in M.JUDGES:
+    if judge not in JUDGES:
         raise ValueError("Unknown judge.")
     if not (resolution or "").strip():
         raise ValueError("Enter the resolution first.")

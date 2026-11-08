@@ -30,6 +30,23 @@ Debate Workbench now covers three events and listens to you speak.
 - **Delete transcripts and ballots** in Settings (audit F-6), with a confirm.
 - **Figure definitions.** All 42 figures the workbench shares with The Clearing now carry The Clearing's definitions word for word (its figure list at main 0722112), including rhyme, versification, antithesis, paradox and personification. The examples stay the workbench's own public-domain lines.
 
+### After the persona test (Nov 8, 2026)
+
+Three personas (a first-year extemper, a volunteer coach, a varsity Lincoln-Douglas debater) used 0.2 and ranked 14 fixes. These are built:
+
+- **Write your own question, everywhere.** The 60-second answer and Openings have **Write your own** and a **Question list** under the question; the full round always offers **Or prep a question of your own**, not only when the draw fails. A coach can add this week's questions and turn on **Ask only my questions**.
+- **A bigger question pool that rotates.** 52 built-in 60-second questions, United States and International, across the economy, the courts, Congress, elections, foreign policy and every region, worded to be low-partisan. The floor opens on a different question each visit (a fresh profile opens on the Federal Reserve one). Any built-in question can be hidden and brought back. The chosen question stays when you switch between 60-second answer, Openings and the full round.
+- **Why the draw is off.** With no saved sources and no pull, **Draw three questions** says why and what to do.
+- **Fallacy quotes are checked.** Every "Exact words" quote in Spot fallacies, Check an argument and Find fallacies is checked against the text it came from, the way ballot lines are. A quote that is not there is marked on its line ("Not found in the speech. Check it before you use it."), and the answer says how many were checked and missed.
+- **A ballot a first-year can read.** The extemp boxes say what they answer ("Answered the question?"), and under the points a key says what the numbers mean (the same scale the judge is given). Drills never send a student with an empty file to "your file"; the judge is told how many sources are saved, and an older drill that says it gets a note on how to start a file. The 60-second floor shows only extemp drills, never a Lincoln-Douglas one.
+- **Ballots a coach can use.** A page heading; any ballot opens to its full sheet with the reason for decision; a key for the outlined round chips on the page; **Print ballots** (every sheet, open) and **Save as a file for your coach** (one text file of every ballot and the patterns).
+- **The flow beside the clock.** In your speeches after the opponent has spoken (the 1AR, the 2AR, the NC and the NR), the flow so far sits beside the clock. **Hide the flow** puts it away for the round.
+- **Pace by the judge you chose.** Over 175 words a minute is no longer marked as a problem in front of a flow judge or the new **Circuit judge** (fine with speed; evaluates theory, kritiks, plans and counterplans if they are run).
+- **On-topic headlines only.** A pull keeps only headlines that name the topic (or a known short name, like "Fed" for the Federal Reserve). The off-topic stories in the Nov 7 capture are gone; an outlet with nothing on the topic says so. Pulls cached before this are filtered the same way.
+- **Narrow windows.** At 1024 x 720 the Lincoln-Douglas strip stays on one row, drawn to scale, and **Speak your 1AR** sits beside the clock, above the fold.
+- **Choices you can see.** Every pick-one control (opponent, judge, area, prep rules, transcript model, extemp mode, side, speed) shows the picked option with an accent outline, a check and bold text.
+- The rail says which extemp mode you are in.
+
 ### Changed
 
 - The case workbench, topic briefing, practice round, judges and fallacies tools from 0.1 now sit inside the new frame. The ballot paper is white in light mode and a lit page in dark mode.

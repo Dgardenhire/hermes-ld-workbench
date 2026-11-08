@@ -10,10 +10,15 @@
 //   open   switcher | more | export | judges     (open that menu after load)
 //   brief  1                                     (the resolution is new: the topic briefing opens by itself)
 //   fx     1                                     (Fallacies: start a drill, pick a wrong answer, check a pasted argument)
+//   spotmiss 1                                   (room scene opp: one fallacy quote paraphrased, so the not-found mark shows)
+//   q      n                                     (extemp: open on question n of the pool; default 0, the Federal Reserve one)
+//   own    1                                     (extemp: one question of the student's own on the list)
+// Hand-written, not captured: the drawn questions (DRAW) and the fallacies under the NR (SPOT_NR); see make_fixtures.py.
+// Only the Federal Reserve answer has a ballot here: any other question answers with a harness notice.
 import { createRoot } from 'react-dom/client'
 import { jsx, jsxs } from 'react/jsx-runtime'
 import { BRIEFING, CONFIG, DRILL, SPOT, SPOT_INPUT, STATE } from './fixtures.js'
-import { BALLOT, BALLOTS, HOME, MARKS, OUTLETS, PULL, RHETORIC, SPEECHES, SPOT as FIGSPOT, TAKE } from './fixtures02.js'
+import { BALLOT, BALLOTS, DRAW, HOME, JUDGES, MARKS, OUTLETS, PULL, RHETORIC, SPEECHES, SPOT as FIGSPOT, SPOT_NR, SPOT_NR_MISS, TAKE } from './fixtures02.js'
 
 const params = new URLSearchParams(location.search)
 const dark = params.get('theme') !== 'light'
@@ -35,7 +40,7 @@ function sceneState() {
     r.transcript = r.transcript.filter(t => t.id !== 'NR' && t.id !== '2AR')
     r.phase = 'live'; r.i = 5; r.ballots = []; r.prep = 95
     r.pending_ai = { id: 'NR', text: nr.text }
-    r.spots = { NR: SPOT }
+    r.spots = { NR: params.get('spotmiss') ? SPOT_NR_MISS : SPOT_NR }
   }
   if (scene === 'speech' || scene === 'cx' || scene === 'judging') {
     const upto = scene === 'speech' ? 4 : scene === 'cx' ? 3 : 7
@@ -60,8 +65,16 @@ function sceneState() {
   return s
 }
 
+const OWN_Q = { id: 'qown1', area: 'us', topic: 'your own', text: 'Should our state require a semester of personal finance to graduate?', own: true, hidden: false }
+let questions = null
+function questionList() {
+  if (!questions) questions = { questions: [...(params.get('own') ? [clone(OWN_Q)] : []), ...clone(HOME.pool)], mine_only: false, next: 0 }
+  return questions
+}
 function home() {
   const h = clone(HOME)
+  h.pool = questionList().questions.filter(q => !q.hidden && (q.own || !questions.mine_only))
+  h.pool_start = Number(params.get('q') || 0)
   if (['take', 'ballot'].includes(X)) h.last_take = { drill: clone(TAKE) }
   if (X === 'prep' || X === 'speak') {
     h.extemp_round = { id: 'r1', question: 'Should the Federal Reserve raise rates again before the end of the year?', area: 'us', mode: params.get('pm') === 'internet' ? 'internet' : 'files',
@@ -109,12 +122,30 @@ async function rest(path, options = {}) {
   if (path === 'ballots') return clone(BALLOTS)
   if (path === 'outlets') return { suggested: [], ...clone(OUTLETS), labels_checked: 'Nov 7, 2026', leans: ['Left', 'Lean Left', 'Center', 'Lean Right', 'Right'], sides: ['left', 'center', 'right'] }
   if (path === 'headlines/pull') return clone(PULL)
+  if (path === 'extemp/draw') return clone(DRAW)
+  if (path === 'extemp/questions/seen') return { next: 1 }
+  if (path === 'extemp/questions/restore') { questionList().questions.forEach(q => { q.hidden = false }); return clone(questions) }
+  if (/^extemp\/questions\/[^/]+\/delete$/.test(path)) {
+    const id = decodeURIComponent(path.split('/')[2]); const L = questionList()
+    L.questions = L.questions.filter(q => !(q.own && q.id === id)); L.questions.forEach(q => { if (q.id === id) q.hidden = true }); return clone(L)
+  }
+  if (path === 'extemp/questions') {
+    const L = questionList()
+    if (options.method === 'POST' && 'mine_only' in options.body) L.mine_only = !!options.body.mine_only
+    else if (options.method === 'POST') { const t = options.body.text.trim(); L.questions.unshift({ id: `qh${L.questions.length}`, area: options.body.area || 'us', topic: 'your own', text: t.endsWith('?') ? t : `${t}?`, own: true, hidden: false }) }
+    return clone(L)
+  }
+  if (path === 'ballots/export') return { path: '/Users/student/Documents/debate-ballots.txt', name: 'debate-ballots.txt', count: BALLOTS.history.length }
   if (/^extemp\/file\/[^/]+\/delete$/.test(path)) return { ok: true }
   if (path === 'extemp/file') return options.method === 'POST' ? { ...options.body, id: `w${Date.now()}`, topics: [] } : clone(FILE)
   if (path === 'round/listen') return { parts: [{ b64: silentWav(5), mime: 'audio/wav' }], cached: false }
   if (path === 'extemp/search') return { query: 'fed dual mandate rate hike', results: WEB }
   if (path === 'extemp/round') return home().extemp_round
-  if (/^speech\/[^/]+\/judge$/.test(path)) return X === 'take' ? new Promise(() => {}) : clone(BALLOT)
+  if (/^speech\/[^/]+\/judge$/.test(path)) {
+    if (X === 'take') return new Promise(() => {})
+    if (options.body && options.body.question && options.body.question !== BALLOT.question) throw new Error('400: {"detail":"The harness only has a ballot for the Federal Reserve answer. Ballots on other questions need a live model."}')
+    return clone(BALLOT)
+  }
   if (path === 'speech/take' && options.body.typed) {
     const w = options.body.text.trim().split(/\s+/).length
     return { ...clone(TAKE), id: `t${Math.random().toString(16).slice(2, 8)}`, event: options.body.event, typed: true, has_audio: false, levels: [],
@@ -128,7 +159,7 @@ async function rest(path, options = {}) {
   if (path === 'speech/take') return { ...clone(TAKE), id: 'live1', levels: options.body.levels || [], duration: options.body.duration, transcript: { status: 'waiting', text: '', words: [] } }
   if (/^speech\/[^/]+\/(upload|audio)$/.test(path)) return { ...clone(TAKE), id: 'live1', transcript: { status: 'working', text: '', words: [] } }
   if (/^speech\/[^/]+$/.test(path)) return clone(TAKE)
-  if (path === 'config') return clone(CONFIG)
+  if (path === 'config') return { ...clone(CONFIG), judges: clone(JUDGES) } // the plugin's judges now, the circuit judge included
   if (path === 'state') return sceneState()
   if (path === 'briefing') {
     const body = options.body || {}
@@ -136,7 +167,7 @@ async function rest(path, options = {}) {
     return { text: BRIEFING, cached: false, resolution: body.resolution }
   }
   if (path === 'drill') return clone(DRILL)
-  if (path === 'spot') return { text: SPOT }
+  if (path === 'spot') return { text: options.body && options.body.speech_id ? SPOT_NR : SPOT }
   if (params.get('scene') === 'judging' && path === 'round/judge') return new Promise(() => {})
   throw new Error('400: {"detail":"The harness does not answer this request."}')
 }

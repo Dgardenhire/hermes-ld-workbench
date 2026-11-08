@@ -25,18 +25,158 @@ SPEECH_SECONDS = 7 * 60
 DRILL_SECONDS = 60
 ROUND_CAP = 30
 
-# Evergreen questions for the 60-second answer drill on a first run, before anything is saved.
-# Written to stay answerable whatever this week's news is. The floor opens on the first one, so the
-# least partisan come first (Damon, Nov 7, 2026: the demo film uses the Federal Reserve question).
+# Evergreen questions for the 60-second answer and the openings lab, before anything is saved. Written to
+# stay answerable whatever this week's news is, and worded to be low-partisan: institutions and choices,
+# never parties or politicians. The floor opens on a different one each visit (questions.json "next");
+# on a fresh profile the first is the Federal Reserve question (Damon, Nov 7, 2026: the demo film uses it).
+# Each has an area (us | international) and a topic, so the list can be checked for spread.
 STARTER = [
-    {"area": "us", "text": "Should the Federal Reserve care more about prices or about jobs right now?"},
-    {"area": "us", "text": "Is a four-day school week good for rural districts?"},
-    {"area": "us", "text": "Should states, not Washington, decide how much homework counts in a school's rating?"},
-    {"area": "us", "text": "Can Congress change trade policy when the President controls tariffs?"},
-    {"area": "international", "text": "Can sanctions change a government's behavior, or only punish its people?"},
-    {"area": "international", "text": "Should wealthy countries pay poorer ones to keep their forests standing?"},
-    {"area": "international", "text": "Is the United Nations Security Council still able to stop a war?"},
+    # United States: the economy
+    {"area": "us", "topic": "economy", "text": "Should the Federal Reserve care more about prices or about jobs right now?"},
+    {"area": "us", "topic": "economy", "text": "Is the national debt a bigger risk to the economy than slow growth?"},
+    {"area": "us", "topic": "economy", "text": "Should the retirement age for Social Security rise as Americans live longer?"},
+    {"area": "us", "topic": "economy", "text": "Should the federal minimum wage rise, or should each state set its own?"},
+    {"area": "us", "topic": "economy", "text": "Do tariffs help American factory workers more than they cost American shoppers?"},
+    {"area": "us", "topic": "economy", "text": "Can the United States build enough power plants for new data centers without raising household bills?"},
+    {"area": "us", "topic": "economy", "text": "Should cities, not Washington, lead the fight to make housing cheaper?"},
+    {"area": "us", "topic": "economy", "text": "Should states pay for community college the way they pay for high school?"},
+    # United States: schools and states
+    {"area": "us", "topic": "states", "text": "Is a four-day school week good for rural districts?"},
+    {"area": "us", "topic": "states", "text": "Should states, not Washington, decide how much homework counts in a school's rating?"},
+    {"area": "us", "topic": "states", "text": "Should public schools keep phones locked away for the whole school day?"},
+    # United States: the courts
+    {"area": "us", "topic": "courts", "text": "Should Supreme Court justices serve fixed terms instead of for life?"},
+    {"area": "us", "topic": "courts", "text": "Should cameras be allowed in the Supreme Court during arguments?"},
+    {"area": "us", "topic": "courts", "text": "Should state judges be elected by voters or appointed?"},
+    {"area": "us", "topic": "courts", "text": "Should police need a warrant to see where your phone has been?"},
+    {"area": "us", "topic": "courts", "text": "Should federal judges follow an ethics code that someone outside the court enforces?"},
+    # United States: Congress
+    {"area": "us", "topic": "congress", "text": "Can Congress change trade policy when the President controls tariffs?"},
+    {"area": "us", "topic": "congress", "text": "Should members of Congress be allowed to trade individual stocks?"},
+    {"area": "us", "topic": "congress", "text": "Should members of Congress go unpaid when the government shuts down?"},
+    {"area": "us", "topic": "congress", "text": "Should the Senate keep the filibuster?"},
+    {"area": "us", "topic": "congress", "text": "Should Congress vote before a President sends troops into combat?"},
+    {"area": "us", "topic": "congress", "text": "Should there be term limits for members of Congress?"},
+    # United States: elections
+    {"area": "us", "topic": "elections", "text": "Should the President be chosen by the national popular vote?"},
+    {"area": "us", "topic": "elections", "text": "Should every state let voters register on Election Day?"},
+    {"area": "us", "topic": "elections", "text": "Should more states use ranked-choice voting?"},
+    {"area": "us", "topic": "elections", "text": "Should 16-year-olds be allowed to vote in local elections?"},
+    {"area": "us", "topic": "elections", "text": "Should independent commissions, not legislatures, draw election maps?"},
+    {"area": "us", "topic": "elections", "text": "Should Election Day be a national holiday?"},
+    # International: foreign policy and the world's institutions
+    {"area": "international", "topic": "foreign policy", "text": "Can sanctions change a government's behavior, or only punish its people?"},
+    {"area": "international", "topic": "foreign policy", "text": "Is the United Nations Security Council still able to stop a war?"},
+    {"area": "international", "topic": "foreign policy", "text": "Should the United Nations have its own standing peacekeeping force?"},
+    {"area": "international", "topic": "foreign policy", "text": "Should the International Criminal Court have power over leaders of countries that never joined it?"},
+    {"area": "international", "topic": "foreign policy", "text": "Should the world ban weapons that choose their own targets?"},
+    {"area": "international", "topic": "foreign policy", "text": "Is NATO stronger with more members, or harder to hold together?"},
+    {"area": "international", "topic": "foreign policy", "text": "Is the G20 more useful than the G7 for solving world problems?"},
+    # International: the world economy
+    {"area": "international", "topic": "world economy", "text": "Should wealthy countries pay poorer ones to keep their forests standing?"},
+    {"area": "international", "topic": "world economy", "text": "Should rich countries cancel the debts of the poorest countries?"},
+    {"area": "international", "topic": "world economy", "text": "Do China's loans to poorer countries help them grow, or leave them deeper in debt?"},
+    {"area": "international", "topic": "world economy", "text": "Should the World Trade Organization still settle trade fights between countries?"},
+    {"area": "international", "topic": "world economy", "text": "Does the world depend too much on Taiwan for computer chips?"},
+    # International: regions
+    {"area": "international", "topic": "Europe", "text": "Should the European Union let Ukraine and the Western Balkans join?"},
+    {"area": "international", "topic": "Europe", "text": "Can Europe make itself less dependent on other countries for energy?"},
+    {"area": "international", "topic": "Asia", "text": "Can Japan and South Korea work together despite their history?"},
+    {"area": "international", "topic": "Asia", "text": "Should India have a permanent seat on the UN Security Council?"},
+    {"area": "international", "topic": "Africa", "text": "Can the African Union end wars on its own continent without outside troops?"},
+    {"area": "international", "topic": "Africa", "text": "Can the countries along the Nile share its water without a conflict?"},
+    {"area": "international", "topic": "Latin America", "text": "Is Mexico's biggest challenge security or the economy?"},
+    {"area": "international", "topic": "Latin America", "text": "Should South American countries share one plan for migrants leaving Venezuela?"},
+    {"area": "international", "topic": "Latin America", "text": "Will a drier Panama Canal change how the world ships its goods?"},
+    {"area": "international", "topic": "Middle East", "text": "Can the Gulf states build economies that do not run on oil?"},
+    {"area": "international", "topic": "the Arctic and the Pacific", "text": "Can the Arctic stay peaceful as its ice melts and new shipping lanes open?"},
+    {"area": "international", "topic": "the Arctic and the Pacific", "text": "Will rising seas force Pacific island nations to move their people?"},
 ]
+QUESTION_CAP = 200  # questions a student or coach can add
+
+
+def question_id(text):
+    """A built-in or added question's id, from its words, so it never shifts when the list grows."""
+    import hashlib
+    return "q" + hashlib.sha1(" ".join(str(text).lower().split()).encode("utf-8")).hexdigest()[:9]
+
+
+def questions_view():
+    """Every question: the student's own first (newest first), then the built-in ones, hidden ones marked."""
+    q = store.read("questions.json")
+    hidden = set(q.get("hidden") or [])
+    own = [dict(x, own=True, hidden=False) for x in (q.get("custom") or [])]
+    built = [{"id": question_id(x["text"]), "area": x["area"], "topic": x["topic"], "text": x["text"], "own": False,
+              "hidden": question_id(x["text"]) in hidden} for x in STARTER]
+    return {"questions": own + built, "mine_only": bool(q.get("mine_only")) and bool(own), "next": int(q.get("next") or 0)}
+
+
+def pool():
+    """The questions the floor draws from, in order: only the student's own when they asked for that."""
+    v = questions_view()
+    qs = [x for x in v["questions"] if not x["hidden"] and (x["own"] or not v["mine_only"])]
+    return qs or [x for x in v["questions"] if not x["own"]]  # everything hidden: the built-in list again
+
+
+def pool_start():
+    """Where the floor opens this visit. Each visit moves one along (see seen()), so the first question changes."""
+    qs = pool()
+    return int(store.read("questions.json").get("next") or 0) % max(1, len(qs))
+
+
+def seen():
+    """The floor opened on pool_start(): the next visit opens on the question after it."""
+    n = max(1, len(pool()))
+    return store.update("questions.json", lambda q: (q.__setitem__("next", (int(q.get("next") or 0) + 1) % n), q)[1])["next"]
+
+
+def add_question(text, area):
+    text = clean_question(text)
+    item = {"id": question_id(text), "area": area if area in AREAS else "us", "topic": "your own", "text": text}
+
+    def add(q):
+        custom = [x for x in (q.get("custom") or []) if x["id"] != item["id"]]
+        if any(question_id(s["text"]) == item["id"] for s in STARTER):
+            q["hidden"] = [h for h in (q.get("hidden") or []) if h != item["id"]]  # already built in: show it again
+            q["custom"] = custom
+            return q
+        q["custom"] = ([item] + custom)[:QUESTION_CAP]
+        return q
+    store.update("questions.json", add)
+    return item
+
+
+def remove_question(qid):
+    """Delete one of the student's own questions, or hide a built-in one."""
+    def drop(q):
+        custom = q.get("custom") or []
+        if any(x["id"] == qid for x in custom):
+            q["custom"] = [x for x in custom if x["id"] != qid]
+            if not q["custom"]:
+                q["mine_only"] = False
+            return q
+        if any(question_id(s["text"]) == qid for s in STARTER):
+            q["hidden"] = sorted(set(q.get("hidden") or []) | {qid})
+            return q
+        raise ValueError("That question is no longer on the list.")
+    store.update("questions.json", drop)
+    return questions_view()
+
+
+def restore_questions():
+    store.update("questions.json", lambda q: (q.__setitem__("hidden", []), q)[1])
+    return questions_view()
+
+
+def set_mine_only(on):
+    def put(q):
+        if on and not q.get("custom"):
+            raise ValueError("Add a question of your own first.")
+        q["mine_only"] = bool(on)
+        q["next"] = 0
+        return q
+    store.update("questions.json", put)
+    return questions_view()
 
 
 # ---------- the file ----------
@@ -267,6 +407,11 @@ def cited_sources(text, items):
     return out
 
 
+# The points scale, said the same way to the judge (JUDGE_PROMPT) and to the student (the key under the
+# ballot's points line, floor.js POINTS_KEY). Change both together; a test compares them.
+POINTS_SCALE = ("29 to 30 is excellent; 28 is strong; 27 is a solid speech with one clear problem; 26 has several problems; "
+                "25 or lower means the question was not really answered.")
+
 JUDGE_PROMPT = """You judge a high school extemporaneous speech, the way an experienced NSDA extemp judge writes a ballot.
 
 You receive the question, the student's outline, the transcript of what they said (or the text they typed), and numbers measured from the recording. Trust the numbers: do not guess pace, time or pauses yourself.
@@ -279,6 +424,8 @@ Rules:
 - "decisive" is the three lines from the speech that most decided your rating, each with one sentence on why.
 - "drill" is ONE concrete practice task that fixes the biggest problem, doable in under 15 minutes.
 - "tags" picks from this fixed list only, every one that clearly applies: {tags}.
+- "points" uses this scale, in steps of 0.5: {points}
+- You are told how many sources the student has saved in their extemp file. When it is none, never send them to "your file": name the kind of source they could find and save (an outlet and a date).
 
 Return JSON only:
 {{"answered": "yes" | "partly" | "no", "points": 20-30, "summary": "one sentence verdict",

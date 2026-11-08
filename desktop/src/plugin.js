@@ -17,17 +17,17 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { Fragment, jsx, jsxs } from 'react/jsx-runtime'
-import { Button, Codicon, Input, SegmentedControl, Textarea, atom, host, useValue } from '@hermes/plugin-sdk'
+import { Button, Codicon, Input, Textarea, atom, host, useValue } from '@hermes/plugin-sdk'
 import { Empty, Failure, Notice, describeError, installStyles, registerPage } from 'hermes-ui-kit'
 import { Clock, LastTake, LdSheet, LiveWave, SpeakControls, Strip, sendTake, useRecorder, useTakePoll } from './floor.js'
-import { $home, ExtempView, loadHome } from './extemp.js'
+import { $extempMode, $home, ExtempView, loadHome } from './extemp.js'
 import { RhetoricView } from './rhetoric.js'
 import { BallotsView } from './ballotsview.js'
 import { SettingsView } from './settingsview.js'
 import { FRAME_CSS } from './styles.js'
 
 export { describeError }
-import { $cfg, $loadError, $state, $view, Label, MODEL_TIMEOUT, Menu, PLUGIN_ID, ROUTE, Thinking, WPM, api, clip, cls, errText, inline, load, mmss, post, refreshState, renderText, rest, setApi, setRound, setWorkbench, sideName, sideShort, when, words } from './core.js'
+import { $cfg, $loadError, $state, $view, Choices, Label, MODEL_TIMEOUT, Menu, PLUGIN_ID, ROUTE, Thinking, WPM, api, clip, cls, errText, inline, load, mmss, notFoundCount, post, refreshState, renderChecked, renderText, rest, setApi, setRound, setWorkbench, sideName, sideShort, when, words } from './core.js'
 
 
 /* ------------------------------------------------------------------ method data shown on the page -- */
@@ -75,7 +75,7 @@ function Board({ r }) {
     const state = !r ? 'later' : r.phase !== 'live' || i < r.i ? 'done' : i === r.i ? 'now' : 'later'
     const who = !r ? (s.kind === 'cx' ? 'Cross-ex' : sideShort(s.side))
       : s.kind === 'cx' ? (speakerOf(s, r.side) === 'student' ? 'You ask' : 'Opp asks') : speakerOf(s, r.side) === 'student' ? 'You' : 'Opp'
-    return { key: s.id, code: `${s.kind === 'cx' ? 'CX' : s.id} ${mmss(s.minutes * 60)}`, sub: who, minutes: s.minutes, state, min: 58 }
+    return { key: s.id, code: `${s.kind === 'cx' ? 'CX' : s.id} ${mmss(s.minutes * 60)}`, sub: who, minutes: s.minutes, state, min: s.kind === 'cx' ? 58 : 68 }
   })
   const ballotState = !r ? 'later' : r.phase === 'ballot' || r.phase === 'judging' ? 'now' : 'later'
   segs.push({ key: 'ballot', code: 'Ballot', sub: r && r.ballots.length ? `${r.ballots.length} written` : 'Judge', minutes: 2.4, state: ballotState, min: 76 })
@@ -115,19 +115,20 @@ function useCountdown(seconds, key) {
 
 // The clock: the big clock with the timekeeper's cards (or a plain big number when nothing is timed), and
 // beside it the column of actions: speak, the one primary action, prep, a few facts.
-function ClockPanel({ big, label, rows = [], primary, clock, prep, over, extra, limit, elapsed, go }) {
+function ClockPanel({ big, label, rows = [], primary, clock, prep, over, extra, limit, elapsed, go, beside }) {
   const face = limit
     ? jsx(Clock, { limit, elapsed: elapsed || 0, label })
     : jsxs('div', { className: 'ldw-clockface', children: [
         jsx('div', { className: 'ldw-clock-label', children: label }),
         jsx('div', { className: cls('ldw-bigclock', over && 'ldw-over'), role: 'timer', 'aria-live': 'off', children: big }),
       ] })
-  return jsxs('section', { className: 'ldw-clock ldw-stage2', 'aria-label': 'Clock', children: [
+  return jsxs('section', { className: cls('ldw-clock ldw-stage2', beside && 'ldw-stage3'), 'aria-label': 'Clock', children: [
     jsxs('div', { className: 'ldw-ldface', children: [
       face,
       clock ? jsx('button', { type: 'button', className: 'hk-link', onClick: clock.running ? clock.pause : clock.start,
         children: clock.running ? 'Pause the clock' : clock.left === clock.total ? 'Start the clock by hand' : 'Resume the clock' }) : null,
     ] }),
+    beside || null,
     jsxs('div', { className: 'ldw-ldside', children: [
       go || null,
       primary || null,
@@ -152,7 +153,23 @@ const StageHead = ({ title, sub }) => jsxs('div', { className: 'ldw-stagehead', 
 
 // The student's speech: spoken (recorded, timed for real, transcribed on this computer) or typed.
 // A transcript replaces the box's text, with one click to bring the typed draft back.
-function StudentSpeech({ r, stop }) {
+// During your rebuttals the flow sits beside the clock: every speech given so far, as a flow sheet, so the
+// speech you are answering is in view while you speak. "Hide the flow" puts it away for the round.
+const fastJudge = r => ['flow', 'circuit'].includes(r && r.judge)
+function FlowBeside({ r, onHide }) {
+  const cols = stops().filter(s => s.kind === 'speech' && r.transcript.some(t => t.id === s.id))
+  return jsxs('section', { className: 'ldw-flowside', 'aria-label': 'The flow so far', children: [
+    jsxs('div', { className: 'ldw-flowside-head', children: [jsx('h3', { className: 'ldw-h3', children: 'The flow so far' }),
+      jsx('button', { type: 'button', className: 'hk-link', onClick: onHide, children: 'Hide the flow' })] }),
+    jsx('div', { className: 'ldw-flowside-cols', style: { gridTemplateColumns: `repeat(${cols.length}, minmax(0, 1fr))` }, children: cols.map(s => jsxs('div', { className: 'ldw-flowside-col', children: [
+      jsxs('div', { className: 'ldw-flowside-th', children: [jsx('b', { children: s.id }), jsx('span', { children: speakerOf(s, r.side) === 'student' ? 'You' : 'Opp' })] }),
+      ...(r.flow[s.id] || []).map((p, i) => jsx('div', { className: 'ldw-flowside-pt', children: p }, i)),
+      !r.flow[s.id] ? jsx('span', { className: 'ldw-meta', children: 'Flowing...' }) : null,
+    ] }, s.id)) }),
+  ] })
+}
+
+function StudentSpeech({ r, stop, flowBeside, onHideFlow }) {
   const [text, setText] = useState(r.drafts[stop.id] || '')
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState(null)
@@ -192,6 +209,7 @@ function StudentSpeech({ r, stop }) {
   return jsxs(Fragment, { children: [
     jsx(ClockPanel, {
       limit: target, elapsed: target - shown, label: `${stop.id} · your speech`, clock: recording ? null : clock, prep: recording ? null : prep,
+      beside: flowBeside && r.transcript.some(t => t.speaker === 'ai') ? jsx(FlowBeside, { r, onHide: onHideFlow }) : null,
       go: jsx(SpeakControls, { rec, startLabel: `Speak your ${stop.id}`, onTyped: t => change(text.trim() ? `${text}\n\n${t}` : t) }),
       rows: recording ? [] : [['Pace', pace], real !== null ? ['Spoken length', `${mmss(real)}, recorded`] : ['Spoken length', `about ${mmss(spoken)}, estimated`]],
       primary: recording ? null : jsx(BigButton, { icon: 'arrow-right', onClick: finish, loading: busy, disabled: take && ['waiting', 'working'].includes(take.transcript.status), children: 'Finish speech' }),
@@ -200,7 +218,7 @@ function StudentSpeech({ r, stop }) {
       jsx(StageHead, { title: `Your ${stop.id}`, sub: stop.name }),
       jsx('p', { className: 'ldw-goal', children: ($cfg.get().speech_goals || {})[stop.id] }),
       recording ? jsx(LiveWave, { rec, limit: target }) : null,
-      take && !recording ? jsx(LastTake, { take, limit: target, title: `Your ${stop.id}, spoken`, onChange: setTake }) : null,
+      take && !recording ? jsx(LastTake, { take, limit: target, title: `Your ${stop.id}, spoken`, onChange: setTake, fastOk: fastJudge(r) }) : null,
       undo !== null ? jsx(Notice, { tone: 'info', children: 'What you said is in the box. Fix any words the transcript got wrong.',
         action: jsx(Button, { size: 'sm', variant: 'secondary', onClick: () => { change(undo); setUndo(null) }, children: 'Bring back my typed draft' }) }) : null,
       jsx(Textarea, { className: 'ldw-speechbox', 'aria-label': `Your ${stop.id}`, value: text, onChange: e => change(e.target.value),
@@ -287,7 +305,7 @@ function Listen({ id }) {
       children: jsxs(Fragment, { children: [jsx(Codicon, { name: 'unmute' }), state === 'loading' ? 'Getting the voice ready' : 'Hear it'] }) }) : null,
     state === 'ready' ? jsx(Button, { variant: 'secondary', size: 'sm', onClick: () => (playing ? pause() : play()),
       children: jsxs(Fragment, { children: [jsx(Codicon, { name: playing ? 'debug-pause' : 'play' }), playing ? 'Pause' : 'Play'] }) }) : null,
-    state === 'ready' ? jsx(SegmentedControl, { value: rate, onChange: speed, 'aria-label': 'Speed', options: [{ id: '1', label: '1x' }, { id: '1.25', label: '1.25x' }] }) : null,
+    state === 'ready' ? jsx(Choices, { value: rate, onChange: speed, label: 'Speed', options: [{ id: '1', label: '1x' }, { id: '1.25', label: '1.25x' }] }) : null,
     state === 'ready' && t.of && isFinite(t.of) ? jsx('span', { className: 'ldw-num ldw-meta', children: `${mmss(t.at)} / ${mmss(t.of)}` }) : null,
     err ? jsx(Notice, { tone: 'warn', children: err }) : null,
   ] })
@@ -307,7 +325,17 @@ function SpotSpeech({ r, id }) {
       children: jsxs(Fragment, { children: [jsx(Codicon, { name: 'search' }), 'Spot fallacies'] }) }) }) : null,
     busy ? jsx(Thinking, { label: 'Looking for fallacies' }) : null,
     err ? jsx(Notice, { tone: 'bad', children: err }) : null,
-    text ? jsxs('div', { className: 'ldw-helper', children: [jsx('h3', { className: 'ldw-h3', children: 'Fallacies found' }), jsx('div', { className: 'ldw-helper-body', children: renderText(text) })] }) : null,
+    text ? jsx(FallaciesFound, { text, where: 'in the speech' }) : null,
+  ] })
+}
+
+// The fallacy finder's answer, with every quote checked against what it read (engine.check_quotes).
+function FallaciesFound({ text, where }) {
+  const missing = notFoundCount(text)
+  return jsxs('div', { className: 'ldw-helper', children: [
+    jsx('h3', { className: 'ldw-h3', children: 'Fallacies found' }),
+    jsx('p', { className: 'ldw-meta', children: missing ? `Every quote was checked against the text. ${missing === 1 ? 'One was' : `${missing} were`} not found ${where}: it is marked. Do not use it until you find the real words.` : `Every quote was checked: each one is ${where}, word for word.` }),
+    jsx('div', { className: 'ldw-helper-body', children: renderChecked(text, `Not found ${where}. Check it before you use it.`) }),
   ] })
 }
 
@@ -490,10 +518,10 @@ function Setup() {
           jsxs('span', { className: 'hk-grow', children: [jsx('strong', { children: c.name }), jsx('span', { className: 'ldw-meta', children: ` · ${c.words} words · ${c.resolution || 'no resolution yet'}` })] }),
         ] }) }, c.id)) }) : null,
       jsx('h3', { className: 'ldw-h3', children: 'Opponent' }),
-      jsx(SegmentedControl, { value: level, onChange: setLevel, options: [{ id: 'novice', label: 'Novice' }, { id: 'jv', label: 'JV' }, { id: 'varsity', label: 'Varsity' }] }),
+      jsx(Choices, { label: 'Opponent', value: level, onChange: setLevel, options: [{ id: 'novice', label: 'Novice' }, { id: 'jv', label: 'JV' }, { id: 'varsity', label: 'Varsity' }] }),
       jsx('p', { className: 'ldw-meta', children: 'Start one level below where you compete, then move up.' }),
       jsx('h3', { className: 'ldw-h3', children: 'Judge' }),
-      jsx(SegmentedControl, { value: judge, onChange: setJudge, options: Object.entries(cfg.judges).map(([k, j]) => ({ id: k, label: j.label })) }),
+      jsx(Choices, { label: 'Judge', value: judge, onChange: setJudge, options: Object.entries(cfg.judges).map(([k, j]) => ({ id: k, label: j.label })) }),
       jsx('p', { className: 'ldw-meta', children: cfg.judges[judge].summary }),
       chosen && !chosen.words ? jsx(Notice, { tone: 'warn', children: 'This case is empty. You can still debate, but you will write your constructive from scratch.' }) : null,
       err ? jsx(Notice, { tone: 'bad', children: err }) : null,
@@ -523,6 +551,7 @@ function Room() {
   const [redo, setRedo] = useState(null)
   const [hit, setHit] = useState(null)
   const [confirmEnd, setConfirmEnd] = useState(false)
+  const [flowBeside, setFlowBeside] = useState(true)
   // The flow is written in the background; pick it up while any finished speech is still missing.
   const missing = r ? r.transcript.filter(t => !r.flow[t.id]).length : 0
   useEffect(() => {
@@ -540,11 +569,12 @@ function Room() {
   else if (r.phase === 'ballot') {
     floor = jsx(FullBallot, { r, onRedo: setRedo, onFlowHit: flowHit, onNew: newRound })
   } else if (stop.kind === 'cx') floor = jsx(CrossEx, { r, stop }, `${r.round_no}-${stop.id}`)
-  else if (speakerOf(stop, r.side) === 'student') floor = jsx(StudentSpeech, { r, stop }, `${r.round_no}-${stop.id}`)
+  else if (speakerOf(stop, r.side) === 'student') floor = jsx(StudentSpeech, { r, stop, flowBeside: flowBeside && !showFlow, onHideFlow: () => setFlowBeside(false) }, `${r.round_no}-${stop.id}`)
   else floor = jsx(OpponentSpeech, { r, stop }, `${r.round_no}-${stop.id}`)
   const last = r && r.ballots.length ? r.ballots[r.ballots.length - 1] : st.history && st.history.last
   const roundMenu = r ? jsx(Menu, { label: 'Round', icon: 'list-flat', align: 'end', items: [
     { label: showFlow || r.phase === 'ballot' ? 'Hide the flow' : 'Show the flow', icon: 'list-flat', disabled: r.phase === 'ballot', onSelect: () => setShowFlow(v => !v) },
+    !flowBeside && r.phase === 'live' ? { label: 'Flow beside the clock in your speeches', icon: 'layout-sidebar-right', onSelect: () => setFlowBeside(true) } : null,
     r.phase !== 'ballot' ? { label: 'End this round', icon: 'close', danger: true, onSelect: () => setConfirmEnd(true) } : null,
   ] }) : null
   return jsxs(Fragment, { children: [
@@ -807,7 +837,7 @@ function SectionCard({ c, k }) {
     ] }),
     pending ? jsx('div', { className: 'ldw-helper', children: jsx(Thinking, { label: cfg.tools[coach.busy.tool] }) }) : helper ? jsxs('div', { className: 'ldw-helper', children: [
       jsxs('div', { className: 'ldw-row-between', children: [jsx('h4', { className: 'ldw-h3', children: helper.label }), jsx('button', { type: 'button', className: 'hk-link', onClick: hide, children: 'Hide' })] }),
-      jsx('div', { className: 'ldw-helper-body', children: renderText(helper.text) }),
+      jsx('div', { className: 'ldw-helper-body', children: renderChecked(helper.text, 'Not found in your case. Check it before you use it.') }),
       jsx('button', { type: 'button', className: 'hk-link', onClick: () => { $coach.set({ ...$coach.get(), focus: k }); const a = document.getElementById('ldw-ask'); if (a) a.focus() }, children: 'Ask the coach a follow-up' }),
     ] }) : null,
   ] })
@@ -934,7 +964,7 @@ function Bench() {
     jsx(ResolutionRow, { c, source: wb.source }, `res-${c.id}`),
     jsxs('div', { className: 'ldw-casehead', children: [
       jsx(CaseSwitcher, { wb }),
-      jsx(SegmentedControl, { value: c.side, onChange: setSide, options: [{ id: 'aff', label: 'Aff' }, { id: 'neg', label: 'Neg' }] }),
+      jsx(Choices, { label: 'Side', value: c.side, onChange: setSide, options: [{ id: 'aff', label: 'Aff' }, { id: 'neg', label: 'Neg' }] }),
       jsx('span', { className: 'hk-grow' }),
       jsx(Button, { size: 'sm', variant: 'secondary', 'aria-expanded': bench.importOpen, onClick: () => benchSet({ importOpen: !bench.importOpen }),
         children: jsxs(Fragment, { children: [jsx(Codicon, { name: 'cloud-upload' }), 'Import'] }) }),
@@ -1039,7 +1069,7 @@ function CheckArgument() {
     jsx('div', { className: 'ldw-row-end', children: jsx(Button, { loading: busy, onClick: go, children: jsxs(Fragment, { children: [jsx(Codicon, { name: 'search' }), 'Find the fallacies'] }) }) }),
     busy ? jsx(Thinking, { label: 'Looking for fallacies' }) : null,
     err ? jsx(Notice, { tone: 'bad', children: err }) : null,
-    out ? jsxs('div', { className: 'ldw-helper', children: [jsx('h3', { className: 'ldw-h3', children: 'Fallacies found' }), jsx('div', { className: 'ldw-helper-body', children: renderText(out) })] }) : null,
+    out ? jsx(FallaciesFound, { text: out, where: 'in what you pasted' }) : null,
   ] })
 }
 
@@ -1099,9 +1129,10 @@ function Rail({ event }) {
   const home = useValue($home)
   const r = st && st.round
   const xr = home && home.extemp_round
+  const xmode = useValue($extempMode) || (xr ? 'round' : 'drill')
   const sub = {
     ld: r ? `Round ${r.round_no}, ${sideShort(r.side)}` : 'Cases and rounds',
-    extemp: xr ? { prep: 'Prep', speak: 'At the podium', ballot: 'Ballot' }[xr.phase] || 'Round' : '60-second answer',
+    extemp: xmode === 'openings' ? 'Openings' : xmode === 'round' ? (xr ? { prep: 'Full round, prep', speak: 'Full round, at the podium', ballot: 'Full round, ballot' }[xr.phase] || 'Full round' : 'Full round, the draw') : '60-second answer',
     rhetoric: 'Figures and speeches',
     ballots: home ? `${home.ballots} kept` : '',
     settings: 'Transcripts, outlets',

@@ -22,7 +22,8 @@ class PromptsFromMethod(unittest.TestCase):
         for key, tool in M.TOOLS.items():
             run(api.post_tool({"case_id": cid, "tool": key, "section": "Value", "under_section": True}))
             system = self.llm.calls[-1]["messages"][0]
-            self.assertEqual(system, {"role": "system", "content": M.COACHING_STANCE + "\n\n" + tool["prompt"]})
+            extra = engine.QUOTE_FORMAT if key in ("spot", "fallacies") else ""  # the plugin's quote-check format line
+            self.assertEqual(system, {"role": "system", "content": M.COACHING_STANCE + "\n\n" + tool["prompt"] + extra})
 
     def test_round_prompts_come_from_method(self):
         p = engine.clean({"resolution": "R", "speech_id": "NC", "student_side": "aff", "level": "varsity"})

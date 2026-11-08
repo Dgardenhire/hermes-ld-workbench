@@ -422,7 +422,7 @@ async def post_spot(body: dict):
                 raise ValueError("That is not one of the opponent's speeches.")
             out = await engine.run_spot(text, r["resolution"], MODEL)
             _save_round(lambda x: (x.setdefault("spots", {}).__setitem__(sid, out["text"]), x)[1])
-            return {"text": out["text"], "speech_id": sid}
+            return {"text": out["text"], "quotes": out.get("quotes", []), "speech_id": sid}
         text = engine._s(b.get("text"), engine.SPOT_LIMIT, "Text")
         return await engine.run_spot(text, _active().get("resolution") or "", MODEL)
     except Exception as e:
@@ -487,7 +487,7 @@ async def post_round_start(body: dict):
         b = _body(body)
         c = library.get(b.get("case_id") or _active()["id"])
         level = engine._pick(b.get("level"), M.LEVELS, "level", "jv")
-        judge = engine._pick(b.get("judge"), M.JUDGES, "judge", "traditional")
+        judge = engine._pick(b.get("judge"), room.JUDGES, "judge", "traditional")
         if not (c.get("resolution") or "").strip():
             raise ValueError("Give this case a resolution first.")
         books = store.update("ballots.json", lambda x: (x.__setitem__("rounds_started", int(x.get("rounds_started", 0)) + 1), x)[1])
@@ -628,7 +628,7 @@ async def post_round_judge(body: dict):
         r = _round_or_fail()
         if r.get("phase") not in ("judging", "ballot"):
             raise ValueError("Finish the round first.")
-        judge = engine._pick(b.get("judge"), M.JUDGES, "judge", r["judge"])
+        judge = engine._pick(b.get("judge"), room.JUDGES, "judge", r["judge"])
         ballot = engine.tidy_ballot(await engine.run_judge(_payload(r, action="judge", judge=judge), MODEL))
         ballot["at"] = int(time.time())
         ballot["round_no"] = r["round_no"]
@@ -640,7 +640,7 @@ async def post_round_judge(body: dict):
             tags = set()
             for sid, st in spoken.items():
                 stop = next((s for s in room.stops() if s["id"] == sid), None)
-                tags.update(ballots.measured_tags(st, (stop or {}).get("minutes", 0) * 60, "ld"))
+                tags.update(ballots.measured_tags(st, (stop or {}).get("minutes", 0) * 60, "ld", judge))
             ballot["measured_tags"] = sorted(tags)
             ballot["measured"] = spoken
         r = _save_round(lambda x: room.add_ballot(x, ballot))
@@ -717,7 +717,8 @@ def _q(v, n=200):
 
 @router.get("/home")
 async def get_home():
-    """What the floor needs on open: the event last chosen, the next drill, the starter question,
+    """What the floor needs on open: the event last chosen, the next extemp drill, the question pool and where
+    this visit opens in it,
     whether transcripts can be made, and the round in progress for each event."""
     try:
         st = store.read("settings.json")
@@ -727,7 +728,7 @@ async def get_home():
             if t["event"] not in last:
                 last[t["event"]] = speech.public(speech.settle(t))
         hist = ballots.history()
-        return {"settings": st, "next_drill": ballots.next_drill(hist), "starter": extemp.STARTER,
+        return {"settings": st, "next_drill": ballots.next_drill(hist, ("drill", "extemp")), "pool": extemp.pool(), "pool_start": extemp.pool_start(),
                 "transcripts": speech.transcript_status(st.get("transcript_model")),
                 "recordings": speech.recordings_summary(), "transcripts_kept": speech.transcripts_summary(), "last_take": last, "extemp_round": store.read("extemp_round.json"),
                 "ld_round": store.read("round.json") is not None, "ballots": len(hist),
@@ -885,8 +886,9 @@ async def post_take_judge(take_id: str, body: dict):
             raise ValueError("The transcript is still being made. The ballot follows it.")
         question = extemp.clean_question(b.get("question") or take.get("prompt") or "")
         outline = extemp.clean_outline(b.get("outline"))
-        cited = extemp.cited_sources(take["transcript"].get("text") or "", extemp.file_items())
-        ballot = await _once(("judge", take_id), lambda: engine.run_extemp_judge(take, question, outline, cited, MODEL, event))
+        items = extemp.file_items()
+        cited = extemp.cited_sources(take["transcript"].get("text") or "", items)
+        ballot = await _once(("judge", take_id), lambda: engine.run_extemp_judge(take, question, outline, cited, MODEL, event, len(items)))
         ballot.update({"at": int(time.time()), "question": question, "take_id": take_id,
                        "drill_segment": "answer" if event == "drill" else "speak"})
         ballots.add(ballot)
@@ -1158,7 +1160,68 @@ async def post_rhetoric_critique(body: dict):
         _fail(e)
 
 
+# ---------- the 60-second questions: built in, added by a student or coach, and the rotation ----------
+@router.get("/extemp/questions")
+async def get_extemp_questions():
+    try:
+        return extemp.questions_view()
+    except Exception as e:
+        _fail(e)
+
+
+@router.post("/extemp/questions")
+async def post_extemp_questions(body: dict):
+    """Add a question to the list ({text, area}), or turn "only my questions" on or off ({mine_only})."""
+    try:
+        b = _body(body)
+        if "mine_only" in b:
+            return extemp.set_mine_only(bool(b.get("mine_only")))
+        item = extemp.add_question(b.get("text"), b.get("area"))
+        return extemp.questions_view() | {"added": item}
+    except Exception as e:
+        _fail(e)
+
+
+@router.post("/extemp/questions/restore")
+async def post_extemp_questions_restore():
+    try:
+        return extemp.restore_questions()
+    except Exception as e:
+        _fail(e)
+
+
+@router.post("/extemp/questions/seen")
+async def post_extemp_questions_seen():
+    """The floor opened on this visit's question: the next visit opens on the one after it."""
+    try:
+        return {"next": extemp.seen()}
+    except Exception as e:
+        _fail(e)
+
+
+@router.post("/extemp/questions/{qid}/delete")
+async def post_extemp_question_delete(qid: str):
+    """Delete one of the student's own questions, or hide a built-in one (Restore brings those back)."""
+    try:
+        return extemp.remove_question(_q(qid, 40))
+    except Exception as e:
+        _fail(e)
+
+
 # ---------- the Ballots view ----------
+@router.post("/ballots/export")
+async def post_ballots_export(body: dict):
+    """Every ballot as a text file, where the student chose (or into the plugin's exports folder), to send a coach."""
+    try:
+        b = _body(body)
+        text = ballots.as_text(student=_q(b.get("name"), 60))
+        path = library.write_bytes(library.export_path(b.get("path") or None, "txt", time.strftime("debate-ballots-%Y-%m-%d.txt")), text.encode("utf-8"))
+        return {"path": str(path), "name": path.name, "count": len(ballots.history())}
+    except Exception as e:
+        _fail(e)
+
+
+
 @router.post("/ballots/{index}/drill")
 async def post_ballot_drill(index: int, body: dict):
     try:

@@ -65,7 +65,8 @@ class Storage(unittest.TestCase):
         self.assertEqual(out["history"][0]["event"], "ld")
         self.assertEqual(out["history"][0]["tags"], [])
         home = run(api.get_home())
-        self.assertEqual(home["next_drill"]["name"], "Extend")
+        self.assertEqual(ballots.next_drill()["name"], "Extend")  # the 0.1 ballot's drill is still read
+        self.assertIsNone(home["next_drill"])  # but the extemp floor shows only extemp and 60-second drills
         self.assertEqual(home["settings"]["event"], "extemp")
         self.assertEqual(json.loads((store.data_dir() / "ballots.json").read_text()), old)  # reading never rewrites it
 

@@ -216,7 +216,7 @@ def clean(p):
     if p.get("speech_id") is not None:
         out["speech_id"] = _pick(p.get("speech_id"), SPEECH_IDS, "speech")
     out["mode"] = _pick(p.get("mode"), ("ask", "answer"), "mode", "ask")
-    out["judge"] = _pick(p.get("judge"), M.JUDGES, "judge", "traditional")
+    out["judge"] = _pick(p.get("judge"), judges(), "judge", "traditional")
     out["level"] = _pick(p.get("level"), M.LEVELS, "level", "jv")
     return out
 
@@ -224,7 +224,7 @@ def clean(p):
 # ---------- the model calls (server.py, with the facade in place of call_claude) ----------
 async def run_tool(p, model):
     tool = M.TOOLS[p["tool"]]
-    system = M.COACHING_STANCE + "\n\n" + tool["prompt"]
+    system = M.COACHING_STANCE + "\n\n" + tool["prompt"] + (QUOTE_FORMAT if p["tool"] in ("spot", "fallacies") else "")
     context = (
         f"Resolution: {p.get('resolution', '')}\n"
         f"The student is writing the {side_name(p.get('side'))} case.\n"
@@ -237,7 +237,10 @@ async def run_tool(p, model):
         role = "assistant" if turn.get("role") == "coach" else "user"
         messages.append({"role": role, "content": turn.get("text", "")})
     messages.append({"role": "user", "content": p.get("message") or "Look at my work and help me with the next step."})
-    return {"text": await model.text(system, messages, purpose=f"ld-workbench.tool.{p['tool']}")}
+    out = {"text": await model.text(system, messages, purpose=f"ld-workbench.tool.{p['tool']}")}
+    if p["tool"] == "fallacies":  # quotes from the student's own case, checked against it
+        out["text"], out["quotes"] = check_quotes(case_text(p.get("case")), out["text"])
+    return out
 
 
 async def run_speech(p, model):
@@ -284,7 +287,7 @@ async def run_flow(p, model):
 
 
 async def run_judge(p, model):
-    judge = M.JUDGES[p.get("judge", "traditional")]
+    judge = judges()[p.get("judge", "traditional")]
     system = judge["prompt"] + "\n\n" + M.JUDGE_OUTPUT + ld_tag_rule()
     header = (f"Resolution: {p['resolution']}\nThe student debated {side_name(p['student_side'])}. "
               "The AI opponent debated the other side.\n")
@@ -585,14 +588,59 @@ async def run_drill(p, model):
     return check_drill(out)
 
 
+# Every "Exact words" quote the fallacy finder gives is checked against the text it was reading, the way a
+# ballot's lines are. A quote that is not there is marked on its line, so it is never trusted by mistake.
+NOT_FOUND = "[[not-found]]"  # the page shows this as "Not found in the speech. Check it."
+_LABEL = re.compile(r"^(?P<lead>\s*(?:[-*\u2022]|\d+[.)])?\s*)(?P<label>\*{0,2}\s*(?:the\s+)?(?:exact\s+words?|exact\s+quote|quoted?|quotes?)\s*\*{0,2}\s*:\s*\*{0,2})(?P<rest>.*)$", re.I)
+_QUOTED = re.compile(r"\u201c([^\u201d]+)\u201d|\"([^\"]+)\"")
+
+
+def quote_found(source, quote):
+    """True when the quoted words are in ``source`` (case, spacing and curly quotes aside). A quote that leaves
+    words out with "..." is found when each piece of three or more words is."""
+    R = _mod("rhetoric_method")
+    hay = str(source or "").lower()
+    strip = " \t\"'\u201c\u201d\u2018\u2019,;:.!?*"
+    pieces = [p.strip(strip) for p in re.split(r"\.\.\.|\u2026|\[\.\.\.\]", str(quote or ""))]
+    long = [p for p in pieces if len(p.split()) >= 3]
+    check = long or [p for p in pieces if p]
+    return bool(check) and all(R.find_span(hay, p.lower()) is not None for p in check)
+
+
+def check_quotes(source, text):
+    """Mark every "Exact words" line whose quote is not in ``source``. Returns (text, [{quote, found}])."""
+    text = str(text or "").replace(NOT_FOUND, "")
+    lines = text.split("\n")
+    found = []
+    for i, line in enumerate(lines):
+        m = _LABEL.match(line)
+        if not m:
+            continue
+        rest = m.group("rest")
+        if not rest.strip() and i + 1 < len(lines):  # the quote on the line under its label
+            i, rest = i + 1, lines[i + 1]
+        quotes = [a or b for a, b in _QUOTED.findall(rest)] or ([rest.strip(" *")] if rest.strip(" *") else [])
+        quotes = [q for q in quotes if len(q.split()) >= 2]
+        if not quotes:
+            continue
+        ok = [quote_found(source, q) for q in quotes]
+        found += [{"quote": q[:400], "found": f} for q, f in zip(quotes, ok)]
+        if not all(ok):
+            lines[i] = lines[i].rstrip() + " " + NOT_FOUND
+    return "\n".join(lines), found
+
+
 async def run_spot(text, resolution, model):
-    """Fallacies in someone else's argument: the "spot" tool, with an empty case, as the web app sends it."""
+    """Fallacies in someone else's argument: the "spot" tool, with an empty case, as the web app sends it.
+    Every quoted line is checked against the argument."""
     text = (text or "").strip()
     if len(text.split()) < 12:
         raise ValueError("Paste a longer argument first.")
     p = clean({"tool": "spot", "side": "aff", "case": {}, "resolution": resolution,
                "message": "Find the fallacies in this argument:\n\n" + text[:SPOT_LIMIT]})
-    return await run_tool(p, model)
+    out = await run_tool(p, model)
+    out["text"], out["quotes"] = check_quotes(text[:SPOT_LIMIT], out["text"])
+    return out
 
 
 def tidy_ballot(b):
@@ -629,7 +677,7 @@ def config():
         "round": M.ROUND,
         "prep_minutes": M.PREP_MINUTES,
         "speech_goals": M.SPEECH_GOALS,
-        "judges": {k: {"label": v["label"], "summary": v["summary"]} for k, v in M.JUDGES.items()},
+        "judges": {k: {"label": v["label"], "summary": v["summary"]} for k, v in judges().items()},
         "levels": list(M.LEVELS.keys()),
         "resolution": M.CURRENT_RESOLUTION,
         "topics_url": "https://www.speechanddebate.org/topics/",
@@ -647,7 +695,20 @@ def _mod(name):
 
 
 LD_TAGS_RULE = ("\n\nAlso return \"tags\": a list chosen ONLY from these keys, every one that clearly applies to the "
-                "student (not the opponent): {keys}. Return [] when none apply.")
+                "student (not the opponent): {keys}. Return [] when none apply."
+                "\n\nSpeaker points: 28.0 is a typical good round, 29.0 and up is excellent, and below 27.0 means serious problems.")
+
+
+def judges():
+    """Every judge a round can have (room.JUDGES: the method's three and the plugin's circuit judge)."""
+    return _mod("room").JUDGES
+
+
+# A plugin-only line under the two fallacy tools' prompts (ld_method.py stays the web app's word for word):
+# the "Exact words" format the quote check reads.
+QUOTE_FORMAT = ("\n\nPut each quote on its own line, exactly like this: Exact words: \"...\" Copy the words character for "
+                "character from the text; never paraphrase, shorten without \"...\", or tidy them. Every quote is checked "
+                "against the text and marked when it is not there.")
 
 
 def ld_tag_rule():
@@ -682,9 +743,9 @@ def check_ld_lines(transcript, lines):
     return lines
 
 
-async def run_extemp_judge(take, question, outline, sources_cited, model, event="extemp"):
+async def run_extemp_judge(take, question, outline, sources_cited, model, event="extemp", file_count=None):
     E, B = _mod("extemp"), _mod("ballots")
-    system = E.JUDGE_PROMPT.format(tags=", ".join(B.JUDGE_TAGS["extemp"]))
+    system = E.JUDGE_PROMPT.format(tags=", ".join(B.JUDGE_TAGS["extemp"]), points=E.POINTS_SCALE)
     stats = take.get("stats") or {}
     tr = take.get("transcript") or {}
     said = tr.get("text") or ""
@@ -698,6 +759,7 @@ async def run_extemp_judge(take, question, outline, sources_cited, model, event=
     body = (f"OUTLINE (the student's own notes):\n" + "\n".join(f"{k}: {v}" for k, v in (outline or {}).items() if v and k != "sources")
             + f"\n\nSOURCES NAMED ALOUD (found in the transcript by code): "
             + (", ".join(f"{s['outlet']} ({time.strftime('%b %d, %Y', time.localtime(s['at'])) if s.get('at') else 'no date'})" for s in sources_cited) or "none")
+            + ("" if file_count is None else f"\n\nSOURCES SAVED IN THE STUDENT'S EXTEMP FILE: {int(file_count)}")
             + f"\n\nMEASURED NUMBERS: {json.dumps(numbers)}\n\nWHAT THE STUDENT SAID:\n<<<\n{said[:12000] or '(no transcript; judge from the outline and the numbers, and say so)'}\n>>>")
     raw = await model.json(system, header, body, max_tokens=6000, purpose=f"ld-workbench.{event}.judge")
     ballot = B.tidy_extemp(raw if isinstance(raw, dict) else {}, event)

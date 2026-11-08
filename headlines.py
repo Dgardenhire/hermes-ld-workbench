@@ -275,31 +275,80 @@ def rank(items, words):
     return sorted(enumerate(items), key=lambda p: (not matches(p[1]["title"], words), p[0]))
 
 
+STOP = ("the", "and", "for", "with", "new", "its", "about", "from", "over", "into", "what", "how", "why", "will")
+# Names a headline uses for a topic without its words ("Fed" for the Federal Reserve). Small on purpose.
+ALIASES = {
+    "federal reserve": ("fed", "fomc", "open market committee"),
+    "supreme court": ("justices", "scotus"),
+    "united nations": ("un",),
+    "european union": ("eu",),
+    "artificial intelligence": ("ai",),
+    "social security": ("retirement age",),
+}
+
+
 def topic_words(topic):
-    return [w for w in re.findall(r"[a-z0-9']+", topic.lower()) if len(w) > 2 and w not in ("the", "and", "for", "with", "new", "its")]
+    """The words a headline must carry: three letters or more, or a short name typed in capitals ("AI", "EU")."""
+    out = []
+    for raw in re.findall(r"[A-Za-z0-9']+", str(topic or "")):
+        w = raw.lower()
+        if (len(w) > 2 or (len(raw) == 2 and raw.isupper())) and w not in STOP and w not in out:
+            out.append(w)
+    return out
 
 
-def matches(title, words):
-    t = title.lower()
-    return not words or sum(1 for w in words if w in t) >= max(1, (len(words) + 1) // 2)
+def _word(w):
+    """A pattern for one topic word with its common endings: tariff(s), Iran(ian), economy/economies."""
+    stem = w[:-3] + "y" if w.endswith("ies") and len(w) > 4 else w[:-1] if w.endswith("s") and not w.endswith("ss") and len(w) > 4 else w
+    base = re.escape(stem[:-1]) + "(?:y|ies)" if stem.endswith("y") and len(stem) > 3 else re.escape(stem)
+    return re.compile(r"\b" + base + r"(?:s|es|n|ns|an|ans|ian|ians|ese|'s|\u2019s)?\b")
+
+
+def _plain(title):
+    """Lowercase, with dotted short names closed up ("U.N." is "un")."""
+    t = str(title or "").lower()
+    return re.sub(r"\b((?:[a-z]\.){2,})", lambda m: m.group(1).replace(".", ""), t)
+
+
+def aliases_for(topic):
+    return ALIASES.get(" ".join(topic_words(topic)), ())
+
+
+def matches(title, words, aliases=()):
+    """On topic: a headline names the topic. With one or two topic words it carries every one (or a known
+    alias, "Fed" for the Federal Reserve); with three or more, all but one. No words: everything matches."""
+    if not words:
+        return True
+    t = _plain(title)
+    if any(re.search(r"\b" + re.escape(a) + r"\b", t) for a in aliases):
+        return True
+    hits = sum(1 for w in words if _word(w).search(t))
+    return hits >= (len(words) if len(words) <= 2 else len(words) - 1)
+
+
+def on_topic(result):
+    """A pull with every off-topic headline dropped (also applied to pulls cached before this check existed)."""
+    words, al = topic_words(result.get("topic", "")), aliases_for(result.get("topic", ""))
+    cols = [dict(c, items=[i for i in c.get("items") or [] if matches(i.get("title", ""), words, al)]) for c in result.get("columns") or []]
+    return dict(result, columns=cols)
 
 
 def pull_outlet(o, topic, hosts, getter=fetch):
     """One column: {id, ok, items, via, error}. Google News first, then the outlet's own feed."""
     errors = []
+    words, al = topic_words(topic), aliases_for(topic)
     try:
         raw = getter(google_url(topic, o["domain"]), hosts)
-        items = tidy([dict(i, title=strip_outlet(i["title"], o)) for i in parse_feed(raw)], topic)
+        # Google's site search returns the outlet's other stories too: only headlines that name the topic stay.
+        items = [i for i in tidy([dict(i, title=strip_outlet(i["title"], o)) for i in parse_feed(raw)], topic) if matches(i["title"], words, al)]
         if items:
-            items = [i for _, i in rank(items, topic_words(topic))]
             return {"id": o["id"], "ok": True, "items": items[:PER_OUTLET], "via": "Google News", "error": None}
         errors.append("no matches")
     except Exception as e:
         errors.append(str(e))
     if o.get("feed"):
         try:
-            words = topic_words(topic)
-            items = [i for i in tidy(parse_feed(getter(o["feed"], hosts)), topic) if matches(i["title"], words)]
+            items = [i for i in tidy(parse_feed(getter(o["feed"], hosts)), topic) if matches(i["title"], words, al)]
             items.sort(key=lambda i: i["at"] or 0, reverse=True)
             return {"id": o["id"], "ok": True, "items": items[:PER_OUTLET], "via": "own feed", "error": None}
         except Exception as e:
@@ -354,7 +403,8 @@ def cached(topic):
         topic = clean_topic(topic)
     except ValueError:
         return None
-    return store.read("headlines.json")["topics"].get(topic.lower())
+    hit = store.read("headlines.json")["topics"].get(topic.lower())
+    return on_topic(hit) if hit else None
 
 
 def recent_topics():

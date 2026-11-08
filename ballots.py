@@ -75,13 +75,20 @@ def judge_tags(event, tags):
     return out
 
 
-def measured_tags(stats, limit, event):
-    """Tags from the numbers alone. ``limit`` is the speech time in seconds (0 = untimed)."""
+# Judges who flow fast speech: going over 175 words a minute is not a problem in front of them.
+FAST_OK_JUDGES = ("flow", "circuit")
+
+
+def measured_tags(stats, limit, event, judge=None):
+    """Tags from the numbers alone. ``limit`` is the speech time in seconds (0 = untimed). ``judge`` is the LD
+    judge's key: a flow or circuit judge is not counted against for speed."""
     s = stats or {}
     out = []
     wpm = s.get("wpm")
     if isinstance(wpm, (int, float)):
-        if wpm > 175:
+        if wpm > 175 and judge in FAST_OK_JUDGES:
+            pass
+        elif wpm > 175:
             out.append("pace-fast")
         elif wpm < 115:
             out.append("pace-slow")
@@ -192,11 +199,12 @@ def patterns(items=None, window=WINDOW):
     return out
 
 
-def next_drill(items=None):
-    """The drill to load on the floor first: the newest ballot whose drill is not done."""
+def next_drill(items=None, events=None):
+    """The drill to load on the floor first: the newest ballot whose drill is not done. ``events`` keeps it to
+    those events (the extemp floor shows only extemp and 60-second drills, never an LD one)."""
     items = history() if items is None else items
     for b in reversed(items):
-        if b.get("drill_done"):
+        if b.get("drill_done") or (events and b.get("event", "ld") not in events):
             continue
         d = b.get("drill") or ((b.get("drills") or [None])[0])
         if isinstance(d, dict) and d.get("name"):
@@ -226,3 +234,75 @@ def tidy_extemp(b, event):
         "drill": {"name": s(d.get("name"), 120), "how": s(d.get("how"), 600)} if d.get("name") else None,
         "tags": judge_tags(event, b.get("tags")),
     }
+
+
+# ---------- a coach's copy: every ballot as plain text ----------
+ANSWERED_TEXT = {"yes": "Answered the question", "partly": "Partly answered the question", "no": "Did not answer the question"}
+SIDE_TEXT = {"aff": "Affirmative", "neg": "Negative"}
+
+
+def _day(t):
+    if not t:
+        return "no date"
+    lt = time.localtime(t)
+    return f"{time.strftime('%b', lt)} {lt.tm_mday}, {lt.tm_year}"
+
+
+def as_text(items=None, student=""):
+    """Every ballot, newest first, the way a coach reads them: the result, points, the lines that decided it
+    (marked when the line was not found in what was said), the reason for decision, the drill, the patterns."""
+    items = history() if items is None else items
+    out = ["Debate Workbench: practice ballots" + (f" for {student}" if student else ""),
+           f"{len(items)} ballot{'s' if len(items) != 1 else ''}, saved {_day(int(time.time()))}", ""]
+    pats = patterns(items)
+    for key, label in (("ld", "Lincoln-Douglas"), ("extemp", "Extemp and 60-second answers")):
+        g = pats.get(key) or {}
+        if g.get("patterns"):
+            out.append(f"PATTERNS, {label}, across the last {g['of']} ballots (counted, not guessed)")
+            out += [f"- {p['text']}: {p['count']} of {p['of']}" for p in g["patterns"]]
+            out.append("")
+    for n, b in enumerate(reversed(items), 1):
+        ev = EVENT_NAMES.get(b.get("event", "ld"), "Ballot")
+        out.append("=" * 60)
+        head = [f"{n}. {ev}", _day(b.get("at"))]
+        if b.get("round_no"):
+            head.append(f"round {b['round_no']}")
+        if b.get("judge"):
+            head.append(b["judge"])
+        out.append(" · ".join(head))
+        q = b.get("question") or b.get("resolution")
+        if q:
+            out.append(q)
+        if b.get("event", "ld") == "ld":
+            pts = (b.get("speaker_points") or {})
+            won = "Won" if b.get("decision") == b.get("side") else "Lost"
+            out.append(f"{won} on the {SIDE_TEXT.get(b.get('side'), 'unknown side').lower()}. Decision: {SIDE_TEXT.get(b.get('decision'), 'none')}. "
+                       f"Speaker points: {pts.get('student') if pts.get('student') is not None else 'none'} (opponent {pts.get('opponent') if pts.get('opponent') is not None else 'none'}).")
+        else:
+            m = b.get("measured") or {}
+            bits = [ANSWERED_TEXT.get(b.get("answered"), ""), f"{b.get('points')} points" if b.get("points") is not None else "no points"]
+            if m.get("typed"):
+                bits.append("typed")
+            elif m.get("speaking"):
+                bits.append(f"{int(m['speaking']) // 60}:{int(m['speaking']) % 60:02d} spoken of {int(m.get('limit') or 0) // 60}:{int(m.get('limit') or 0) % 60:02d}")
+            if m.get("wpm"):
+                bits.append(f"{m['wpm']} words a minute")
+            out.append(". ".join(x for x in bits if x) + ".")
+        tags = [tag_text(t) for t in (b.get("tags") or []) + (b.get("measured_tags") or [])]
+        if tags:
+            out.append("Marked on this ballot: " + "; ".join(tags) + ".")
+        lines = b.get("decisive") or []
+        if lines:
+            out.append("The lines that decided it:")
+            for d in lines:
+                code = f"{d['speech']}: " if d.get("speech") else ""
+                flag = "  [not found in what was said; check it]" if d.get("checked") is False else ""
+                out.append(f"- {code}\"{d.get('line', '')}\" {d.get('effect', '')}{flag}".rstrip())
+        if b.get("reason"):
+            out += ["Reason for decision:", b["reason"]]
+        drill = b.get("drill") or (b.get("drills") or [None])[0]
+        if isinstance(drill, dict) and drill.get("name"):
+            done = " (done)" if b.get("drill_done") else ""
+            out.append(f"Drill{done}: {drill['name']}. {drill.get('how', '')}".rstrip())
+        out.append("")
+    return "\n".join(out).rstrip() + "\n"

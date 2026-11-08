@@ -72,15 +72,24 @@ export function when(t) {
 }
 
 // The coach writes light Markdown: paragraphs, - and 1. lists, **bold**, *italic*. Rendered as elements.
+// The backend marks a quoted line it could not find in the text with [[not-found]] (engine.check_quotes).
+export const NOT_FOUND = '[[not-found]]'
+let notFoundLabel = 'Not found in the text. Check it before you use it.'
+export function renderChecked(text, label) {
+  notFoundLabel = label
+  try { return renderText(text) } finally { notFoundLabel = 'Not found in the text. Check it before you use it.' }
+}
+export const notFoundCount = text => String(text || '').split(NOT_FOUND).length - 1
 export function inline(text, key) {
   const out = []
-  const re = /\*\*(.+?)\*\*|\*([^*\n]+)\*/g
+  const re = /\*\*(.+?)\*\*|\*([^*\n]+)\*|\[\[not-found\]\]/g
   let last = 0
   let m
   let i = 0
   while ((m = re.exec(text))) {
     if (m.index > last) out.push(text.slice(last, m.index))
-    out.push(m[1] ? jsx('strong', { children: m[1] }, `${key}-b${i++}`) : jsx('em', { children: m[2] }, `${key}-i${i++}`))
+    out.push(m[0] === NOT_FOUND ? jsx('span', { className: 'ldw-line-flag ldw-inline-flag', children: notFoundLabel }, `${key}-n${i++}`)
+      : m[1] ? jsx('strong', { children: m[1] }, `${key}-b${i++}`) : jsx('em', { children: m[2] }, `${key}-i${i++}`))
     last = re.lastIndex
   }
   if (last < text.length) out.push(text.slice(last))
@@ -113,6 +122,25 @@ export function renderText(text) {
   }
   flush(); close()
   return jsx('div', { className: 'ldw-prose', children: blocks })
+}
+
+// A choice of one, drawn so the picked option is plain at a glance (an accent outline, a check and bold text),
+// whatever the app's own segmented control looks like. A radio group: arrow keys move the choice.
+export function Choices({ value, onChange, options, label, disabled, className }) {
+  const pick = (e, i) => {
+    const n = options.length
+    const k = e.key === 'ArrowRight' || e.key === 'ArrowDown' ? (i + 1) % n : e.key === 'ArrowLeft' || e.key === 'ArrowUp' ? (i - 1 + n) % n : null
+    if (k === null) return
+    e.preventDefault()
+    onChange(options[k].id)
+    const row = e.currentTarget.parentElement
+    const next = row && row.children[k]
+    if (next) next.focus()
+  }
+  return jsx('div', { className: cls('ldw-choices', className), role: 'radiogroup', 'aria-label': label, children: options.map((o, i) => jsxs('button', {
+    type: 'button', role: 'radio', 'aria-checked': value === o.id, tabIndex: value === o.id || (i === 0 && !options.some(x => x.id === value)) ? 0 : -1,
+    className: 'ldw-choice', disabled, onClick: () => onChange(o.id), onKeyDown: e => pick(e, i), children: [
+      jsx(Codicon, { name: 'check', className: 'ldw-choice-check' }), jsx('span', { children: o.label })] }, o.id)) })
 }
 
 export const Thinking = ({ label }) => jsxs('div', { className: 'ldw-thinking', role: 'status', children: [jsx('span', { className: 'hk-spinner' }), label] })

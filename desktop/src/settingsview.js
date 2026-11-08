@@ -4,9 +4,9 @@
 
 import { useState } from 'react'
 import { Fragment, jsx, jsxs } from 'react/jsx-runtime'
-import { Button, SegmentedControl, useValue } from '@hermes/plugin-sdk'
+import { Button, useValue } from '@hermes/plugin-sdk'
 import { Notice } from 'hermes-ui-kit'
-import { Thinking, errText, post } from './core.js'
+import { Choices, Thinking, errText, post } from './core.js'
 import { $home, OutletEditor, loadHome } from './extemp.js'
 import { TRANSCRIPTS_OFF } from './floor.js'
 
@@ -39,7 +39,7 @@ function Transcripts({ t }) {
       : 'Not set up yet. Every take still gets real timing and pauses.' }),
     own && h.reason === 'model' ? jsx('p', { className: 'ldw-set-line', children: `Hermes's own speech-to-text would first download its ${h.model} model, so the workbench uses its own copy, kept in its own folder.` }) : null,
     !t.available || (!h.usable && !t.fallback) ? jsx(Notice, { tone: 'info', children: TRANSCRIPTS_OFF }) : null,
-    own ? jsx(SegmentedControl, { value: t.model, onChange: pick, disabled: busy, options: (t.models || []).map(m => ({ id: m, label: `${m}: ${MODEL_TEXT[m] || ''}` })) }) : null,
+    own ? jsx(Choices, { label: 'Transcript model', value: t.model, onChange: pick, disabled: busy, options: (t.models || []).map(m => ({ id: m, label: `${m}: ${MODEL_TEXT[m] || ''}` })) }) : null,
     own ? jsx('p', { className: 'ldw-set-line', children: cached
       ? `${t.model} is already on this computer.`
       : `The first transcript asks before it downloads ${t.model} (about ${(t.mb || {})[t.model] || 150} MB) from huggingface.co into the workbench's own folder, once. After that it works offline.` }) : null,

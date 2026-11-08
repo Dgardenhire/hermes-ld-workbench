@@ -11,7 +11,7 @@ The film's structure is the round's own clock (from the film critique): speaking
    `/usr/bin/python3 harness/seed_demo.py <the demo profile's Hermes home>/plugin-data/ld-workbench`
    It writes nine practice ballots (six Lincoln-Douglas rounds on civil disobedience, three extemp answers) and refuses a folder that already has ballots. If Ballots appears in the film, the frame says so ("Six earlier practice rounds, seeded").
 3. **Download the transcript model first.** Do one throwaway 60-second take and wait for its transcript (the first one downloads base.en, about 145 MB). Settings, Transcripts should then say "base.en is already on this computer". Delete that take's recording in Settings if you like.
-4. **The question.** Decided Nov 7 (D2): a low-partisan question. The floor now opens on "Should the Federal Reserve care more about prices or about jobs right now?"; press **Another question** once for "Is a four-day school week good for rural districts?". The seeded ballots are low-partisan too (civil disobedience for Lincoln-Douglas; the Fed, a four-day school week and the UN Security Council for extemp).
+4. **The question.** Decided Nov 7 (D2): a low-partisan question, "Should the Federal Reserve care more about prices or about jobs right now?". Since the persona fixes (Nov 8) the floor opens on a different question each visit: a fresh profile's first visit opens on the Fed question, but the throwaway take in step 3 moves it on. So before rolling, open **Question list** under the question, find the Fed question (first in the built-in list) and press **Ask this one**. The seeded ballots are low-partisan too (civil disobedience for Lincoln-Douglas; the Fed, a four-day school week and the UN Security Council for extemp).
 5. Turn off notifications and Hermes's wake word.
 
 ## The moments, in film order
@@ -55,6 +55,27 @@ The film's structure is the round's own clock (from the film critique): speaking
 - The Lincoln-Douglas strip drawn to scale, 6-3-7-3-4-6-3 then Ballot (Lincoln-Douglas, Tournament Room, during any speech).
 - The headline pull in three columns (Extemp, Full round, Pull headlines on a topic). If it appears in the film at all, keep it under a second, as texture, with no readable lean labels (film critique, D2).
 - The Lincoln-Douglas ballot: YOU WON or YOU LOST with the three lines tagged by speech.
+
+### 7. New since the persona test (Nov 8), worth a still or a beat
+
+- **Write your own question** under the 60-second question, and **Question list** with a coach's questions on top. Good for the post about coaches: "hand your team this week's three questions".
+- **The flow beside the clock** in the 1AR (Lincoln-Douglas, Tournament Room). Stronger than the strip for the LD still: the clock, the cards and the NC you are answering, side by side.
+- **Ballots, opened.** Click a ballot row: the full sheet opens in place. **Print ballots** and **Save as a file for your coach** sit at the top.
+- **Spot fallacies, checked.** Under the opponent's NR, the answer says every quote was checked. Only film this live; see below.
+
+## Harness stills and what still needs live footage
+
+The harness (`harness/shoot.sh`, screens in `docs/shots/v02/`) is fine for layout stills. These answers in it are not from a live model, so they must not stand in for real output in the film:
+
+| Screen | What the harness shows | For the film |
+|---|---|---|
+| Extemp ballot, 60-second answer | A hand-written ballot on the Fed answer (`harness/make_fixtures.py`); any other question answers with a harness notice | Live: a real take, a real ballot |
+| Openings coach | A hand-written answer for the three Fed openings in `shoot.sh` | Live |
+| The draw | Three hand-written questions, each from a real headline in the Nov 7 pull | Live, if the draw is filmed at all |
+| Headline pull | The real Nov 7 pull on the Federal Reserve, now filtered on topic by the plugin's own code | Live pull is better (dated), but the still is honest |
+| Spot fallacies under the NR | A hand-written answer whose three quotes are the NR's own words, checked by the plugin's code (`?spotmiss=1` shows the not-found mark) | Live, if filmed |
+| Opponent's NC and NR, cross-ex, the LD ballot, the case coach | Captured from the real backend and model on Oct 20, 2026 (`harness/fixtures.js`) | Usable as captured |
+| Rhetoric "Ask the coach" | Not answered in the harness | Live |
 
 ## Do not film
 

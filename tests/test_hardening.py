@@ -238,10 +238,12 @@ class DemoSeed(unittest.TestCase):
 
     def test_the_floor_opens_on_the_low_partisan_question(self):
         import extemp
+        from _load import reset as _reset
         self.assertEqual(extemp.STARTER[0]["text"], "Should the Federal Reserve care more about prices or about jobs right now?")
+        _reset()
+        self.assertEqual(extemp.pool()[extemp.pool_start()]["text"], extemp.STARTER[0]["text"])  # a fresh profile's first visit
         code = (ROOT / "desktop" / "plugin.js").read_text(encoding="utf-8")
-        starts = re.findall(r"useState\w*\((\d+)\);\s*const q = pool\.length \? pool\[i % pool\.length\]", code)
-        self.assertEqual(starts, ["0", "0"])  # the drill and the openings lab both open on it
+        self.assertIn("const at = pool.length ? (home.pool_start || 0) % pool.length : 0", code)  # the drill and openings open there
 
     def test_seed_then_refuse(self):
         import importlib.util, io, contextlib

@@ -40,7 +40,7 @@ try {
   await send('Runtime.enable'); await send('Page.enable'); await send('Network.enable')
   await send('Network.setCacheDisabled', { cacheDisabled: true }) // the profile folder persists; never test a stale bundle
   await send('Emulation.setDeviceMetricsOverride', { width: 1440, height: 900, deviceScaleFactor: 1, mobile: false })
-  await send('Page.navigate', { url: `http://127.0.0.1:8793/harness/?view=extemp${process.env.THEME ? `&theme=${process.env.THEME}` : ''}` })
+  await send('Page.navigate', { url: `http://127.0.0.1:${process.env.HARNESS_PORT || process.env.PORT_HARNESS || 8793}/harness/?view=extemp${process.env.THEME ? `&theme=${process.env.THEME}` : ''}` })
   for (let i = 0; i < 60 && (await evalJs('document.documentElement.dataset.ready')) !== '1'; i++) await pause(250)
   await evalJs(`[...document.querySelectorAll('button')].find(b => b.textContent.trim() === 'Start speaking').click()`)
   await pause(Number(process.env.SPEAK_MS || 6500))

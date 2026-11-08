@@ -271,14 +271,15 @@ export function Wave({ levels = [], duration = 0, pauses = [], answerAt = null, 
   ] })
 }
 
-export function Stats({ take, limit }) {
+// fastOk: the student chose a judge who flows fast speech (flow or circuit), so over 175 words a minute is not marked.
+export function Stats({ take, limit, fastOk }) {
   const s = take.stats || {}
   const items = []
   if (s.estimated) {
     items.push({ v: mmss(s.estimated_seconds), k: `of ${mmss(limit)}, estimated at 140 words a minute`, bad: limit && s.estimated_seconds > limit })
   } else {
     items.push({ v: mmss(s.speaking || 0), k: `of ${mmss(limit)}`, bad: limit && s.speaking > limit + 5 })
-    if (s.wpm) items.push({ v: String(s.wpm), k: 'words a minute', bad: s.wpm > 175 || s.wpm < 115 })
+    if (s.wpm) items.push({ v: String(s.wpm), k: s.wpm > 175 && fastOk ? 'words a minute, fine for your judge' : 'words a minute', bad: (s.wpm > 175 && !fastOk) || s.wpm < 115 })
     if (s.fillers !== undefined && take.transcript.status === 'done') items.push({ v: String(s.fillers), k: s.fillers === 1 ? 'filler the transcript caught' : 'fillers the transcript caught', bad: s.speaking >= 20 && s.fillers / (s.speaking / 60) > 4 })
     items.push({ v: String((s.pauses || []).length), k: 'pauses over 2 seconds', bad: (s.pauses || []).length >= 3 })
   }
@@ -312,7 +313,7 @@ export function transcriptLine(t) {
 export const TRANSCRIPTS_OFF = "Transcripts need speech-to-text in Hermes. In Hermes Settings, Voice, choose a speech-to-text provider (local keeps your voice on this computer). Then press Transcribe now. Or type what you said."
 
 // The last take: header, waveform, numbers, the transcript state and what to do about it.
-export function LastTake({ take, limit, title, onChange, children }) {
+export function LastTake({ take, limit, title, onChange, children, fastOk }) {
   const [typing, setTyping] = useState(false)
   const [text, setText] = useState('')
   const [busy, setBusy] = useState(false)
@@ -323,7 +324,7 @@ export function LastTake({ take, limit, title, onChange, children }) {
   return jsxs('section', { className: 'ldw-last', 'aria-label': title || 'Your last take', children: [
     jsxs('div', { className: 'ldw-last-head', children: [jsx('h3', { className: 'ldw-h3', children: title || 'Your take' }), jsx('span', { className: 'ldw-prov', children: transcriptLine(take) })] }),
     !take.typed ? jsx(Wave, { levels: take.levels || [], duration: take.duration, pauses: s.pauses || [], answerAt: s.answer_at, startsAt: s.starts_at || 0, limit }) : null,
-    jsx(Stats, { take, limit }),
+    jsx(Stats, { take, limit, fastOk }),
     WAITING.has(st) ? jsxs('div', { className: 'hk-row', children: [jsx(Thinking, { label: 'Making the transcript' }),
       jsx('button', { type: 'button', className: 'hk-link', onClick: () => call(() => post(`speech/${take.id}/cancel`)), children: 'Stop' })] }) : null,
     st === 'unavailable' || st === 'failed' || st === 'cancelled' ? jsx(Notice, { tone: 'warn', children: st === 'failed' ? take.transcript.error : TRANSCRIPTS_OFF,
@@ -375,6 +376,13 @@ export function SpeakControls({ rec, onTyped, startLabel = 'Start speaking', ext
 
 /* ------------------------------------------------------------------ the ballot sheet -- */
 
+// What the points mean, said under the scale. The extemp key is the scale the judge is given
+// (extemp.POINTS_SCALE); the Lincoln-Douglas key is engine.LD_TAGS_RULE's. A test keeps them the same.
+export const POINTS_KEY = {
+  extemp: 'Points run 20 to 30. 29 to 30 is excellent; 28 is strong; 27 is a solid speech with one clear problem; 26 has several problems; 25 or lower means the question was not really answered.',
+  ld: 'Speaker points run 20 to 30; most rounds land between 26 and 30. 28.0 is a typical good round, 29.0 and up is excellent, and below 27.0 means serious problems.',
+}
+
 function PointsScale({ points }) {
   const marks = [20, 22, 24, 26, 28, 30]
   const pos = points === null || points === undefined ? null : ((points - 20) / 10) * 100
@@ -388,10 +396,14 @@ function PointsScale({ points }) {
 }
 
 const ANSWERED = { yes: 'Yes', partly: 'Partly', no: 'No' }
+// A drill written before the judge knew the file was empty may still say "your file".
+export const mentionsFile = d => /\byour (extemp )?file\b/i.test(`${(d && d.name) || ''} ${(d && d.how) || ''}`)
+export const FILE_EMPTY_NOTE = 'Your file is empty for now: in Full round, pull headlines on a topic and save a few, or use sources you can name with an outlet and a date.'
 
-// The extemp ballot: read in ten seconds, the full reason folded.
-export function ExtempSheet({ b, onDrill, drillLabel = 'Run the drill' }) {
-  const [open, setOpen] = useState(false)
+// The extemp ballot: read in ten seconds, the full reason folded. fileEmpty: the student has no saved sources,
+// so a drill that sends them to "your file" says how to start one.
+export function ExtempSheet({ b, onDrill, drillLabel = 'Run the drill', defaultOpen = false, fileEmpty = false }) {
+  const [open, setOpen] = useState(defaultOpen)
   const m = b.measured || {}
   const verdictWord = { yes: 'You answered the question', partly: 'You partly answered the question', no: 'You did not answer the question' }[b.answered]
   return jsxs('article', { className: 'ldw-sheet', 'aria-label': 'Ballot', children: [
@@ -404,10 +416,14 @@ export function ExtempSheet({ b, onDrill, drillLabel = 'Run the drill' }) {
     ] }),
     jsx('div', { className: 'ldw-sheet-q', children: b.question }),
     jsxs('div', { className: 'ldw-sheet-dec', children: [
-      jsxs('div', { className: 'ldw-boxes', role: 'img', 'aria-label': `Answered the question: ${ANSWERED[b.answered]}`, children: ['yes', 'partly', 'no'].map(k => jsxs('span', { children: [
-        jsx('span', { className: 'ldw-box', 'data-x': b.answered === k ? '1' : '0' }), ANSWERED[k]] }, k)) }),
+      jsxs('div', { className: 'ldw-boxwrap', children: [
+        jsx('div', { className: 'ldw-boxes-q', 'aria-hidden': 'true', children: 'Answered the question?' }),
+        jsx('div', { className: 'ldw-boxes', role: 'img', 'aria-label': `Answered the question: ${ANSWERED[b.answered]}`, children: ['yes', 'partly', 'no'].map(k => jsxs('span', { children: [
+          jsx('span', { className: 'ldw-box', 'data-x': b.answered === k ? '1' : '0' }), ANSWERED[k]] }, k)) }),
+      ] }),
       jsx('div', { className: 'ldw-verdict', children: b.summary || verdictWord }),
       jsx(PointsScale, { points: b.points }),
+      jsx('p', { className: 'ldw-pts-key', children: POINTS_KEY.extemp }),
     ] }),
     b.decisive && b.decisive.length ? jsxs('div', { className: 'ldw-declines', children: [
       jsx('h4', { children: 'The lines that decided it' }),
@@ -419,7 +435,8 @@ export function ExtempSheet({ b, onDrill, drillLabel = 'Run the drill' }) {
     ] }) : null,
     b.drill ? jsxs('div', { className: 'ldw-drillrow', children: [
       jsx('span', { className: 'ldw-stamp2', children: 'Drill' }),
-      jsxs('p', { children: [jsx('strong', { children: b.drill.name }), '. ', b.drill.how] }),
+      jsxs('p', { children: [jsx('strong', { children: b.drill.name }), '. ', b.drill.how,
+        fileEmpty && mentionsFile(b.drill) ? jsx('span', { className: 'ldw-drill-note', children: ` ${FILE_EMPTY_NOTE}` }) : null] }),
       onDrill ? jsx(Button, { size: 'sm', onClick: onDrill, children: drillLabel }) : null,
     ] }) : null,
     jsxs('button', { type: 'button', className: 'ldw-fold', 'aria-expanded': open, onClick: () => setOpen(v => !v), children: [
@@ -437,8 +454,8 @@ const clip2 = (t, n) => { t = String(t || ''); return t.length > n ? `${t.slice(
 
 // The Lincoln-Douglas ballot, read in ten seconds: the decision, your points, the three lines that decided
 // it (checked against the speeches), one drill stamped. The full reason, framework and the rest are folded.
-export function LdSheet({ b, onLine, onDrill }) {
-  const [open, setOpen] = useState(false)
+export function LdSheet({ b, onLine, onDrill, defaultOpen = false }) {
+  const [open, setOpen] = useState(defaultOpen)
   const pts = b.speaker_points || {}
   const won = b.decision === b.side
   const spoken = b.measured ? Object.keys(b.measured) : []
@@ -467,6 +484,7 @@ export function LdSheet({ b, onLine, onDrill }) {
         jsx('span', { className: 'ldw-box', 'data-x': b.decision === k ? '1' : '0' }), SIDE[k]] }, k)) }),
       jsx('div', { className: 'ldw-verdict ldw-ldverdict', children: won ? 'You won' : 'You lost' }),
       jsx(PointsScale, { points: pts.student }),
+      jsx('p', { className: 'ldw-pts-key', children: POINTS_KEY.ld }),
     ] }),
     b.reason ? jsx('p', { className: 'ldw-sheet-why', children: firstSentence(b.reason) }) : null,
     lines.length ? jsxs('div', { className: 'ldw-declines', children: [jsx('h4', { children: 'The lines that decided it' }), ...lines.map(line)] }) : null,

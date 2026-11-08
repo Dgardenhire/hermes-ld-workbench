@@ -233,7 +233,7 @@ export const FRAME_CSS = `
   .ldw-ev{padding:12px 14px}.ldw-ev b,.ldw-ev-ballots b,.ldw-ev-settings b{font-size:17px;white-space:nowrap}.ldw-ev span{display:none}.ldw-ev-settings{margin-top:0}.ldw-ev[aria-current=page]{box-shadow:inset 0 -3px 0 var(--hk-accent)}
   .ldw-sheet-fields>div:nth-child(odd){padding-left:0;border-left:0}.ldw-sheet-fields>div:nth-child(n+3){border-top:1px solid var(--ldw-paper-rule)}
   .ldw-ev-ballots{margin-top:0}.ldw-stage2,.ldw-prep,.ldw-heads-grid,.ldw-drawn,.ldw-read,.ldw-patgrid,.ldw-slip{grid-template-columns:1fr}.ldw-sheet-dec,.ldw-sheet-fields{grid-template-columns:1fr 1fr}
-  .ldw-outline-side{text-align:left}.ldw-strip{flex-wrap:wrap}.ldw-seg{min-width:96px !important}}
+  .ldw-outline-side{text-align:left}}
 /* Lincoln-Douglas in the frame: the big clock and its actions on one row, the speech and last ballot under it */
 .ldw-floor{display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:var(--ldw-gap) 30px;align-items:start}
 .ldw-floor>.ldw-clock{grid-column:1/-1;position:static;border-bottom:1px solid var(--hk-stroke);padding:4px 0 20px}
@@ -257,7 +257,7 @@ export const FRAME_CSS = `
 .ldw-live{background:var(--hk-surface);border:1px solid var(--hk-stroke);border-radius:var(--ldw-r);padding:14px 16px 12px;display:grid;gap:10px}
 .ldw-live .ldw-wave-bar{fill:var(--hk-accent)}
 .ldw-live-wait{font-size:14px}
-@container (max-width:900px){.ldw-floor{grid-template-columns:1fr}.ldw-floor .ldw-stage2{grid-template-columns:1fr}}
+@container (max-width:900px){.ldw-floor{grid-template-columns:1fr}}
 .ldw-ev-settings{margin-top:auto}.ldw-ev-settings b{font-size:16px}
 .ldw-settings{display:grid;gap:4px;max-width:880px}
 .ldw-set-h1{margin:0 0 10px;font-family:var(--ldw-cond);font-size:34px;font-weight:700;text-transform:uppercase;letter-spacing:.01em}
@@ -290,4 +290,69 @@ export const FRAME_CSS = `
 .ldw-onote{display:grid;gap:4px;font-size:13.5px;line-height:1.45;border-top:1px dashed var(--hk-stroke);padding-top:8px}.ldw-onote p{margin:0}
 .ldw-ocoach{display:grid;gap:6px;max-width:760px}.ldw-ocoach p{margin:0;font-size:15px;line-height:1.5}
 @container (max-width:900px){.ldw-ocards{grid-template-columns:1fr}}
+
+/* 0.2.1: narrow windows (a 1024 x 720 laptop leaves about 790px): the strip stays on one row, drawn to scale,
+   and the clock keeps its actions beside it so Speak is above the fold. Only a phone-narrow pane stacks. */
+@container (max-width:900px){.ldw-seg:not(:has(.ldw-seg-btn)),.ldw-seg-btn{padding:4px 6px}.ldw-seg-code{font-size:12px}
+  .ldw-stage2{grid-template-columns:minmax(0,1fr) 230px;gap:18px}.ldw-bigclock{font-size:clamp(96px,13vw,150px)}.ldw-card{min-width:34px}}
+@container (max-width:620px){.ldw-strip{flex-wrap:wrap}.ldw-seg{min-width:96px !important}.ldw-stage2,.ldw-stage3{grid-template-columns:1fr}}
+/* a choice of one: the picked option is outlined in the accent, checked and bold */
+.ldw-choices{display:inline-flex;flex-wrap:wrap;gap:4px;text-transform:none;letter-spacing:0;font-family:var(--font-sans,inherit);font-weight:400}
+.ldw-choice{all:unset;box-sizing:border-box;display:inline-flex;align-items:center;gap:5px;padding:5px 11px 5px 8px;border:1px solid var(--hk-stroke-strong);border-radius:var(--ldw-r);font-size:13px;line-height:1.2;color:var(--hk-ink);cursor:pointer;white-space:nowrap;transition:background var(--hk-dur,120ms) var(--hk-ease,ease),border-color var(--hk-dur,120ms) var(--hk-ease,ease)}
+.ldw-choice:hover{background:var(--hk-hover)}
+.ldw-choice:focus-visible{outline:2px solid var(--hk-accent);outline-offset:2px}
+.ldw-choice[aria-checked=true]{border-color:var(--hk-accent);box-shadow:inset 0 0 0 1px var(--hk-accent);background:color-mix(in srgb,var(--hk-accent) 13%,transparent);font-weight:700}
+.ldw-choice[disabled]{opacity:.55;cursor:default}
+.ldw-choice .ldw-choice-check{font-size:13px !important;width:13px;visibility:hidden}
+.ldw-choice[aria-checked=true] .ldw-choice-check{visibility:visible;color:var(--hk-accent)}
+/* the question tools: another, your own, the list */
+.ldw-qtools{display:grid;gap:10px;margin-top:2px}
+.ldw-qlinks{display:flex;gap:18px;flex-wrap:wrap}
+.ldw-qown,.ldw-qlist{display:grid;gap:10px;max-width:820px;padding:12px 14px;border:1px solid var(--hk-stroke);border-radius:var(--ldw-r);background:var(--hk-surface)}
+.ldw-qown-row{display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+.ldw-qown-input{width:100%}
+.ldw-qown-row .ldw-qown-input{flex:1;min-width:220px;width:auto}
+.ldw-check{display:inline-flex;gap:7px;align-items:center;font-size:13.5px;cursor:pointer}
+.ldw-qrows{list-style:none;margin:0;padding:0;display:grid}
+.ldw-qrow{display:flex;gap:14px;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:1px solid var(--hk-stroke)}
+.ldw-qrow-text{display:grid;gap:1px;font-family:var(--ldw-serif);font-size:15px;line-height:1.35}
+.ldw-qrow-text .ldw-meta{font-family:var(--font-sans,inherit)}
+.ldw-qrow-hidden .ldw-qrow-text>span:first-child{text-decoration:line-through}
+.ldw-qbuilt summary{cursor:pointer;font-size:13.5px;font-weight:600;padding:4px 0}
+.ldw-qbuilt[open] summary{margin-bottom:6px}
+.ldw-qbuilt>.hk-link{margin-bottom:6px}
+.ldw-ownq{display:grid;gap:8px;border-top:1px solid var(--hk-stroke);padding-top:14px}
+.ldw-why-off{margin:-4px 0 0;font-size:13.5px;line-height:1.45;max-width:72ch}
+.ldw-drill-note{font-weight:600}
+/* the ballot: what the boxes answer, and what the points mean */
+.ldw-boxwrap{display:grid;gap:5px}
+.ldw-boxes-q{font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase}
+.ldw-sheet-dec>.ldw-pts-key{grid-column:1/-1;margin:2px 0 0;font-size:12.5px;line-height:1.45;max-width:none}
+/* checked quotes in a fallacy answer */
+.ldw-inline-flag{display:inline-block;margin-left:6px;padding:0 6px;border:1.5px solid var(--hk-bad-fill);border-radius:var(--ldw-r);color:var(--hk-bad);font-family:var(--font-sans,inherit);font-style:normal}
+/* the flow beside the clock in your rebuttals */
+.ldw-stage3{grid-template-columns:auto minmax(0,1fr) 300px;align-items:start}
+.ldw-flowside{display:grid;gap:8px;align-content:start;min-width:0;max-height:340px;overflow:auto;border:1px solid var(--hk-stroke);border-radius:var(--ldw-r);padding:10px 12px;background:var(--hk-surface)}
+.ldw-flowside-head{display:flex;justify-content:space-between;gap:10px;align-items:baseline}
+.ldw-flowside-cols{display:grid;gap:10px}
+.ldw-flowside-col{display:grid;gap:4px;align-content:start;min-width:0}
+.ldw-flowside-th{display:flex;gap:6px;align-items:baseline;border-bottom:1px solid var(--hk-stroke-strong);padding-bottom:3px;font-family:var(--hk-mono);font-size:12px}
+.ldw-flowside-pt{font-size:12.5px;line-height:1.35;overflow-wrap:anywhere}
+@container (max-width:1180px){.ldw-stage3{grid-template-columns:minmax(0,1fr) 300px}.ldw-stage3>.ldw-flowside{grid-column:1/-1;grid-row:2;max-height:260px}}
+@container (max-width:900px){.ldw-stage3{grid-template-columns:minmax(0,1fr) 230px}}
+/* Ballots: a heading, the key, rows that open */
+.ldw-ballots-head{display:flex;justify-content:space-between;gap:14px;align-items:center;flex-wrap:wrap}
+.ldw-ballots-head .ldw-set-h1{margin:0}
+.ldw-legend{margin:0;display:flex;gap:8px 20px;align-items:center;flex-wrap:wrap;font-size:13px}
+.ldw-legend-item{display:inline-flex;gap:7px;align-items:center}
+button.ldw-brow-main{all:unset;box-sizing:border-box;display:grid;gap:3px;cursor:pointer;min-width:0;border-radius:var(--ldw-r)}
+button.ldw-brow-main:hover .ldw-brow-q{text-decoration:underline;text-decoration-color:var(--hk-stroke-strong)}
+button.ldw-brow-main:focus-visible{outline:2px solid var(--hk-accent);outline-offset:3px}
+.ldw-brow-open-lbl{display:inline-flex;gap:3px;align-items:center;margin-left:auto;color:var(--hk-accent);font-weight:600}
+.ldw-brow-sheet{grid-column:1/-1}
+.ldw-brow-sheet .ldw-sheet{max-width:900px}
+.ldw-print-ballots{display:grid;gap:18px}
+.ldw-print-sheet{display:grid;gap:8px;break-inside:avoid}
+@media print{.ldw-print-ballots .ldw-noprint,.ldw-rail{display:none !important}.ldw-print-sheet{break-inside:avoid;page-break-inside:avoid}
+  .ldw-print-ballots .ldw-sheet{animation:none;box-shadow:none}.ldw-print-ballots h2,.ldw-print-ballots h3{break-after:avoid}.ldw-print-ballots p,.ldw-print-ballots li{orphans:3;widows:3}}
 `

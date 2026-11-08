@@ -3,20 +3,38 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { Fragment, jsx, jsxs } from 'react/jsx-runtime'
-import { Button, Codicon, Input, SegmentedControl, Textarea, atom, useValue } from '@hermes/plugin-sdk'
+import { Button, Codicon, Input, Textarea, atom, useValue } from '@hermes/plugin-sdk'
 import { Notice } from 'hermes-ui-kit'
-import { Thinking, api, cls, errText, mmss, post, rest } from './core.js'
-import { Clock, ExtempSheet, LastTake, LiveWave, SpeakControls, Strip, sendTake, takeSettled, useRecorder, useTakePoll } from './floor.js'
+import { Choices, Thinking, api, cls, errText, mmss, post, rest } from './core.js'
+import { Clock, ExtempSheet, FILE_EMPTY_NOTE, LastTake, LiveWave, SpeakControls, Strip, mentionsFile, sendTake, takeSettled, useRecorder, useTakePoll } from './floor.js'
 
 export const $home = atom(null)
-export const $extempMode = atom(null) // drill | round (null: decide from the saved round)
+export const $extempMode = atom(null) // drill | openings | round (null: decide from the saved round)
+// The question on the floor, shared by the 60-second answer, the openings lab and the full round's
+// "your own question", so switching modes never loses it. { area, text, own }
+export const $question = atom(null)
+const $poolAt = atom(0)
+const FALLBACK_Q = { area: 'us', text: 'Should your town spend more on roads or on parks?' }
 const AREAS = { us: 'United States', international: 'International' }
 const DRILL = 60
 const PREP = 30 * 60
 const SPEECH = 7 * 60
 
 export async function loadHome() {
-  try { $home.set(await rest('home')) } catch (e) { /* the frame shows its own load error */ }
+  try {
+    const home = await rest('home')
+    if (!$question.get()) startQuestion(home) // set with the home, so no floor ever renders on a placeholder
+    $home.set(home)
+  } catch (e) { /* the frame shows its own load error */ }
+}
+// The first question this visit: where the rotation stands. The backend moves it one along per visit, so a
+// student never opens on the same question twice in a row.
+function startQuestion(home) {
+  const pool = home.pool || []
+  const at = pool.length ? (home.pool_start || 0) % pool.length : 0
+  $poolAt.set(at)
+  $question.set(pool.length ? { area: pool[at].area, text: pool[at].text } : FALLBACK_Q)
+  post('extemp/questions/seen').catch(() => {})
 }
 
 function dateOf(t) {
@@ -74,6 +92,99 @@ function useJudgedTake({ event, limit, question, outline, initial, onBallot }) {
   return { take, setTake, ballot, setBallot, busy, err, recorder, got, judge, reset: () => { setTake(null); setBallot(null); setErr(null) } }
 }
 
+function useQuestion() {
+  return useValue($question) || FALLBACK_Q
+}
+function anotherQuestion(home) {
+  const pool = (home && home.pool) || []
+  if (!pool.length) return
+  const cur = ($question.get() || {}).text
+  let at = $poolAt.get()
+  for (let k = 0; k < pool.length; k++) { at = (at + 1) % pool.length; if (pool[at].text !== cur) break }
+  $poolAt.set(at)
+  $question.set({ area: pool[at].area, text: pool[at].text })
+}
+
+// Under the question: another one, one of your own (a coach's, or from a tournament), or the whole list.
+function QuestionTools({ home, disabled }) {
+  const [open, setOpen] = useState(null) // own | list
+  const [text, setText] = useState('')
+  const [area, setArea] = useState('us')
+  const [keep, setKeep] = useState(true)
+  const [err, setErr] = useState(null)
+  const [busy, setBusy] = useState(false)
+  const use = async () => {
+    const t = text.trim().replace(/\s+/g, ' ')
+    if (t.length < 12) { setErr('Write the question out in full.'); return }
+    setBusy(true); setErr(null)
+    try {
+      const q = t.endsWith('?') ? t : `${t}?`
+      if (keep) await post('extemp/questions', { text: q, area })
+      $question.set({ area, text: q, own: true })
+      if (keep) loadHome()
+      setText(''); setOpen(null)
+    } catch (e) { setErr(errText(e)) } finally { setBusy(false) }
+  }
+  return jsxs('div', { className: 'ldw-qtools', children: [
+    jsxs('div', { className: 'ldw-qlinks', children: [
+      jsx('button', { type: 'button', className: 'hk-link', disabled, onClick: () => { setOpen(null); anotherQuestion(home) }, children: 'Another question' }),
+      jsx('button', { type: 'button', className: 'hk-link', disabled, 'aria-expanded': open === 'own', onClick: () => setOpen(open === 'own' ? null : 'own'), children: 'Write your own' }),
+      jsx('button', { type: 'button', className: 'hk-link', disabled, 'aria-expanded': open === 'list', onClick: () => setOpen(open === 'list' ? null : 'list'), children: 'Question list' }),
+    ] }),
+    open === 'own' ? jsxs('div', { className: 'ldw-qown', children: [
+      jsx(Input, { className: 'ldw-qown-input', 'aria-label': 'Your question', value: text, placeholder: 'A question from your coach or your circuit',
+        onChange: e => setText(e.target.value), onKeyDown: e => { if (e.key === 'Enter') use() } }),
+      jsxs('div', { className: 'ldw-qown-row', children: [
+        jsx(Choices, { label: 'Area', value: area, onChange: setArea, options: [{ id: 'us', label: 'United States' }, { id: 'international', label: 'International' }] }),
+        jsxs('label', { className: 'ldw-check', children: [jsx('input', { type: 'checkbox', checked: keep, onChange: e => setKeep(e.target.checked) }), 'Keep it on my question list'] }),
+        jsx(Button, { size: 'sm', loading: busy, disabled: text.trim().length < 12, onClick: use, children: 'Use this question' }),
+      ] }),
+      err ? jsx(Notice, { tone: 'bad', children: err }) : null,
+    ] }) : null,
+    open === 'list' ? jsx(QuestionList, { onPick: q => { $question.set({ area: q.area, text: q.text, own: q.own }); setOpen(null) } }) : null,
+  ] })
+}
+
+// The question list: your own questions first (a coach can add this week's three and ask only those), then the
+// built-in ones, any of which can be hidden.
+function QuestionList({ onPick }) {
+  const [data, setData] = useState(null)
+  const [err, setErr] = useState(null)
+  const [text, setText] = useState('')
+  const [area, setArea] = useState('us')
+  const act = async fn => { setErr(null); try { setData(await fn()); loadHome() } catch (e) { setErr(errText(e)) } }
+  useEffect(() => { rest('extemp/questions').then(setData, e => setErr(errText(e))) }, [])
+  if (!data) return err ? jsx(Notice, { tone: 'bad', children: err }) : jsx(Thinking, { label: 'Opening the question list' })
+  const own = data.questions.filter(q => q.own)
+  const built = data.questions.filter(q => !q.own)
+  const hidden = built.filter(q => q.hidden).length
+  const row = q => jsxs('li', { className: cls('ldw-qrow', q.hidden && 'ldw-qrow-hidden'), children: [
+    jsxs('div', { className: 'ldw-qrow-text', children: [jsx('span', { children: q.text }), jsx('span', { className: 'ldw-meta', children: `${AREAS[q.area] || 'United States'} · ${q.own ? 'yours' : q.topic}${q.hidden ? ' · hidden' : ''}` })] }),
+    jsxs('div', { className: 'hk-actions', children: [
+      !q.hidden ? jsx('button', { type: 'button', className: 'hk-link', onClick: () => onPick(q), children: 'Ask this one' }) : null,
+      !q.hidden ? jsx('button', { type: 'button', className: 'hk-link', 'aria-label': `${q.own ? 'Delete' : 'Hide'}: ${q.text}`, onClick: () => act(() => post(`extemp/questions/${encodeURIComponent(q.id)}/delete`)), children: q.own ? 'Delete' : 'Hide' }) : null,
+    ] }),
+  ] }, q.id)
+  return jsxs('section', { className: 'ldw-qlist', 'aria-label': 'Question list', children: [
+    jsx('h3', { className: 'ldw-h3', children: `Your questions · ${own.length}` }),
+    own.length ? jsx('ul', { className: 'ldw-qrows', children: own.map(row) }) : jsx('p', { className: 'ldw-meta', children: 'None yet. Add the questions your coach hands out, or ones from your circuit.' }),
+    jsxs('div', { className: 'ldw-qown-row', children: [
+      jsx(Input, { className: 'ldw-qown-input', 'aria-label': 'A question to add', value: text, placeholder: 'Add a question', onChange: e => setText(e.target.value),
+        onKeyDown: e => { if (e.key === 'Enter' && text.trim().length >= 12) act(() => post('extemp/questions', { text, area })).then(() => setText('')) } }),
+      jsx(Choices, { label: 'Area of the question to add', value: area, onChange: setArea, options: [{ id: 'us', label: 'United States' }, { id: 'international', label: 'International' }] }),
+      jsx(Button, { size: 'sm', disabled: text.trim().length < 12, onClick: () => act(() => post('extemp/questions', { text, area })).then(() => setText('')), children: 'Add' }),
+    ] }),
+    own.length ? jsxs('label', { className: 'ldw-check', children: [jsx('input', { type: 'checkbox', checked: data.mine_only, onChange: e => act(() => post('extemp/questions', { mine_only: e.target.checked })) }),
+      'Ask only my questions'] }) : null,
+    err ? jsx(Notice, { tone: 'bad', children: err }) : null,
+    jsxs('details', { className: 'ldw-qbuilt', children: [
+      jsx('summary', { children: `Built-in questions · ${built.length - hidden} of ${built.length}${data.mine_only ? ', not asked while only yours are' : ''}` }),
+      hidden ? jsx('button', { type: 'button', className: 'hk-link', onClick: () => act(() => post('extemp/questions/restore')), children: `Show the ${hidden} hidden again` }) : null,
+      jsx('ul', { className: 'ldw-qrows', children: built.map(row) }),
+    ] }),
+  ] })
+}
+
 function Floor({ limit, label, jt, startLabel, extra }) {
   const live = jt.recorder.state === 'live' || jt.recorder.state === 'armed'
   return jsxs(Fragment, { children: [
@@ -91,25 +202,25 @@ function Floor({ limit, label, jt, startLabel, extra }) {
 
 /* ------------------------------------------------------------------ the 60-second answer -- */
 
-function Slip({ kicker, question, side, onAnother }) {
+function Slip({ kicker, question, side, tools }) {
   return jsxs('div', { className: 'ldw-slip', children: [
     jsxs('div', { children: [
       jsx('div', { className: 'ldw-kicker', children: kicker }),
       jsx('h2', { className: 'ldw-question', children: question }),
-      onAnother ? jsx('button', { type: 'button', className: 'hk-link', onClick: onAnother, children: 'Another question' }) : null,
+      tools || null,
     ] }),
     side ? jsx('div', { className: 'ldw-outline-side', children: side }) : null,
   ] })
 }
 
 function DrillFloor({ home, modeSwitch }) {
-  const pool = (home.starter || []).concat()
-  const [i, setI] = useState(0)
-  const q = pool.length ? pool[i % pool.length] : { area: 'us', text: 'Should your town spend more on roads or on parks?' }
+  const q = useQuestion()
   const last = home.last_take && home.last_take.drill
   const jt = useJudgedTake({ event: 'drill', limit: DRILL, question: q.text, initial: last && last.prompt === q.text ? last : null, onBallot: () => { loadHome() } }) // the new drill goes under the floor
   const live = jt.recorder.state === 'live' || jt.recorder.state === 'armed'
-  const another = () => { if (!live) { jt.reset(); setI(n => n + 1) } }
+  const shown = useRef(q.text)
+  useEffect(() => { if (shown.current !== q.text) { shown.current = q.text; jt.reset() } }, [q.text]) // a new question, a clean floor
+  const fileEmpty = !home.file_count
   const phase = jt.ballot ? 'ballot' : live ? 'live' : jt.take ? 'taken' : 'ready'
   return jsxs(Fragment, { children: [
     jsx(Strip, { segments: [
@@ -117,12 +228,13 @@ function DrillFloor({ home, modeSwitch }) {
         state: phase === 'ballot' ? 'done' : 'now', fill: live ? jt.recorder.elapsed / DRILL : 0 },
       { key: 'ballot', code: 'Ballot', sub: jt.busy === 'judging' ? 'Writing' : jt.ballot ? `${jt.ballot.points ?? ''} points` : '', minutes: 0.45, min: 120, state: phase === 'ballot' ? 'now' : 'later' },
     ] }),
-    jsx(Slip, { kicker: [`60-second answer · ${AREAS[q.area] || 'United States'}`, modeSwitch], question: q.text, onAnother: live ? null : another }),
-    jt.ballot ? jsx(ExtempSheet, { b: jt.ballot, drillLabel: 'Try it again', onDrill: () => jt.reset() }) : null,
+    jsx(Slip, { kicker: [`60-second answer · ${AREAS[q.area] || 'United States'}`, modeSwitch], question: q.text, tools: jsx(QuestionTools, { home, disabled: live }) }),
+    jt.ballot ? jsx(ExtempSheet, { b: jt.ballot, drillLabel: 'Try it again', onDrill: () => jt.reset(), fileEmpty }) : null,
     jsx(Floor, { limit: DRILL, label: null, jt, startLabel: 'Start speaking' }),
     !jt.take && !live && home.next_drill ? jsxs('div', { className: 'ldw-upnext', children: [
       jsx('span', { className: 'ldw-stamp2 ldw-stamp-sm', children: 'Drill' }),
-      jsxs('p', { children: [jsx('strong', { children: home.next_drill.name }), `. ${home.next_drill.how}`] }),
+      jsxs('p', { children: [jsx('strong', { children: home.next_drill.name }), `. ${home.next_drill.how}`,
+        fileEmpty && mentionsFile(home.next_drill) ? jsx('span', { className: 'ldw-drill-note', children: ` ${FILE_EMPTY_NOTE}` }) : null] }),
       jsx('span', { className: 'ldw-meta', children: 'From your last ballot' }),
     ] }) : null,
   ] })
@@ -158,9 +270,7 @@ function OpeningCard({ n, take, setTake, best, note, active, onRedo }) {
 // Three attention-getters for one question, 45 seconds each, out loud. The coach picks the strongest
 // and says why; it never writes an opening.
 function OpeningsFloor({ home, modeSwitch }) {
-  const pool = (home.starter || []).concat()
-  const [i, setI] = useState(0)
-  const q = pool.length ? pool[i % pool.length] : { area: 'us', text: 'Should your town spend more on roads or on parks?' }
+  const q = useQuestion()
   const [takes, setTakes] = useState([null, null, null])
   const [slot, setSlot] = useState(0)
   const [busy, setBusy] = useState(null)
@@ -183,7 +293,11 @@ function OpeningsFloor({ home, modeSwitch }) {
     setBusy('coach'); setErr(null)
     try { setCoach(await post('openings/coach', { question: q.text, take_ids: takes.map(t => t.id) })) } catch (e) { setErr(errText(e)) } finally { setBusy(null) }
   }
-  const another = () => { if (live) return; setI(n => n + 1); setTakes([null, null, null]); setSlot(0); setCoach(null); setErr(null) }
+  const shown = useRef(q.text)
+  useEffect(() => { // a new question: three fresh openings
+    if (shown.current === q.text) return
+    shown.current = q.text; setTakes([null, null, null]); setSlot(0); setCoach(null); setErr(null)
+  }, [q.text])
   const notes = Object.fromEntries(((coach && coach.notes) || []).map(x => [x.n, x]))
   return jsxs(Fragment, { children: [
     jsx(Strip, { segments: [
@@ -191,7 +305,7 @@ function OpeningsFloor({ home, modeSwitch }) {
         state: k === slot && !coach ? 'now' : takes[k] ? 'done' : 'later', fill: live && k === slot ? rec.elapsed / OPENING : 0, onClick: live ? null : () => setSlot(k) })),
       { key: 'coach', code: 'Coach', sub: coach ? `Opening ${coach.best || '?'}` : 'Picks one', minutes: 0.5, min: 110, state: coach ? 'now' : 'later' },
     ] }),
-    jsx(Slip, { kicker: [`Openings · ${AREAS[q.area] || 'United States'}`, modeSwitch], question: q.text, onAnother: live ? null : another }),
+    jsx(Slip, { kicker: [`Openings · ${AREAS[q.area] || 'United States'}`, modeSwitch], question: q.text, tools: jsx(QuestionTools, { home, disabled: live }) }),
     jsxs('div', { className: 'ldw-stage2', children: [
       jsx(Clock, { limit: OPENING, elapsed: rec.elapsed, live, label: `Opening ${slot + 1} of 3` }),
       jsx(SpeakControls, { rec, onTyped: text => got({ typed: text }), startLabel: `Give opening ${slot + 1}${takes[slot] ? ' again' : ''}` }),
@@ -289,10 +403,11 @@ function DrawStage({ home, modeSwitch, onStart }) {
   const [busy, setBusy] = useState(null)
   const [err, setErr] = useState(null)
   const [saved, setSaved] = useState(new Set())
-  const [area, setArea] = useState('us')
+  const held = useValue($question)
+  const [area, setArea] = useState(held && held.area === 'international' ? 'international' : 'us')
   const [prepMode, setPrepMode] = useState('files')
   const [drawn, setDrawn] = useState(null)
-  const [own, setOwn] = useState('')
+  const [own, setOwn] = useState(held ? held.text : '')
   const [editing, setEditing] = useState(false)
   const [fileCount, setFileCount] = useState(home.file_count || 0)
   const doPull = async () => {
@@ -335,21 +450,27 @@ function DrawStage({ home, modeSwitch, onStart }) {
     pull ? jsx(HeadlineColumns, { pull, saved, onSave: save }) : null,
     jsxs('div', { className: 'ldw-drawrow', children: [
       jsx('span', { className: 'ldw-meta', children: `${fileCount} saved in your file` }),
-      jsx(SegmentedControl, { value: area, onChange: setArea, options: [{ id: 'us', label: 'United States' }, { id: 'international', label: 'International' }] }),
-      jsx(SegmentedControl, { value: prepMode, onChange: setPrepMode, 'aria-label': 'Prep rules', options: [{ id: 'files', label: 'Prep: files only' }, { id: 'internet', label: 'Prep: internet allowed' }] }),
-      jsx(Button, { loading: busy === 'draw', disabled: !fileCount && !pull, onClick: draw, children: 'Draw three questions' }),
+      jsx(Choices, { label: 'Area', value: area, onChange: setArea, options: [{ id: 'us', label: 'United States' }, { id: 'international', label: 'International' }] }),
+      jsx(Choices, { label: 'Prep rules', value: prepMode, onChange: setPrepMode, options: [{ id: 'files', label: 'Prep: files only' }, { id: 'internet', label: 'Prep: internet allowed' }] }),
+      jsx(Button, { loading: busy === 'draw', disabled: !fileCount && !pull, 'aria-describedby': !fileCount && !pull ? 'ldw-draw-why' : undefined, onClick: draw, children: 'Draw three questions' }),
     ] }),
+    !fileCount && !pull ? jsx('p', { id: 'ldw-draw-why', className: 'ldw-why-off', children: 'The draw writes three questions from this week\'s news, so it needs some first. Pull headlines on a topic above, or save a source to your file. Or prep a question of your own, below.' }) : null,
     err ? jsx(Notice, { tone: 'bad', children: err }) : null,
     drawn && drawn.questions.length ? jsx('ol', { className: 'ldw-drawn', children: drawn.questions.map((q, k) => jsx('li', { children: jsxs('button', { type: 'button', className: 'ldw-drawn-q', disabled: busy === 'start', onClick: () => start(q.text), children: [
       jsx('span', { className: 'ldw-kicker', children: `Question ${k + 1} of 3` }), jsx('span', { className: 'ldw-question-sm', children: q.text })] }) }, k)) }) : null,
     drawn && drawn.fallback ? jsxs('section', { className: 'ldw-panel', children: [
       jsx(Notice, { tone: 'warn', children: `${drawn.notice} Write your own question from these headlines.` }),
       jsx('ul', { className: 'ldw-list', children: drawn.headlines.map((h, k) => jsx('li', { children: h }, k)) }),
-      jsxs('div', { className: 'hk-row', children: [
-        jsx(Input, { className: 'hk-grow', 'aria-label': 'Your question', value: own, placeholder: 'Your question', onChange: e => setOwn(e.target.value) }),
-        jsx(Button, { disabled: own.trim().length < 12, onClick: () => start(own), children: 'Prep this question' }),
-      ] }),
     ] }) : null,
+    jsxs('section', { className: 'ldw-ownq', 'aria-label': 'Your own question', children: [
+      jsx('h3', { className: 'ldw-h3', children: 'Or prep a question of your own' }),
+      jsx('p', { className: 'ldw-meta', children: 'One your coach handed out, one from your circuit, or the one you just practiced. It uses the area and prep rules above.' }),
+      jsxs('div', { className: 'ldw-pullrow', children: [
+        jsx(Input, { className: 'ldw-topic', 'aria-label': 'Your question', value: own, placeholder: 'Your question', onChange: e => setOwn(e.target.value),
+          onKeyDown: e => { if (e.key === 'Enter' && own.trim().length >= 12) start(own) } }),
+        jsx(Button, { loading: busy === 'start', disabled: own.trim().length < 12 || busy === 'start', onClick: () => start(own), children: 'Prep this question' }),
+      ] }),
+    ] }),
   ] })
 }
 
@@ -521,7 +642,7 @@ export function ExtempView() {
   const chosen = useValue($extempMode)
   if (!home) return jsx(Thinking, { label: 'Opening extemp' })
   const mode = chosen || (home.extemp_round ? 'round' : 'drill')
-  const modeSwitch = jsx(SegmentedControl, { key: 'mode', value: mode, onChange: v => $extempMode.set(v),
+  const modeSwitch = jsx(Choices, { key: 'mode', label: 'Extemp practice', value: mode, onChange: v => $extempMode.set(v),
     options: [{ id: 'drill', label: '60-second answer' }, { id: 'openings', label: 'Openings' }, { id: 'round', label: 'Full round' }] })
   const sw = jsx('span', { className: 'ldw-modeswitch', children: modeSwitch }, 'sw')
   if (mode === 'openings') return jsx(OpeningsFloor, { home, modeSwitch: sw })
