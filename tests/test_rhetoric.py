@@ -13,10 +13,22 @@ CLEARING_PATHS = Path.home() / "Documents/Codex/2026-09-06/https-every-to-guides
 class Data(unittest.TestCase):
     def test_every_example_is_an_exact_line_from_its_speech(self):
         texts = {s["id"]: s["text"] for s in R.speeches()}
+        works = {w["id"]: w["text"] for w in R.WORKS}
         for item in R.FIGURES + R.APPEALS + [R.KAIROS]:
             ex = item.get("example")
             if ex:
-                self.assertIsNotNone(R.find_span(texts[ex["speech"]], ex["quote"]), item["id"])
+                self.assertEqual(len({"speech", "work"} & set(ex)), 1, item["id"])
+                text = texts[ex["speech"]] if "speech" in ex else works[ex["work"]]
+                self.assertIsNotNone(R.find_span(text, ex["quote"]), item["id"])
+
+    def test_books_are_public_domain_and_used_only_where_no_speech_will_do(self):
+        for w in R.WORKS:
+            self.assertLess(w["year"], 1929, w["id"])
+            self.assertIn("Project Gutenberg", w["source"])
+        from_books = sorted(f["id"] for f in R.FIGURES if f["example"] and "work" in f["example"])
+        self.assertEqual(from_books, ["syllepsis", "zeugma"])
+        self.assertEqual({w["id"] for w in R.config()["works"]}, R.WORK_IDS)
+        self.assertTrue(all(R.spot_item(__import__("random").Random(n))["speech"]["id"] for n in range(60)))  # Spot never draws a book line
 
     def test_library_is_public_domain_speeches_only(self):
         for s in R.speeches():
@@ -77,7 +89,7 @@ class Data(unittest.TestCase):
         self.assertEqual(R.FURTHER_READING, "Mark Forsyth, The Elements of Eloquence (2013)")
         for f in R.FIGURES:
             if f["example"]:
-                self.assertIn(f["example"]["speech"], {s["id"] for s in R.speeches()})
+                self.assertTrue(f["example"].get("speech") in {s["id"] for s in R.speeches()} or f["example"].get("work") in R.WORK_IDS, f["id"])
 
 
 class Finder(unittest.TestCase):

@@ -67,7 +67,7 @@ class Bundle(unittest.TestCase):
         self.assertIn('"/extemp/file/{item_id}/delete"', api_src)
         self.assertIn("/delete`", self.code)
         self.assertIn("extemp/file/${encodeURIComponent(item.id)}/delete", self.code)
-        self.assertIn("Remove this from your file? It cannot be brought back.", self.code)
+        self.assertIn("Remove it from your file for good?", self.code)
 
 
 if __name__ == "__main__":

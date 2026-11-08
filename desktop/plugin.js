@@ -1457,7 +1457,7 @@ function OutletEditor({ onClose, embedded }) {
   const lopsided = (counts.left || counts.right) && (counts.left >= 2 * Math.max(1, counts.right) || counts.right >= 2 * Math.max(1, counts.left));
   return jsxs5("section", { className: embedded ? "hk-stack ldw-outlets-embedded" : "ldw-panel", "aria-label": "Your outlets", children: [
     embedded ? null : jsx5("h3", { className: "ldw-h2", children: "Your outlets" }),
-    jsx5("p", { className: "ldw-meta", children: `${counts.left} left, ${counts.center} center, ${counts.right} right. By label, ${leans.left} lean left, ${leans.center} center, ${leans.right} lean right. Lean labels: AllSides, checked ${data.labels_checked}. Change any label you disagree with.` }),
+    jsx5("p", { className: "ldw-meta", children: `By column, ${counts.left} left, ${counts.center} center, ${counts.right} right. By label, ${leans.left} left or lean left, ${leans.center} center, ${leans.right} right or lean right. Lean labels: AllSides, checked ${data.labels_checked}. Change any label you disagree with.` }),
     lopsided ? jsx5(Notice, { tone: "warn", children: `One side has twice the outlets of the other. Add from the ${counts.left < counts.right ? "left" : "right"} to read both sides.` }) : null,
     jsx5("table", { className: "ldw-outlet-table", children: jsx5("tbody", { children: rows.map((r, i) => jsxs5("tr", { children: [
       jsx5("td", { children: jsx5(Input, { "aria-label": "Outlet name", value: r.name, onChange: (e) => set(i, "name", e.target.value) }) }),
@@ -1736,7 +1736,7 @@ function PrepStage({ round, setRound: setRound2, modeSwitch }) {
             ] }),
             removing === i.id ? null : jsx5("button", { type: "button", className: "hk-link ldw-src-remove", "aria-label": `Remove ${i.title} from your file`, onClick: () => setRemoving(i.id), children: "Remove" })
           ] }),
-          removing === i.id ? jsx5(Notice, { tone: "warn", children: "Remove this from your file? It cannot be brought back.", action: jsxs5("div", { className: "hk-actions", children: [
+          removing === i.id ? jsx5(Notice, { tone: "warn", children: "Remove it from your file for good?", action: jsxs5("div", { className: "hk-actions", children: [
             jsx5(Button4, { size: "sm", variant: "secondary", className: "ldw-danger", onClick: () => remove(i), children: "Remove" }),
             jsx5(Button4, { size: "sm", variant: "secondary", onClick: () => setRemoving(null), children: "Keep it" })
           ] }) }) : null
@@ -1962,6 +1962,11 @@ function ReadStage() {
 function FiguresStage() {
   const rh = useValue2($rh);
   const speech = (id) => rh.speeches.find((s) => s.id === id) || {};
+  const cite = (ex) => {
+    if (ex.speech) return `${speech(ex.speech).speaker}, ${speech(ex.speech).year}`;
+    const w = (rh.works || []).find((x) => x.id === ex.work) || {};
+    return `${w.author}, ${w.title}, ${w.year}`;
+  };
   const practice = (id) => {
     $picked.set(id);
     $stage.set("write");
@@ -1973,7 +1978,7 @@ function FiguresStage() {
       jsx6("dl", { className: "ldw-figlist", children: rh.figures.filter((f) => f.effect === e.id).map((f) => jsxs6("div", { className: "ldw-fig", children: [
         jsxs6("dt", { children: [f.name, jsx6("button", { type: "button", className: "hk-link", onClick: () => practice(f.id), children: "Practice" })] }),
         jsx6("dd", { children: f.definition }),
-        f.example ? jsxs6("dd", { className: "ldw-fig-ex", children: [jsx6("q", { children: f.example.quote }), jsx6("cite", { children: `${speech(f.example.speech).speaker}, ${speech(f.example.speech).year}` })] }) : null
+        f.example ? jsxs6("dd", { className: "ldw-fig-ex", children: [jsx6("q", { children: f.example.quote }), jsx6("cite", { children: cite(f.example) })] }) : null
       ] }, f.id)) })
     ] }, e.id)),
     jsxs6("section", { className: "ldw-effect", "aria-label": "The appeals", children: [
@@ -1981,7 +1986,7 @@ function FiguresStage() {
       jsx6("dl", { className: "ldw-figlist", children: [...rh.appeals, rh.kairos].map((a) => jsxs6("div", { className: "ldw-fig", children: [
         jsx6("dt", { children: a.name }),
         jsx6("dd", { children: a.definition }),
-        jsxs6("dd", { className: "ldw-fig-ex", children: [jsx6("q", { children: a.example.quote }), jsx6("cite", { children: `${speech(a.example.speech).speaker}, ${speech(a.example.speech).year}` })] })
+        jsxs6("dd", { className: "ldw-fig-ex", children: [jsx6("q", { children: a.example.quote }), jsx6("cite", { children: cite(a.example) })] })
       ] }, a.id)) })
     ] }),
     jsxs6("section", { className: "ldw-effect", "aria-label": "The five canons", children: [

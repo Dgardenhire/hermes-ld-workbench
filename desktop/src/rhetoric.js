@@ -101,6 +101,11 @@ function ReadStage() {
 function FiguresStage() {
   const rh = useValue($rh)
   const speech = id => rh.speeches.find(s => s.id === id) || {}
+  const cite = ex => {
+    if (ex.speech) return `${speech(ex.speech).speaker}, ${speech(ex.speech).year}`
+    const w = (rh.works || []).find(x => x.id === ex.work) || {}
+    return `${w.author}, ${w.title}, ${w.year}`
+  }
   const practice = id => { $picked.set(id); $stage.set('write') }
   return jsxs('div', { className: 'ldw-figs', children: [
     ...rh.effects.map(e => jsxs('section', { className: 'ldw-effect', 'aria-label': e.title, children: [
@@ -109,14 +114,14 @@ function FiguresStage() {
       jsx('dl', { className: 'ldw-figlist', children: rh.figures.filter(f => f.effect === e.id).map(f => jsxs('div', { className: 'ldw-fig', children: [
         jsxs('dt', { children: [f.name, jsx('button', { type: 'button', className: 'hk-link', onClick: () => practice(f.id), children: 'Practice' })] }),
         jsx('dd', { children: f.definition }),
-        f.example ? jsxs('dd', { className: 'ldw-fig-ex', children: [jsx('q', { children: f.example.quote }), jsx('cite', { children: `${speech(f.example.speech).speaker}, ${speech(f.example.speech).year}` })] }) : null,
+        f.example ? jsxs('dd', { className: 'ldw-fig-ex', children: [jsx('q', { children: f.example.quote }), jsx('cite', { children: cite(f.example) })] }) : null,
       ] }, f.id)) }),
     ] }, e.id)),
     jsxs('section', { className: 'ldw-effect', 'aria-label': 'The appeals', children: [
       jsx('h3', { className: 'ldw-effect-title', children: 'The appeals' }),
       jsx('dl', { className: 'ldw-figlist', children: [...rh.appeals, rh.kairos].map(a => jsxs('div', { className: 'ldw-fig', children: [
         jsx('dt', { children: a.name }), jsx('dd', { children: a.definition }),
-        jsxs('dd', { className: 'ldw-fig-ex', children: [jsx('q', { children: a.example.quote }), jsx('cite', { children: `${speech(a.example.speech).speaker}, ${speech(a.example.speech).year}` })] }),
+        jsxs('dd', { className: 'ldw-fig-ex', children: [jsx('q', { children: a.example.quote }), jsx('cite', { children: cite(a.example) })] }),
       ] }, a.id)) }),
     ] }),
     jsxs('section', { className: 'ldw-effect', 'aria-label': 'The five canons', children: [

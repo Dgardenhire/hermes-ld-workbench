@@ -8,7 +8,9 @@ definition and ``source: "workbench"``; those are the lines to copy back into Th
 
 The figure list follows the chapters of Mark Forsyth, The Elements of Eloquence (2013), which the
 page names as further reading. No text and no examples come from that book. Every example is an
-exact line from a public-domain speech in ``data/speeches.json`` (tests check each one).
+exact line from a public-domain speech in ``data/speeches.json``, or, for the two figures no speech in
+the library shows cleanly (zeugma and syllepsis), from a public-domain book in ``WORKS`` below, quoted
+from its Project Gutenberg text (tests check each one).
 
 Kept apart from ld_method.py on purpose: the Lincoln-Douglas method core is mirrored from the web app.
 """
@@ -46,10 +48,28 @@ EFFECTS = [
 ]
 
 
+# Public-domain books for the figures no speech in the library shows cleanly. The passage is the
+# sentence the example comes from, as printed in the Project Gutenberg eBook named (checked Nov 7, 2026;
+# Gutenberg's "--" printed as a dash).
+WORKS = [
+    {"id": "pope-rape-of-the-lock", "title": "The Rape of the Lock", "author": "Alexander Pope", "year": 1714,
+     "source": "Project Gutenberg eBook 9800, Canto III",
+     "text": "Here thou, great Anna! whom three realms obey,\nDost sometimes counsel take—and sometimes tea."},
+    {"id": "dickens-pickwick", "title": "The Pickwick Papers", "author": "Charles Dickens", "year": 1837,
+     "source": "Project Gutenberg eBook 580, Chapter 35",
+     "text": "when they left off at ten minutes past eleven, Miss Bolo rose from the table considerably agitated, "
+             "and went straight home, in a flood of tears and a sedan-chair."},
+]
+WORK_IDS = {w["id"] for w in WORKS}
+
+
 def _f(fid, name, effect, definition, source, example=None, extra=False):
-    """example: (speech id, the exact words)."""
+    """example: (speech id, the exact words), or (a WORKS id, the exact words) for a book."""
+    ex = None
+    if example:
+        ex = {"work" if example[0] in WORK_IDS else "speech": example[0], "quote": example[1]}
     return {"id": fid, "name": name, "effect": effect, "definition": definition, "source": source,
-            "example": {"speech": example[0], "quote": example[1]} if example else None, "classical": extra}
+            "example": ex, "classical": extra}
 
 
 # Definitions marked CLEARING are The Clearing's own glosses from craft-paths.js, sentence-cased.
@@ -96,8 +116,10 @@ FIGURES = [
     _f("hendiadys", "Hendiadys", "syntax", "Noun-and-noun emphasis.", CLEARING,
        ("gettysburg", "It is altogether fitting and proper that we should do this.")),
     _f("enallage", "Enallage", "syntax", "Deliberate grammar break.", CLEARING),
-    _f("syllepsis", "Syllepsis", "syntax", "One governing word across clauses.", CLEARING),
-    _f("zeugma", "Zeugma", "syntax", "One governing word across clauses.", CLEARING),
+    _f("syllepsis", "Syllepsis", "syntax", "One governing word across clauses.", CLEARING,
+       ("pope-rape-of-the-lock", "Dost sometimes counsel take—and sometimes tea.")),
+    _f("zeugma", "Zeugma", "syntax", "One governing word across clauses.", CLEARING,
+       ("dickens-pickwick", "went straight home, in a flood of tears and a sedan-chair")),
     _f("prolepsis", "Prolepsis", "syntax", "Anticipatory reference.", CLEARING),
     _f("scesis-onomaton", "Scesis onomaton", "syntax", "A verbless sentence.", CLEARING,
        ("douglass-fourth", "your boasted liberty, an unholy license; your national greatness, swelling vanity")),
@@ -297,7 +319,7 @@ def critique_prompt(fid):
 def spot_item(rng):
     """A model-free "spot the figure" item: a real line with a known answer and three wrong choices
     from other effect groups, so the right answer is never a near twin."""
-    pool = [f for f in FIGURES if f["example"]]
+    pool = [f for f in FIGURES if f["example"] and f["example"].get("speech")]  # the item names its speech
     f = rng.choice(pool)
     others = [x for x in pool if x["effect"] != f["effect"] and x["id"] != f["id"]]
     wrong = rng.sample(others, 3)
@@ -310,6 +332,6 @@ def spot_item(rng):
 
 def config():
     return {"effects": EFFECTS, "figures": FIGURES, "appeals": APPEALS, "kairos": KAIROS, "canons": CANONS,
-            "further_reading": FURTHER_READING,
+            "further_reading": FURTHER_READING, "works": [{k: w[k] for k in ("id", "title", "author", "year", "source")} for w in WORKS],
             "speeches": [{k: s[k] for k in ("id", "title", "speaker", "year", "where", "excerpt")} | {"words": len(s["text"].split())}
                          for s in speeches()]}

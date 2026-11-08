@@ -256,7 +256,7 @@ export function OutletEditor({ onClose, embedded }) {
   const lopsided = (counts.left || counts.right) && (counts.left >= 2 * Math.max(1, counts.right) || counts.right >= 2 * Math.max(1, counts.left))
   return jsxs('section', { className: embedded ? 'hk-stack ldw-outlets-embedded' : 'ldw-panel', 'aria-label': 'Your outlets', children: [
     embedded ? null : jsx('h3', { className: 'ldw-h2', children: 'Your outlets' }),
-    jsx('p', { className: 'ldw-meta', children: `${counts.left} left, ${counts.center} center, ${counts.right} right. By label, ${leans.left} lean left, ${leans.center} center, ${leans.right} lean right. Lean labels: AllSides, checked ${data.labels_checked}. Change any label you disagree with.` }),
+    jsx('p', { className: 'ldw-meta', children: `By column, ${counts.left} left, ${counts.center} center, ${counts.right} right. By label, ${leans.left} left or lean left, ${leans.center} center, ${leans.right} right or lean right. Lean labels: AllSides, checked ${data.labels_checked}. Change any label you disagree with.` }),
     lopsided ? jsx(Notice, { tone: 'warn', children: `One side has twice the outlets of the other. Add from the ${counts.left < counts.right ? 'left' : 'right'} to read both sides.` }) : null,
     jsx('table', { className: 'ldw-outlet-table', children: jsx('tbody', { children: rows.map((r, i) => jsxs('tr', { children: [
       jsx('td', { children: jsx(Input, { 'aria-label': 'Outlet name', value: r.name, onChange: e => set(i, 'name', e.target.value) }) }),
@@ -466,7 +466,7 @@ function PrepStage({ round, setRound, modeSwitch }) {
             ] }),
             removing === i.id ? null : jsx('button', { type: 'button', className: 'hk-link ldw-src-remove', 'aria-label': `Remove ${i.title} from your file`, onClick: () => setRemoving(i.id), children: 'Remove' }),
           ] }),
-          removing === i.id ? jsx(Notice, { tone: 'warn', children: 'Remove this from your file? It cannot be brought back.', action: jsxs('div', { className: 'hk-actions', children: [
+          removing === i.id ? jsx(Notice, { tone: 'warn', children: 'Remove it from your file for good?', action: jsxs('div', { className: 'hk-actions', children: [
             jsx(Button, { size: 'sm', variant: 'secondary', className: 'ldw-danger', onClick: () => remove(i), children: 'Remove' }),
             jsx(Button, { size: 'sm', variant: 'secondary', onClick: () => setRemoving(null), children: 'Keep it' }),
           ] }) }) : null,
