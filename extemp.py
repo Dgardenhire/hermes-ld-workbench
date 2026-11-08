@@ -28,8 +28,8 @@ ROUND_CAP = 30
 # Evergreen questions for the 60-second answer drill on a first run, before anything is saved.
 # Written to stay answerable whatever this week's news is.
 STARTER = [
-    {"area": "us", "text": "Should the Federal Reserve care more about prices or about jobs right now?"},
     {"area": "us", "text": "Can Congress change trade policy when the President controls tariffs?"},
+    {"area": "us", "text": "Should the Federal Reserve care more about prices or about jobs right now?"},
     {"area": "us", "text": "Should states, not Washington, decide how much homework counts in a school's rating?"},
     {"area": "us", "text": "Is a four-day school week good for rural districts?"},
     {"area": "international", "text": "Can sanctions change a government's behavior, or only punish its people?"},

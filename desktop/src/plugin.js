@@ -19,119 +19,15 @@ import { useEffect, useRef, useState } from 'react'
 import { Fragment, jsx, jsxs } from 'react/jsx-runtime'
 import { Button, Codicon, Input, SegmentedControl, Textarea, atom, host, useValue } from '@hermes/plugin-sdk'
 import { Empty, Failure, Notice, describeError, installStyles, registerPage } from 'hermes-ui-kit'
+import { LastTake, SpeakControls, sendTake, useRecorder, useTakePoll } from './floor.js'
+import { $home, ExtempView, loadHome } from './extemp.js'
+import { RhetoricView } from './rhetoric.js'
+import { BallotsView } from './ballotsview.js'
+import { FRAME_CSS } from './styles.js'
 
 export { describeError }
+import { $cfg, $loadError, $state, $view, Label, MODEL_TIMEOUT, Menu, PLUGIN_ID, ROUTE, Thinking, WPM, api, clip, cls, errText, inline, load, mmss, post, refreshState, renderText, rest, setApi, setRound, setWorkbench, sideName, sideShort, when, words } from './core.js'
 
-const PLUGIN_ID = 'ld-workbench'
-const ROUTE = '/debate'
-const WPM = 140
-const MODEL_TIMEOUT = 300000
-
-let api = null
-const $cfg = atom(null)
-const $state = atom(null) // { workbench: { case, cases, source }, round, history }
-const $view = atom('room') // room | bench | print
-const $loadError = atom(null)
-
-/* ------------------------------------------------------------------ backend -- */
-
-function rest(path, options) {
-  if (!api) return Promise.reject(new Error('The workbench is not connected.'))
-  return api.rest(path, { timeoutMs: MODEL_TIMEOUT, ...(options || {}) })
-}
-const post = (path, body) => rest(path, { method: 'POST', body: body || {} })
-const errText = e => describeError(e).detail || 'Something went wrong. Try again.'
-
-function setWorkbench(wb) {
-  const s = $state.get() || {}
-  $state.set({ ...s, workbench: { ...(s.workbench || {}), ...wb } })
-}
-function setRound(r) {
-  const s = $state.get() || {}
-  $state.set({ ...s, round: r })
-}
-
-async function load() {
-  try {
-    const [cfg, st] = await Promise.all([$cfg.get() ? $cfg.get() : rest('config'), rest('state')])
-    $cfg.set(cfg)
-    $state.set(st)
-    $loadError.set(null)
-  } catch (e) {
-    $loadError.set(e)
-  }
-}
-async function refreshState() {
-  try { $state.set(await rest('state')) } catch (e) { /* keep what is on screen */ }
-}
-
-/* ------------------------------------------------------------------ helpers -- */
-
-const words = s => (s || '').trim().split(/\s+/).filter(Boolean).length
-function mmss(sec) {
-  const neg = sec < 0
-  sec = Math.abs(Math.round(sec))
-  return (neg ? '+' : '') + Math.floor(sec / 60) + ':' + String(sec % 60).padStart(2, '0')
-}
-const sideName = s => (s === 'aff' ? 'affirmative' : 'negative')
-const sideShort = s => (s === 'aff' ? 'Aff' : 'Neg')
-const clip = (t, n) => { t = String(t || ''); return t.length > n ? t.slice(0, n - 3).replace(/\s+\S*$/, '') + '...' : t }
-const cls = (...xs) => xs.filter(Boolean).join(' ')
-function when(t) {
-  if (!t) return ''
-  const d = new Date(t * 1000)
-  const days = Math.floor((Date.now() - d.getTime()) / 86400000)
-  if (days < 1) return 'Edited today'
-  if (days < 2) return 'Edited yesterday'
-  return 'Edited ' + d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
-}
-
-// The coach writes light Markdown: paragraphs, - and 1. lists, **bold**, *italic*. Rendered as elements.
-function inline(text, key) {
-  const out = []
-  const re = /\*\*(.+?)\*\*|\*([^*\n]+)\*/g
-  let last = 0
-  let m
-  let i = 0
-  while ((m = re.exec(text))) {
-    if (m.index > last) out.push(text.slice(last, m.index))
-    out.push(m[1] ? jsx('strong', { children: m[1] }, `${key}-b${i++}`) : jsx('em', { children: m[2] }, `${key}-i${i++}`))
-    last = re.lastIndex
-  }
-  if (last < text.length) out.push(text.slice(last))
-  return out
-}
-function renderText(text) {
-  const blocks = []
-  let para = []
-  let list = null
-  const flush = () => { if (para.length) { blocks.push(jsx('p', { children: inline(para.join(' '), `p${blocks.length}`) }, `p${blocks.length}`)); para = [] } }
-  const close = () => { if (list) { const L = list; blocks.push(jsx(L.tag, { start: L.start, children: L.items }, `l${blocks.length}`)); list = null } }
-  for (const raw of String(text || '').split('\n')) {
-    const l = raw.trim()
-    const h = l.match(/^(#{2,3})\s+(.*)/)
-    if (h) {
-      flush(); close()
-      blocks.push(h[1].length === 2 ? jsx('h3', { className: 'ldw-md-h', children: inline(h[2], `h${blocks.length}`) }, `h${blocks.length}`)
-        : jsx('h4', { className: 'ldw-md-h4', children: inline(h[2], `h${blocks.length}`) }, `h${blocks.length}`))
-      continue
-    }
-    const ul = l.match(/^[-*•]\s+(.*)/)
-    const ol = l.match(/^(?:\d+)[.)]\s+(.*)/)
-    const num = ol ? parseInt(l, 10) : undefined
-    if (ul || ol) {
-      flush()
-      const tag = ul ? 'ul' : 'ol'
-      if (!list || list.tag !== tag) { close(); list = { tag, items: [], start: tag === 'ol' && num > 1 ? num : undefined } }
-      list.items.push(jsx('li', { children: inline((ul || ol)[1], `li${blocks.length}-${list.items.length}`) }, list.items.length))
-    } else if (!l) { flush(); close() } else { close(); para.push(l.replace(/^#+\s*/, '')) }
-  }
-  flush(); close()
-  return jsx('div', { className: 'ldw-prose', children: blocks })
-}
-
-const Thinking = ({ label }) => jsxs('div', { className: 'ldw-thinking', role: 'status', children: [jsx('span', { className: 'hk-spinner' }), label] })
-const Label = ({ children, accent }) => jsx('div', { className: cls('ldw-label', accent && 'ldw-accent'), children })
 
 /* ------------------------------------------------------------------ method data shown on the page -- */
 
@@ -164,52 +60,6 @@ const PATH = [
   { title: 'Review and test', short: 'Review', desc: 'Full review, then a practice round', sections: [], tool: 'review' },
 ]
 
-/* ================================================================== menus == */
-
-// A small menu: one trigger button, a list of actions. Arrow keys move, Enter picks, Escape closes and
-// returns focus to the trigger, a click outside closes. Colors from theme variables only.
-//   items: { label, meta, icon, onSelect, disabled, danger, current } | { divider: true } | { heading }
-function Menu({ label, icon, items, align = 'start', trigger, variant = 'secondary', size = 'sm', ariaLabel, title }) {
-  const [open, setOpen] = useState(false)
-  const wrap = useRef(null)
-  const list = useRef(null)
-  const focusTrigger = () => { const b = wrap.current && wrap.current.querySelector('[aria-haspopup="menu"]'); if (b) b.focus() }
-  const close = refocus => { setOpen(false); if (refocus) focusTrigger() }
-  useEffect(() => {
-    if (!open) return undefined
-    const away = e => { if (wrap.current && !wrap.current.contains(e.target)) setOpen(false) }
-    document.addEventListener('mousedown', away)
-    const first = list.current && list.current.querySelector('[role=menuitem]:not([disabled])')
-    if (first) first.focus()
-    return () => document.removeEventListener('mousedown', away)
-  }, [open])
-  const onKey = e => {
-    const all = [...list.current.querySelectorAll('[role=menuitem]:not([disabled])')]
-    const i = all.indexOf(document.activeElement)
-    if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); close(true) }
-    else if (e.key === 'ArrowDown') { e.preventDefault(); (all[i + 1] || all[0]).focus() }
-    else if (e.key === 'ArrowUp') { e.preventDefault(); (all[i - 1] || all[all.length - 1]).focus() }
-    else if (e.key === 'Home') { e.preventDefault(); all[0] && all[0].focus() }
-    else if (e.key === 'End') { e.preventDefault(); all[all.length - 1] && all[all.length - 1].focus() }
-    else if (e.key === 'Tab') setOpen(false)
-  }
-  const pick = it => { close(true); it.onSelect && it.onSelect() }
-  const triggerProps = { 'aria-haspopup': 'menu', 'aria-expanded': open, 'aria-label': ariaLabel, title, onClick: () => setOpen(v => !v),
-    onKeyDown: e => { if (e.key === 'ArrowDown' && !open) { e.preventDefault(); setOpen(true) } } }
-  return jsxs('div', { className: 'ldw-menu-wrap', ref: wrap, children: [
-    trigger ? trigger(triggerProps) : jsx(Button, { variant, size, ...triggerProps,
-      children: jsxs(Fragment, { children: [icon ? jsx(Codicon, { name: icon }) : null, label, jsx(Codicon, { name: 'chevron-down', className: 'ldw-caret' })] }) }),
-    open ? jsx('div', { className: 'ldw-menu', 'data-align': align, role: 'menu', ref: list, onKeyDown: onKey, children: items.filter(Boolean).map((it, i) => {
-      if (it.divider) return jsx('div', { className: 'ldw-menu-sep', role: 'separator' }, i)
-      if (it.heading) return jsx('div', { className: 'ldw-menu-head', children: it.heading }, i)
-      return jsxs('button', { type: 'button', role: 'menuitem', className: 'ldw-menu-item', disabled: it.disabled, 'data-danger': it.danger ? '' : undefined,
-        'aria-current': it.current ? 'true' : undefined, onClick: () => pick(it), children: [
-          jsx(Codicon, { name: it.current ? 'check' : it.icon || 'blank', className: 'ldw-menu-icon' }),
-          jsxs('span', { className: 'ldw-menu-text', children: [jsx('span', { children: it.label }), it.meta ? jsx('span', { className: 'ldw-menu-meta', children: it.meta }) : null] }),
-        ] }, i)
-    }) }) : null,
-  ] })
-}
 
 /* ================================================================== Tournament Room == */
 
@@ -295,65 +145,62 @@ const StageHead = ({ title, sub }) => jsxs('div', { className: 'ldw-stagehead', 
   jsx('h2', { className: 'ldw-h2', children: title }), sub ? jsx('span', { className: 'ldw-meta', children: sub }) : null,
 ] })
 
-function useDictation(onText) {
-  const SR = typeof window !== 'undefined' && (window.SpeechRecognition || window.webkitSpeechRecognition)
-  const [on, setOn] = useState(false)
-  const [err, setErr] = useState(null)
-  const rec = useRef(null)
-  useEffect(() => () => { try { rec.current && rec.current.stop() } catch (e) { /* gone */ } }, [])
-  if (!SR) return null
-  return {
-    on, err,
-    toggle() {
-      if (rec.current) { rec.current.stop(); return }
-      setErr(null)
-      const r = new SR()
-      r.continuous = true; r.interimResults = false; r.lang = 'en-US'
-      r.onresult = e => { for (let i = e.resultIndex; i < e.results.length; i++) if (e.results[i].isFinal) onText(e.results[i][0].transcript.trim()) }
-      r.onend = () => { rec.current = null; setOn(false) }
-      r.onerror = () => setErr('Speaking is not available here. Type your speech instead.')
-      rec.current = r
-      r.start(); setOn(true)
-    },
-  }
-}
-
+// The student's speech: spoken (recorded, timed for real, transcribed on this computer) or typed.
+// A transcript replaces the box's text, with one click to bring the typed draft back.
 function StudentSpeech({ r, stop }) {
   const [text, setText] = useState(r.drafts[stop.id] || '')
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState(null)
-  const clock = useCountdown(stop.minutes * 60, `${r.round_no}-${stop.id}`)
+  const [take, setTake] = useState(null)
+  const [undo, setUndo] = useState(null)
+  const target = stop.minutes * 60
+  const clock = useCountdown(target, `${r.round_no}-${stop.id}`)
   const prep = usePrep(r)
   const timer = useRef(null)
+  const merged = useRef(null)
   const save = v => { clearTimeout(timer.current); timer.current = setTimeout(() => post('round/draft', { speech_id: stop.id, text: v }).catch(() => {}), 700) }
   useEffect(() => () => clearTimeout(timer.current), [])
   const change = v => { setText(v); save(v) }
-  const dict = useDictation(t => setText(v => { const n = v + (v && !/\s$/.test(v) ? ' ' : '') + t; save(n); return n }))
+  useTakePoll(take, setTake)
+  const rec = useRecorder({ limit: target, onTake: async got => {
+    setErr(null)
+    try { setTake(await sendTake({ event: 'ld', segment: stop.id, limit: target, prompt: r.resolution }, got)) } catch (e) { setErr(errText(e)) }
+  } })
+  const recording = rec.state === 'live' || rec.state === 'armed'
+  useEffect(() => {
+    if (take && take.transcript.status === 'done' && take.transcript.text && merged.current !== take.id) {
+      merged.current = take.id
+      setUndo(text.trim() ? text : null)
+      change(take.transcript.text)
+    }
+  }, [take && take.transcript.status])
   const finish = async () => {
     if (!text.trim()) { setErr('Give your speech first.'); return }
     clearTimeout(timer.current); clock.pause(); prep.stop(); setBusy(true); setErr(null)
-    try { setRound(await post('round/speech', { speech_id: stop.id, text })) } catch (e) { setErr(errText(e)) } finally { setBusy(false) }
+    try { setRound(await post('round/speech', { speech_id: stop.id, text, take_id: take ? take.id : null })) } catch (e) { setErr(errText(e)) } finally { setBusy(false) }
   }
   const spoken = words(text) / WPM * 60
-  const target = stop.minutes * 60
-  const pace = !text.trim() ? 'Not started' : spoken > target ? `${mmss(spoken - target)} too long` : spoken < target * 0.6 ? 'Short' : 'On time'
+  const real = take && take.stats && !take.typed ? take.stats.speaking : null
+  const shown = recording ? target - rec.elapsed : clock.left
+  const length = real !== null ? real : spoken
+  const pace = !text.trim() && real === null ? 'Not started' : length > target ? `${mmss(length - target)} too long` : length < target * 0.6 ? 'Short' : 'On time'
   return jsxs(Fragment, { children: [
     jsx(ClockPanel, {
-      big: mmss(clock.left), over: clock.left < 0, label: `${stop.id} · your speech`, fraction: 1 - clock.left / target, clock, prep,
-      rows: [['Pace', pace], ['Spoken length', `about ${mmss(spoken)}`]],
-      primary: jsx(BigButton, { primary: true, icon: 'arrow-right', onClick: finish, loading: busy, children: 'Finish speech' }),
+      big: mmss(shown), over: shown < 0, label: `${stop.id} · your speech`, fraction: 1 - shown / target, clock: recording ? null : clock, prep: recording ? null : prep,
+      rows: [['Pace', pace], real !== null ? ['Spoken length', `${mmss(real)}, recorded`] : ['Spoken length', `about ${mmss(spoken)}, estimated`]],
+      primary: jsx(BigButton, { primary: true, icon: 'arrow-right', onClick: finish, loading: busy, disabled: recording || (take && ['waiting', 'working'].includes(take.transcript.status)), children: 'Finish speech' }),
     }),
     jsxs('section', { className: 'ldw-panel ldw-stage', 'aria-label': 'Your speech', children: [
       jsx(StageHead, { title: `Your ${stop.id}`, sub: stop.name }),
       jsx('p', { className: 'ldw-goal', children: ($cfg.get().speech_goals || {})[stop.id] }),
+      jsx(SpeakControls, { rec, startLabel: `Speak your ${stop.id}`, onTyped: t => change(text.trim() ? `${text}\n\n${t}` : t) }),
+      take && !recording ? jsx(LastTake, { take, limit: target, title: `Your ${stop.id}, spoken`, onChange: setTake }) : null,
+      undo !== null ? jsx(Notice, { tone: 'info', children: 'What you said is in the box. Fix any words the transcript got wrong.',
+        action: jsx(Button, { size: 'sm', variant: 'secondary', onClick: () => { change(undo); setUndo(null) }, children: 'Bring back my typed draft' }) }) : null,
       jsx(Textarea, { className: 'ldw-speechbox', 'aria-label': `Your ${stop.id}`, value: text, onChange: e => change(e.target.value),
-        placeholder: "Give your speech here. Signpost as you go: 'Off the top, framework.' 'On their first contention...'" }),
+        placeholder: "Speak it, or type it here. Signpost as you go: 'Off the top, framework.' 'On their first contention...'" }),
       err ? jsx(Notice, { tone: 'bad', children: err }) : null,
-      dict && dict.err ? jsx(Notice, { tone: 'warn', children: dict.err }) : null,
-      jsxs('div', { className: 'ldw-row-between', children: [
-        jsx('span', { className: 'ldw-meta', children: `${words(text)} words · about ${mmss(spoken)} spoken at ${WPM} words a minute` }),
-        dict ? jsxs('button', { type: 'button', className: 'hk-link', onClick: dict.toggle, children: [jsx(Codicon, { name: dict.on ? 'debug-pause' : 'mic' }), dict.on ? 'Stop speaking' : 'Speak instead of type'] }) : null,
-      ] }),
+      jsx('span', { className: 'ldw-meta', children: `${words(text)} words${real === null ? ` · about ${mmss(spoken)} aloud at ${WPM} words a minute, estimated` : ''}` }),
     ] }),
   ] })
 }
@@ -1198,17 +1045,54 @@ function Header() {
   ] })
 }
 
+// The frame: a rail of events and the floor of the one chosen. Extemp opens first, loaded and ready to speak.
+const $event = atom(null) // ld | extemp | rhetoric | ballots (null: the one last chosen)
+const EVENT_IDS = ['ld', 'extemp', 'rhetoric', 'ballots']
+
+function chooseEvent(id) {
+  $event.set(id)
+  post('settings', { event: id }).catch(() => {})
+  if (id === 'ballots' || id === 'extemp') loadHome()
+}
+
+function Rail({ event }) {
+  const st = useValue($state)
+  const home = useValue($home)
+  const r = st && st.round
+  const xr = home && home.extemp_round
+  const sub = {
+    ld: r ? `Round ${r.round_no}, ${sideShort(r.side)}` : 'Cases and rounds',
+    extemp: xr ? { prep: 'Prep', speak: 'At the podium', ballot: 'Ballot' }[xr.phase] || 'Round' : '60-second answer',
+    rhetoric: 'Figures and speeches',
+    ballots: home ? `${home.ballots} kept` : '',
+  }
+  const names = { ld: 'Lincoln-Douglas', extemp: 'Extemp', rhetoric: 'Rhetoric', ballots: 'Ballots' }
+  return jsx('nav', { className: 'ldw-rail ldw-noprint', 'aria-label': 'Events', children: EVENT_IDS.map(id => jsxs('button', { type: 'button',
+    className: cls('ldw-ev', id === 'ballots' && 'ldw-ev-ballots'), 'aria-current': event === id ? 'page' : undefined, onClick: () => chooseEvent(id), children: [
+      jsx('b', { children: names[id] }), jsx('span', { children: sub[id] }),
+    ] }, id)) })
+}
+
 function DebatePage() {
   const st = useValue($state)
   const cfg = useValue($cfg)
   const err = useValue($loadError)
   const view = useValue($view)
-  useEffect(() => { load() }, [])
+  const home = useValue($home)
+  const picked = useValue($event)
+  useEffect(() => { load(); loadHome() }, [])
+  const event = picked || (home && home.settings && EVENT_IDS.includes(home.settings.event) ? home.settings.event : 'extemp')
   let body
-  if (err && !st) body = jsx(Failure, { title: 'The workbench could not load', body: `${errText(err)} Check that Debate Workbench is turned on in Capabilities, Plugins, then try again.`, error: err, onRetry: load })
+  if (err && !st) body = jsx(Failure, { title: 'The workbench could not load', body: `${errText(err)} Check that Debate Workbench is turned on in Capabilities, Plugins, then try again.`, error: err, onRetry: () => { load(); loadHome() } })
   else if (!st || !cfg) body = jsx(Thinking, { label: 'Opening the workbench' })
+  else if (event === 'extemp') body = jsx(ExtempView, {})
+  else if (event === 'rhetoric') body = jsx(RhetoricView, {})
+  else if (event === 'ballots') body = jsx(BallotsView, {})
   else body = jsxs(Fragment, { children: [jsx(Header, {}), view === 'room' ? jsx(Room, {}) : view === 'fallacies' ? jsx(Fallacies, {}) : view === 'printbrief' ? jsx(PrintBriefing, {}) : view === 'print' ? jsx(PrintView, {}) : jsx(Bench, {})] })
-  return jsx('div', { className: 'hk hk-page ldw', role: 'region', 'aria-label': 'Debate Workbench', children: jsx('div', { className: 'ldw-inner', children: body }) })
+  return jsx('div', { className: 'hk hk-page ldw', role: 'region', 'aria-label': 'Debate Workbench', children: jsxs('div', { className: 'ldw-frame', children: [
+    jsx(Rail, { event }),
+    jsx('main', { className: 'ldw-inner', 'data-event': event, children: body }),
+  ] }) })
 }
 
 /* ------------------------------------------------------------------ styles -- */
@@ -1462,9 +1346,10 @@ export default {
   id: PLUGIN_ID,
   name: 'Debate Workbench',
   register(ctx) {
-    api = ctx
-    installStyles(ctx, PLUGIN_ID, CSS)
-    const open = view => () => { $view.set(view); host.navigate(ROUTE) }
+    setApi(ctx)
+    installStyles(ctx, PLUGIN_ID, CSS + FRAME_CSS)
+    const open = view => () => { $view.set(view); $event.set('ld'); host.navigate(ROUTE) }
+    const openEvent = id => () => { chooseEvent(id); host.navigate(ROUTE) }
     registerPage(ctx, {
       id: PLUGIN_ID, route: ROUTE, label: 'Debate', codicon: 'law',
       render: () => jsx(DebatePage, {}),
@@ -1472,11 +1357,17 @@ export default {
         { id: 'ld-workbench.room', label: 'Debate: open the Tournament Room', keywords: ['lincoln douglas', 'practice round', 'ballot'], run: open('room') },
         { id: 'ld-workbench.fallacies', contributionId: 'fallacies', label: 'Debate: practice logical fallacies', keywords: ['fallacy', 'logic', 'reasoning'], run: open('fallacies') },
         { id: 'ld-workbench.bench', contributionId: 'bench', label: 'Debate: open the Case Workbench', keywords: ['case', 'coach', 'lincoln douglas'], run: open('bench') },
+        { id: 'ld-workbench.extemp', contributionId: 'extemp', label: 'Debate: practice a 60-second answer', keywords: ['extemp', 'speech', 'speaking', 'headlines'], run: openEvent('extemp') },
+        { id: 'ld-workbench.rhetoric', contributionId: 'rhetoric', label: 'Debate: rhetoric and figures of speech', keywords: ['rhetoric', 'anaphora', 'speech', 'figures'], run: openEvent('rhetoric') },
+        { id: 'ld-workbench.ballots', contributionId: 'ballots', label: 'Debate: my ballots and patterns', keywords: ['ballot', 'judge', 'progress'], run: openEvent('ballots') },
       ],
     })
-    ctx.onDispose(() => { api = null })
+    ctx.onDispose(() => { setApi(null) })
   },
 }
 
-// For the harness: open a view directly.
-export function openView(view) { $view.set(view) }
+// For the harness: open a view directly ("extemp", "rhetoric", "ballots", or a Lincoln-Douglas view).
+export function openView(view) {
+  if (EVENT_IDS.includes(view)) $event.set(view)
+  else { $event.set('ld'); $view.set(view) }
+}

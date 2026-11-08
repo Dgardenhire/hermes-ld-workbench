@@ -221,11 +221,36 @@ def parse_feed(raw):
 
 
 def strip_outlet(title, outlet):
-    """Google News ends titles with " - Outlet name"; take it off."""
+    """Google News ends titles with " - Outlet name", sometimes twice ("- American Enterprise Institute - AEI")."""
     parts = title.rsplit(" - ", 1)
     if len(parts) == 2 and len(parts[1]) <= 60:
-        return parts[0].strip()
+        title = parts[0].strip()
+        known = " ".join([outlet.get("name", ""), outlet.get("domain", "").split(".")[0], re.split(r"[,;]", outlet.get("note", ""))[0]])
+        names = {w for w in re.findall(r"[a-z]+", known.lower()) if len(w) >= 3}
+        again = title.rsplit(" - ", 1)
+        if len(again) == 2 and len(again[1]) <= 40 and names & set(re.findall(r"[a-z]+", again[1].lower())):
+            title = again[0].strip()
     return title
+
+
+INDEX_PAGE = re.compile(r"^(tags?|topics?|category|author|archives?)\s*[:|]|\barchives?$|^page \d+", re.I)
+
+
+def tidy(items):
+    """Drop index pages ("Tag: Tariffs", "Mexico Archives") and repeated titles."""
+    out, seen = [], set()
+    for i in items:
+        key = re.sub(r"\W+", " ", i["title"].lower()).strip()
+        if not key or key in seen or INDEX_PAGE.search(i["title"].strip()):
+            continue
+        seen.add(key)
+        out.append(i)
+    return out
+
+
+def rank(items, words):
+    """Titles that name the topic first, otherwise Google's own order (its relevance), newest first among ties."""
+    return sorted(enumerate(items), key=lambda p: (not matches(p[1]["title"], words), p[0]))
 
 
 def topic_words(topic):
@@ -242,9 +267,9 @@ def pull_outlet(o, topic, hosts, getter=fetch):
     errors = []
     try:
         raw = getter(google_url(topic, o["domain"]), hosts)
-        items = [dict(i, title=strip_outlet(i["title"], o)) for i in parse_feed(raw)]
+        items = tidy([dict(i, title=strip_outlet(i["title"], o)) for i in parse_feed(raw)])
         if items:
-            items.sort(key=lambda i: i["at"] or 0, reverse=True)
+            items = [i for _, i in rank(items, topic_words(topic))]
             return {"id": o["id"], "ok": True, "items": items[:PER_OUTLET], "via": "Google News", "error": None}
         errors.append("no matches")
     except Exception as e:
@@ -252,7 +277,7 @@ def pull_outlet(o, topic, hosts, getter=fetch):
     if o.get("feed"):
         try:
             words = topic_words(topic)
-            items = [i for i in parse_feed(getter(o["feed"], hosts)) if matches(i["title"], words)]
+            items = [i for i in tidy(parse_feed(getter(o["feed"], hosts))) if matches(i["title"], words)]
             items.sort(key=lambda i: i["at"] or 0, reverse=True)
             return {"id": o["id"], "ok": True, "items": items[:PER_OUTLET], "via": "own feed", "error": None}
         except Exception as e:

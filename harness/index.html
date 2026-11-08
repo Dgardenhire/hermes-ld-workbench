@@ -4,7 +4,7 @@
   fixture backend (harness.js, fixtures.js: real answers captured from the plugin's backend), so each
   screen can be looked at and screenshotted without Hermes. Serve the repo root:
     /usr/bin/python3 -m http.server 8793 --directory .
-    http://localhost:8793/harness/?view=room&scene=speech&theme=light
+    http://localhost:8793/harness/?view=extemp&x=ballot&theme=light
   Theme values follow the Cabinet harness (default Nous skin); light mode is an approximation.
 -->
 <html lang="en">
@@ -69,6 +69,7 @@
   color-scheme: light;
 }
 :root {
+  --radius-scalar: 0.2; --radius-md: 2px; --radius-sm: 1.2px; /* the host's corners (apps/desktop/src/styles.css:126, 469) */
   --font-sans: "Segoe WPC", "Segoe UI", -apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, sans-serif;
   --font-mono: Menlo, Monaco, "SF Mono", monospace;
 }

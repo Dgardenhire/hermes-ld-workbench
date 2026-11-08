@@ -1,6 +1,9 @@
 // Renders desktop/plugin.js inside a Hermes-like window. ctx.rest answers from fixtures.js (real backend answers).
 // URL parameters:
-//   view   room | bench | print                  (default room)
+//   view   extemp | rhetoric | ballots | room | bench | fallacies | print   (default extemp)
+//   x      extemp scene: ready | take (judging) | ballot | live (records from Chrome's fake mic) | draw | prep | speak
+//   stage  rhetoric stage: read (Lincoln's Second Inaugural, marked) | figures | spot | write
+//   accent red | green                           (test the accent against the red and green meanings)
 //   scene  ballot | speech | cx | setup | judging | opp (the opponent's NR with Spot fallacies run) (room only; default ballot)
 //   theme  dark | light                          (default dark)
 //   drills 1                                     (open the drills under the paper ballot)
@@ -10,11 +13,15 @@
 import { createRoot } from 'react-dom/client'
 import { jsx, jsxs } from 'react/jsx-runtime'
 import { BRIEFING, CONFIG, DRILL, SPOT, SPOT_INPUT, STATE } from './fixtures.js'
+import { BALLOT, BALLOTS, HOME, MARKS, OUTLETS, PULL, RHETORIC, SPEECHES, SPOT as FIGSPOT, TAKE } from './fixtures02.js'
 
 const params = new URLSearchParams(location.search)
 const dark = params.get('theme') !== 'light'
 document.documentElement.dataset.theme = dark ? 'dark' : 'light'
 document.documentElement.classList.toggle('dark', dark) // the app marks dark mode with :root.dark
+const accent = { red: dark ? '#f0524c' : '#d1242f', green: dark ? '#2fbf71' : '#1a7f37' }[params.get('accent')]
+if (accent) { document.documentElement.style.setProperty('--ui-accent', accent); document.documentElement.style.setProperty('--dt-primary', accent) }
+const X = params.get('x') || 'ready'
 const pause = ms => new Promise(r => setTimeout(r, ms))
 const clone = x => JSON.parse(JSON.stringify(x))
 
@@ -47,8 +54,41 @@ function sceneState() {
   return s
 }
 
+function home() {
+  const h = clone(HOME)
+  if (['take', 'ballot'].includes(X)) h.last_take = { drill: clone(TAKE) }
+  if (X === 'prep' || X === 'speak') {
+    h.extemp_round = { id: 'r1', question: 'Can a Democratic Congress change trade policy if the President vetoes every tariff repeal?', area: 'us', mode: 'files',
+      phase: X, started: 1762570000, prep_left: X === 'prep' ? 1312 : 0, take: null, ballot: null,
+      outline: { attention: 'In 1930 Congress set every tariff itself.', link: 'Today the President does, and the House just changed hands.', answer: 'Partly, through the budget',
+        area1: 'Veto math in the Senate', area2: 'Spending riders on tariff money', area3: 'Deals on farm relief', conclusion: '', sources: ['f1', 'f2'] } }
+  }
+  if (X === 'draw' || X === 'prep' || X === 'speak') h.extemp_round = X === 'draw' ? null : h.extemp_round
+  return h
+}
+const FILE = { items: [
+  { id: 'f1', title: 'Top US House Democrat on trade issues committed to reversing tariffs', outlet: 'Reuters', lean: 'Center', at: 1762300000, topics: ['tariffs'], note: '', url: 'https://news.google.com/', has_text: false },
+  { id: 'f2', title: 'Repeal the Tariffs', outlet: 'National Review', lean: 'Lean Right', at: 1762200000, topics: ['tariffs'], note: 'Editorial board, from the right', url: 'https://news.google.com/', has_text: false },
+  { id: 'f3', title: "Trump's tariffs are costing this Michigan couple", outlet: 'NPR', lean: 'Lean Left', at: 1762100000, topics: ['tariffs'], note: '', url: 'https://news.google.com/', has_text: false },
+], topics: ['tariffs'], count: 3 }
+
 async function rest(path, options = {}) {
   await pause(30)
+  if (path === 'home') return home()
+  if (path === 'settings') return { event: 'extemp' }
+  if (path === 'rhetoric') return clone(RHETORIC)
+  if (path.startsWith('rhetoric/speech/')) return clone(SPEECHES[path.split('/').pop()])
+  if (path === 'rhetoric/marks') return clone(MARKS)
+  if (path === 'rhetoric/spot') return clone(FIGSPOT)
+  if (path === 'ballots') return clone(BALLOTS)
+  if (path === 'outlets') return { ...clone(OUTLETS), suggested: [], labels_checked: 'Nov 7, 2026', leans: ['Left', 'Lean Left', 'Center', 'Lean Right', 'Right'], sides: ['left', 'center', 'right'] }
+  if (path === 'headlines/pull') return clone(PULL)
+  if (path === 'extemp/file') return clone(FILE)
+  if (path === 'extemp/round') return home().extemp_round
+  if (/^speech\/[^/]+\/judge$/.test(path)) return X === 'take' ? new Promise(() => {}) : clone(BALLOT)
+  if (path === 'speech/take') return { ...clone(TAKE), id: 'live1', levels: options.body.levels || [], duration: options.body.duration, transcript: { status: 'waiting', text: '', words: [] } }
+  if (/^speech\/[^/]+\/(upload|audio)$/.test(path)) return { ...clone(TAKE), id: 'live1', transcript: { status: 'working', text: '', words: [] } }
+  if (/^speech\/[^/]+$/.test(path)) return clone(TAKE)
   if (path === 'config') return clone(CONFIG)
   if (path === 'state') return sceneState()
   if (path === 'briefing') {
@@ -71,7 +111,7 @@ const ctx = {
 }
 const mod = await import('../desktop/plugin.js')
 mod.default.register(ctx)
-mod.openView(params.get('view') || 'room')
+mod.openView(params.get('view') || 'extemp')
 const page = contributions.find(c => c.area === 'routes')
 const nav = contributions.filter(c => c.area === 'sidebar.nav')
 const CORE = [['New session', 'robot'], ['Capabilities', 'extensions'], ['Messaging', 'comment'], ['Kanban', 'layout'], ['Scheduled jobs', 'watch']]
@@ -105,6 +145,27 @@ if (params.get('fx')) {
   ta.dispatchEvent(new Event('input', { bubbles: true })); await pause(200)
   click('Find the fallacies'); await pause(500)
 }
+const click = t => { const b = [...document.querySelectorAll('button')].find(x => x.textContent.trim() === t); if (b) b.click(); return !!b }
+if (params.get('stage')) {
+  const names = { read: 'Read', figures: 'Figures', spot: 'Spot', write: 'Write', say: 'Say it' }
+  const seg = [...document.querySelectorAll('.ldw-seg-btn')].find(b => b.textContent.startsWith(names[params.get('stage')]))
+  if (seg) seg.click()
+  await pause(300)
+  if (params.get('stage') === 'read') {
+    const lib = [...document.querySelectorAll('.ldw-lib-item')].find(b => b.textContent.startsWith('Second Inaugural'))
+    if (lib) lib.click()
+    await pause(300); click('Mark the figures'); await pause(400)
+  }
+  if (params.get('stage') === 'spot') { click('Diacope'); await pause(200) }
+}
+if (X === 'draw') {
+  click('Full round'); await pause(300)
+  const inp = document.querySelector('input[aria-label="Topic"]')
+  Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(inp, 'tariffs')
+  inp.dispatchEvent(new Event('input', { bubbles: true })); await pause(100)
+  click('Pull headlines'); await pause(500)
+}
+if (X === 'live') { click('Start speaking'); await pause(Number(params.get('ms') || 6000)) }
 const openWhat = params.get('open')
 if (openWhat) {
   const btn = openWhat === 'switcher' ? document.querySelector('.ldw-switcher')

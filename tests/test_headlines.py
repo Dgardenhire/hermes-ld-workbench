@@ -34,6 +34,17 @@ class Parser(unittest.TestCase):
 
     def test_google_suffix_stripped(self):
         self.assertEqual(headlines.strip_outlet("Senate weighs repeal - National Review", {}), "Senate weighs repeal")
+        aei = {"name": "AEI", "domain": "aei.org", "note": "American Enterprise Institute, a think tank"}
+        self.assertEqual(headlines.strip_outlet("A Bomb Dropped - American Enterprise Institute - AEI", aei), "A Bomb Dropped")
+        self.assertEqual(headlines.strip_outlet("Left - right - Reuters", {"name": "Reuters", "domain": "reuters.com"}), "Left - right")
+
+    def test_index_pages_and_repeats_dropped(self):
+        items = [{"title": t} for t in ("Tag: Tariffs", "Mexico Archives", "Repeal the Tariffs", "Repeal the tariffs!")]
+        self.assertEqual([i["title"] for i in headlines.tidy(items)], ["Repeal the Tariffs"])
+
+    def test_topic_matches_rank_first(self):
+        items = [{"title": "Baseball tonight"}, {"title": "Senate tariff vote"}, {"title": "Tariff relief"}]
+        self.assertEqual([i["title"] for _, i in headlines.rank(items, ["tariff"])], ["Senate tariff vote", "Tariff relief", "Baseball tonight"])
 
     def test_google_url_is_a_site_search(self):
         u = headlines.google_url("tariff repeal", "aei.org")
@@ -104,7 +115,7 @@ class Pull(unittest.TestCase):
         out = headlines.pull("tariff vote", get)
         cols = {c["id"]: c for c in out["columns"]}
         self.assertTrue(cols["npr-org"]["ok"])
-        self.assertEqual(cols["npr-org"]["items"][0]["title"], "Farm relief tied to tariff money")  # newest first
+        self.assertEqual(cols["npr-org"]["items"][0]["title"], "Senate weighs tariff repeal")  # Google order kept among topic matches
         self.assertFalse(cols["reuters-com"]["ok"])
         self.assertEqual(cols["reuters-com"]["error"], "Reuters did not answer. Try again.")
         self.assertEqual(cols["nationalreview-com"]["via"], "own feed")
