@@ -1,10 +1,26 @@
 # Debate Workbench 0.2: status
 
-Updated Nov 7, 2026, end of stage 2 (complete). Branch `v0.2`, not pushed. Packet: `claude-test/.planning/hackathon-2026-11/debate-workbench/` (SPEC.md, DESIGN.md). Build deadline: Monday Nov 9, 6 PM CT.
+Updated Nov 7, 2026, end of stage 3 (adversarial review and fix). Branch `v0.2`, not pushed. Packet: `claude-test/.planning/hackathon-2026-11/debate-workbench/` (SPEC.md, DESIGN.md). Build deadline: Monday Nov 9, 6 PM CT.
 
-**Tests: 149, all passing** (`/usr/bin/python3 -m unittest discover -s tests`, about 1.5 s): 0.1's 49, speech 22, headlines 16, extemp 12, rhetoric 12, web search 9, ballots 7, LD sheet 6, manifest and bundle 6, hear the opponent 5, openings 5, plus the rest. The desktop bundle is current (`build.mjs . --check`). The draft catalog entry passes `validate_plugin_catalog.py` (scratch HOME). gitleaks: no leaks on any commit.
+**Tests: 164, all passing** (`/usr/bin/python3 -m unittest discover -s tests`, about 2 s): stage 2's 149, plus 13 in `test_hardening.py` and 2 new Clearing checks in `test_rhetoric.py`. The desktop bundle is current (`build.mjs . --check`). Hermes's **full** admission validator (`hermes_cli.plugin_validate.validate_plugin_dir`, run on a copy with a scratch HOME) passes all 16 checks with **no warnings**; the draft catalog entry passes `validate_plugin_catalog.py`. gitleaks: no leaks.
 
-**Every SPEC MUST is built** except M14 (the demo video, Tuesday) and the live checks inside Hermes (Tuesday). SHOULD done: S1 Hear the opponent, S2 Openings lab. SHOULD not started: S3 Delivery lab, S4 token meter, S5 spoken cross-ex answers, S6 extemp drills.
+**Every SPEC MUST is built** except M14 (the demo video, Tuesday) and the live checks inside Hermes (Tuesday). SHOULD done: S1, S2. Not started: S3 to S6.
+
+## Stage 3, what the review found and fixed (commit c0c9ec3)
+
+1. **Every model call would have stopped at 30 seconds.** A `PluginLlm` call with no `timeout` gets Hermes's auxiliary default, `_DEFAULT_AUX_TIMEOUT = 30.0` (`agent/auxiliary_client.py`, same in v0.22.0). The opponent's 7-minute speech, the LD ballot and the briefing (up to 16,000 tokens) can outrun that on many models, and the student would have seen "The coach could not answer". Now every call passes `timeout=180`, an `asyncio.wait_for` guard sits 15 s above it, a timed-out structured call is not retried as a plain call (that doubled the wait), and the page gets "The model took too long to answer. Try again, or pick a faster model in Hermes settings."
+2. **A private Hermes import, while the catalog text said "No private Hermes imports".** Web search and Hear it imported `model_tools`, which Hermes's own private-import lint flags (catalog rule 9; `model_tools` is not in `hermes_cli/data/plugin_api.json`). They now use only the public `tools.registry`: `registry.dispatch` (the call `ctx.dispatch_tool` makes), loading the built-in tools with the public `discover_builtin_tools()` when the dashboard process has not. The full validator now reports no warnings.
+3. **A take could wait forever.** If Hermes restarted during a transcript, the take stayed "waiting" or "working" on disk: the page polled every 1.5 s forever and the ballot refused ("still being made"). Now a waiting take with no job in this process is released as failed with "The transcript was interrupted (Hermes may have restarted). Press Transcribe now."
+4. **Typed words could be overwritten.** If the student typed their words while a transcript ran, the job's cancel path then marked the take "cancelled", and a finished job could replace the typed text. The student's words now always win. A second press of Transcribe now no longer queues a second job.
+5. **One bad number could break the floor.** `duration: NaN` (or "nan" as text) was stored in practice.json; every later `/home` answer would carry NaN, which is not valid JSON, so the page could not open. Every take number is now finite and clamped (`speech._num`); text like "abc" no longer gives a raw Python error.
+6. **A slow outlet could hold the headline pull.** The 8-second socket timeout bounds each read, not a fetch; a server dripping bytes could hold a column for minutes. The pull now ends at 20 s and a late outlet fails alone ("did not answer in time").
+7. **An export path could replace another app's JSON.** The backup export accepted any `.json` path inside home, including `~/.hermes/auth.json`, if a forged request supplied it (the page itself only sends save-dialog paths). Hidden folders and `~/Library` are now refused; iCloud Drive and `~/Library/CloudStorage` stay allowed.
+8. **Hear it moved the tool's file and could read any audio path.** It now copies the tool's file into `plugin-data/ld-workbench/voice/` and checks the size before reading (the 20 MB cap was checked only after reading).
+9. **Page links**: `openLink` opens only http(s) (the backend already filtered; now both do).
+10. **The Clearing check was too weak.** The old test only looked for each gloss anywhere in `craft-paths.js`, so a gloss on the wrong figure passed (checked by swapping diacope's gloss: the old test passed, the new one fails). The new test pairs each figure with its gloss in The Clearing's own order (15 figures checked); a second test pins the two figure pairs that share one gloss (see "Decisions").
+11. Catalog draft disclosure updated: transcription runs in one worker thread inside Hermes; every model call has a 180 s limit; exports never go into hidden folders or ~/Library; web search and Hear it go through the public tool registry.
+
+Checked and found sound: the headline fetcher (https only, listed hosts only, pinned public IP, DTD refused, 250 KB cap, redirects re-checked); take ids and recording file names (ids matched against the record, file names refused with slashes or a leading dot); case ids (`^[a-f0-9]{12}$`); backup import (new ids, every field cut to size); web results (http(s) only, text only); model output rendered as React text, never HTML; no eval, no script injection, no app DOM reach (Hermes's desktop lint passes); declared tools, hooks and middleware match `register()`; no secrets, no credentials, no shell, no cron or blueprint (nothing runs unattended except the transcript thread and the background flow, both in-process); delete-all recordings and case delete each need a confirm; no route sends anything anywhere without a button press.
 
 ## Stage 2, what changed
 
@@ -55,17 +71,20 @@ Recommendation: add The Atlantic and Washington Monthly to the defaults (4 left,
 
 ## What is left, in priority order
 
-1. **Tuesday live checks in Hermes 0.23** (Damon installs with a backup): mic prompt, denied-then-retry and the wake word (P2); one 60 s take with transcription, which downloads base.en the first time (P3); **web search and Hear it from the dashboard process** (they reach the tool registry by importing `model_tools`, which is what `ctx.dispatch_tool` uses; unverified from the REST thread, and the web/tts toolsets may need to be enabled); headlines from inside the gateway (P5).
-2. **Card image.** `docs/card.png` is still the 0.1 Lincoln-Douglas card. The catalog draft already uses the speaking screenshot as its image, so the card is optional; redo it from the speaking floor if it will be used anywhere.
-3. **Security bar** (`../SECURITY-BAR.md`): bandit and semgrep runs, the hostile-content red-team tests, docs/SECURITY-AUDIT.md by a separate auditor. New surfaces this stage: the web-search results (rendered as text, links opened only in the user's browser, http(s) only) and TTS audio (files only from our own voice folder, size-capped at 20 MB, MIME from a fixed list).
-4. **SHOULD, in SPEC order:** S3 Delivery lab, S4 token meter (needs a registered aux task; see risk below), S5 spoken cross-ex answers, S6 extemp drills.
-5. **Rhetoric:** pick the figure under the Write step from the marked text; "Say it" ties back to the line written.
-6. **Model routing:** registering `ld_judge` and friends as auxiliary tasks is held back on purpose (a registered task defaults to provider "auto" and a 60-second timeout in `hermes_cli/plugins_aux_tasks.py`). Decide after a live check.
-7. **Manual** (linchpin.studio/hermes/ld-workbench/manual/), re-pin the catalog sha and screenshot URLs at release, version bump PR.
-8. Persona testers (an extemp competitor, an LD varsity debater, a coach) through the harness.
+1. **Tuesday live checks in Hermes 0.23** (Damon installs with a backup): mic prompt, denied-then-retry and the wake word (P2); one 60 s take with transcription, which downloads base.en the first time (P3); **web search and Hear it from the dashboard process** through `tools.registry` (unverified there: whether the built-in tools load, whether the web and tts toolsets must be on, and that the call works with no session scope); headlines from inside the gateway (P5); **one long model call** (the opponent's NC, about 1,000 words) to confirm the 180 s limit is honored on Damon's provider.
+2. **Security bar** (`../SECURITY-BAR.md`): bandit and semgrep, the hostile-content red-team tests, docs/SECURITY-AUDIT.md by a separate auditor. This stage's review is not that audit.
+3. **Ballot drill checkbox is addressed by list position** (`/ballots/{index}/drill`). With 40 ballots kept, a new ballot trims the oldest and shifts every index, so a Ballots view left open could tick the drill on the wrong ballot. Fix: address a ballot by its `at` time and round. Small; not done.
+4. **"Open in your browser" fails quietly** if Hermes has no browser bridge (`ctx.os.openExternal` resolves false). Show "Copy the link instead" when it returns false. Small.
+5. **Card image.** `docs/card.png` is still the 0.1 card; the catalog draft uses the speaking screenshot, so it is optional.
+6. **SHOULD, in SPEC order:** S3 Delivery lab, S4 token meter (needs a registered aux task), S5 spoken cross-ex answers, S6 extemp drills.
+7. **Rhetoric:** pick the figure under the Write step from the marked text; "Say it" ties back to the line written.
+8. **Model routing:** registering `ld_judge` and friends as auxiliary tasks is still held back (a registered task defaults to provider "auto"). With the explicit 180 s limit, a registered task would no longer inherit the 30 s default either.
+9. `POST /extemp/file/{id}/delete` exists but no button uses it; either add a remove control with a confirm or drop the route.
+10. Manual (linchpin.studio/hermes/ld-workbench/manual/), re-pin the catalog sha and screenshot URLs at release, version bump PR. Persona testers through the harness.
 
 ## Known risks
 
+- **Slow models.** A call now waits up to 180 s, then shows "took too long". A slow local model on a 7-minute speech can still hit that; the student can press again or pick a faster model.
 - **Transcripts are unverified live.** No model is cached, so the first take on Damon's Mac downloads about 140 MB before any words appear, and a 7-minute take on CPU may take a while (unmeasured). The page shows "Making the transcript on this computer" with Stop, and the ballot waits for the words. Tuesday: run one 60 s take before filming.
 - **Recording in Hermes Electron** is verified only in Chrome. The wake word can hold the mic; the message names it.
 - **Accent collisions.** With a red accent the judge's pen and the DRILL stamp are both red, and with a green accent the pen matches "right" answers. Meaning is still carried by shape and word (X in a box, a circle on the scale, underlines, the word DRILL), so nothing becomes ambiguous; screenshots: `extemp-ballot-red-accent.png`, `extemp-ballot-green-accent.png`.
@@ -73,7 +92,7 @@ Recommendation: add The Atlantic and Washington Monthly to the defaults (4 left,
 - **Google News links** are redirect wrappers that open only in a browser; "Save to file" keeps the wrapper link. Article text is never fetched.
 - Python 3.9 (system) runs the tests; Hermes runs 3.11. Nothing newer than 3.9 syntax is used.
 
-- **Web search and Hear it from a REST route.** Both call Hermes's tool registry from the dashboard API process (import `model_tools`, then `registry.dispatch`). In tests and the harness they are replaced. If the registry is not loaded there, or the toolset is off, the student sees the plain "not set up" message and can keep going (files only; read the speech). Verify Tuesday.
+- **Web search and Hear it from a REST route.** Both call Hermes's public tool registry from the dashboard API process (`registry.dispatch`, loading built-ins with `discover_builtin_tools()` if needed). In tests and the harness they are replaced. If the registry is not loaded there, or the toolset is off, the student sees the plain "not set up" message and can keep going (files only; read the speech). Verify Tuesday.
 - **Hear it on long speeches.** A 7-minute NC is about 1,000 words; synthesis time depends on the user's provider (timeout 120 s). Audio over 20 MB is refused with a message.
 - **Autoplay.** After "Hear it" the audio tries to start by itself; if the window blocks it, Play is there and no error shows.
 
@@ -82,3 +101,5 @@ Recommendation: add The Atlantic and Washington Monthly to the defaults (4 left,
 1. Make The Atlantic and Washington Monthly default outlets to rebalance the set (recommended), or leave the right column heavier.
 2. OK to download the base.en speech model (about 140 MB from huggingface.co) on this Mac for the P3 timing run, before Tuesday?
 3. The Clearing's short definitions: keep them word for word (current), or let both products add one plain sentence under each.
+4. **Two pairs of figures show the same definition.** Zeugma and syllepsis share "One governing word across clauses." in The Clearing itself. Merism and synecdoche both read "Parts standing for a whole." because The Clearing names eight image figures but gives only seven glosses. On the figure list this reads as a mistake. Recommendation: give merism "A whole named by listing its parts." and syllepsis "One word used in two senses at once." in both products (edit The Clearing's prompt line too, so they still agree). A test pins the two pairs today, so the change is one line in `rhetoric_method.py` plus that test.
+5. **The default outlets are lopsided: 2 left, 3 center, 5 right** (unchanged from stage 2; `headlines.balance()` flags it on the page). Recommendation stands: add The Atlantic (Left) and Washington Monthly (Lean Left) to the defaults for 4 / 3 / 5, keep Brookings (Center) as a suggestion. Two lines in `headlines.DEFAULT_OUTLETS`.
