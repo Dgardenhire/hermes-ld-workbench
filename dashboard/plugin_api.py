@@ -650,6 +650,41 @@ async def post_round_judge(body: dict):
         _fail(e)
 
 
+def _hermes_tts(text, out_path):
+    """The user's own text_to_speech tool, through Hermes's tool registry (what ctx.dispatch_tool calls)."""
+    try:
+        import model_tools  # noqa: F401  (loads Hermes's built-in tools into the registry)
+        from tools.registry import registry
+    except Exception:
+        return {"error": "Unknown tool: text_to_speech"}
+    return registry.dispatch("text_to_speech", {"text": text, "output_path": out_path})
+
+
+SPEAK = _hermes_tts  # tests replace this
+
+
+@router.post("/round/listen")
+async def post_round_listen(body: dict):
+    """One of the opponent's speeches, read aloud by the user's Hermes voice, so the student flows by ear."""
+    try:
+        b = _body(body)
+        sid = engine._pick(b.get("speech_id"), engine.SPEECH_IDS, "speech")
+        r = _round_or_fail()
+        p = r.get("pending_ai") or {}
+        text = p.get("text") if p.get("id") == sid else None
+        if not text:
+            t = next((x for x in r.get("transcript", []) if x.get("id") == sid and x.get("speaker") == "ai"), None)
+            text = t and t.get("text")
+        if not text:
+            raise ValueError("That speech is not the opponent's, or it has not been given yet.")
+        try:
+            return await asyncio.wait_for(asyncio.to_thread(speech.opponent_audio, text, SPEAK), timeout=120)
+        except asyncio.TimeoutError:
+            raise ValueError("The voice took too long. Read the speech, or try again.")
+    except Exception as e:
+        _fail(e)
+
+
 @router.post("/round/redo")
 async def post_round_redo(body: dict):
     """Replace one of the student's speeches; the page then asks the same judge again."""

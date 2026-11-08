@@ -270,4 +270,6 @@ export const FRAME_CSS = `
 .ldw-webres li{display:grid;gap:6px;justify-items:start;padding:9px 0;border-bottom:1px solid var(--hk-stroke)}
 .ldw-webres-text{display:grid;gap:3px;min-width:0}
 .ldw-webres-text .ldw-meta{font-size:13px;line-height:1.45}
+.ldw-listen{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.ldw-listen .hk-notice{flex-basis:100%}
 `

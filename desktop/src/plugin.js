@@ -233,11 +233,63 @@ function OpponentSpeech({ r, stop }) {
       err ? jsx(Failure, { title: 'The opponent could not speak', body: err, onRetry: ask }) : null,
       !pending && !err ? jsx(Thinking, { label: 'Your opponent is writing the speech' }) : null,
       pending ? jsxs(Fragment, { children: [
+        jsx(Listen, { id: stop.id }),
         jsx('div', { className: 'ldw-speech', children: renderText(pending) }),
-        jsx('div', { className: 'ldw-meta', children: `${words(pending)} words · about ${mmss(words(pending) / WPM * 60)} spoken. Flow it as you read.` }),
+        jsx('div', { className: 'ldw-meta', children: `${words(pending)} words · about ${mmss(words(pending) / WPM * 60)} spoken. Flow it as you read or listen.` }),
         jsx(SpotSpeech, { r, id: stop.id }),
       ] }) : null,
     ] }),
+  ] })
+}
+
+// The opponent's speech read aloud by the user's own Hermes voice, so the student flows by ear.
+function Listen({ id }) {
+  const [state, setState] = useState('idle') // idle | loading | ready
+  const [err, setErr] = useState(null)
+  const [playing, setPlaying] = useState(false)
+  const [rate, setRate] = useState('1')
+  const [t, setT] = useState({ at: 0, of: 0 })
+  const audio = useRef(null)
+  const urls = useRef([])
+  const part = useRef(0)
+  useEffect(() => () => { try { audio.current && audio.current.pause() } catch (e) { /* gone */ } urls.current.forEach(u => URL.revokeObjectURL(u)) }, [])
+  const load = async () => {
+    setState('loading'); setErr(null)
+    try {
+      const d = await post('round/listen', { speech_id: id })
+      urls.current = d.parts.map(p => {
+        const bin = atob(p.b64)
+        const bytes = new Uint8Array(bin.length)
+        for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i)
+        return URL.createObjectURL(new Blob([bytes], { type: p.mime }))
+      })
+      part.current = 0
+      setState('ready')
+      setTimeout(() => play(true), 0) // starts by itself when the window allows it; Play otherwise
+    } catch (e) { setErr(errText(e)); setState('idle') }
+  }
+  const play = quiet => {
+    const a = audio.current
+    if (!a) return
+    if (!a.src) a.src = urls.current[part.current]
+    a.playbackRate = Number(rate)
+    a.play().then(() => { setPlaying(true); setErr(null) }, () => { setPlaying(false); if (quiet !== true) setErr('This window could not play the audio. Read the speech instead.') })
+  }
+  const pause = () => { try { audio.current.pause() } catch (e) { /* gone */ } setPlaying(false) }
+  const ended = () => {
+    if (part.current < urls.current.length - 1) { part.current += 1; audio.current.src = urls.current[part.current]; play() } else setPlaying(false)
+  }
+  const speed = v => { setRate(v); if (audio.current) audio.current.playbackRate = Number(v) }
+  return jsxs('div', { className: 'ldw-listen', children: [
+    jsx('audio', { ref: audio, preload: 'auto', onEnded: ended, onError: () => { if (state === 'ready') setErr('The audio would not play. Read the speech instead.') },
+      onTimeUpdate: e => setT({ at: e.currentTarget.currentTime || 0, of: e.currentTarget.duration || 0 }) }),
+    state !== 'ready' ? jsx(Button, { variant: 'secondary', size: 'sm', loading: state === 'loading', onClick: load,
+      children: jsxs(Fragment, { children: [jsx(Codicon, { name: 'unmute' }), state === 'loading' ? 'Getting the voice ready' : 'Hear it'] }) }) : null,
+    state === 'ready' ? jsx(Button, { variant: 'secondary', size: 'sm', onClick: () => (playing ? pause() : play()),
+      children: jsxs(Fragment, { children: [jsx(Codicon, { name: playing ? 'debug-pause' : 'play' }), playing ? 'Pause' : 'Play'] }) }) : null,
+    state === 'ready' ? jsx(SegmentedControl, { value: rate, onChange: speed, 'aria-label': 'Speed', options: [{ id: '1', label: '1x' }, { id: '1.25', label: '1.25x' }] }) : null,
+    state === 'ready' && t.of && isFinite(t.of) ? jsx('span', { className: 'ldw-num ldw-meta', children: `${mmss(t.at)} / ${mmss(t.of)}` }) : null,
+    err ? jsx(Notice, { tone: 'warn', children: err }) : null,
   ] })
 }
 

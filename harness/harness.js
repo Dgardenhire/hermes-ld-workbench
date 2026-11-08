@@ -85,6 +85,17 @@ const WEB = [
   { title: 'Appropriations riders: how Congress limits what agencies can spend', url: 'https://www.gao.gov/', site: 'gao.gov', snippet: 'A rider can bar funds from being used to collect or enforce a duty.' },
 ]
 
+// A few seconds of silence as a WAV file, standing in for the user's Hermes voice.
+function silentWav(seconds) {
+  const rate = 8000, n = rate * seconds, buf = new DataView(new ArrayBuffer(44 + n))
+  const str = (o, t) => [...t].forEach((c, i) => buf.setUint8(o + i, c.charCodeAt(0)))
+  str(0, 'RIFF'); buf.setUint32(4, 36 + n, true); str(8, 'WAVEfmt '); buf.setUint32(16, 16, true); buf.setUint16(20, 1, true); buf.setUint16(22, 1, true)
+  buf.setUint32(24, rate, true); buf.setUint32(28, rate, true); buf.setUint16(32, 1, true); buf.setUint16(34, 8, true); str(36, 'data'); buf.setUint32(40, n, true)
+  for (let i = 0; i < n; i++) buf.setUint8(44 + i, 128)
+  let bin = ''; new Uint8Array(buf.buffer).forEach(b => { bin += String.fromCharCode(b) })
+  return btoa(bin)
+}
+
 async function rest(path, options = {}) {
   await pause(30)
   if (path === 'home') return home()
@@ -97,6 +108,7 @@ async function rest(path, options = {}) {
   if (path === 'outlets') return { ...clone(OUTLETS), suggested: [], labels_checked: 'Nov 7, 2026', leans: ['Left', 'Lean Left', 'Center', 'Lean Right', 'Right'], sides: ['left', 'center', 'right'] }
   if (path === 'headlines/pull') return clone(PULL)
   if (path === 'extemp/file') return options.method === 'POST' ? { ...options.body, id: `w${Date.now()}`, topics: [] } : clone(FILE)
+  if (path === 'round/listen') return { parts: [{ b64: silentWav(5), mime: 'audio/wav' }], cached: false }
   if (path === 'extemp/search') return { query: 'tariff repeal veto override', results: WEB }
   if (path === 'extemp/round') return home().extemp_round
   if (/^speech\/[^/]+\/judge$/.test(path)) return X === 'take' ? new Promise(() => {}) : clone(BALLOT)

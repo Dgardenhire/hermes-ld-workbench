@@ -2388,6 +2388,8 @@ var FRAME_CSS = `
 .ldw-webres li{display:grid;gap:6px;justify-items:start;padding:9px 0;border-bottom:1px solid var(--hk-stroke)}
 .ldw-webres-text{display:grid;gap:3px;min-width:0}
 .ldw-webres-text .ldw-meta{font-size:13px;line-height:1.45}
+.ldw-listen{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.ldw-listen .hk-notice{flex-basis:100%}
 `;
 
 // desktop/src/plugin.js
@@ -2676,11 +2678,106 @@ function OpponentSpeech({ r, stop }) {
       err ? jsx9(Failure, { title: "The opponent could not speak", body: err, onRetry: ask }) : null,
       !pending && !err ? jsx9(Thinking, { label: "Your opponent is writing the speech" }) : null,
       pending ? jsxs9(Fragment7, { children: [
+        jsx9(Listen, { id: stop.id }),
         jsx9("div", { className: "ldw-speech", children: renderText(pending) }),
-        jsx9("div", { className: "ldw-meta", children: `${words(pending)} words · about ${mmss(words(pending) / WPM * 60)} spoken. Flow it as you read.` }),
+        jsx9("div", { className: "ldw-meta", children: `${words(pending)} words · about ${mmss(words(pending) / WPM * 60)} spoken. Flow it as you read or listen.` }),
         jsx9(SpotSpeech, { r, id: stop.id })
       ] }) : null
     ] })
+  ] });
+}
+function Listen({ id }) {
+  const [state, setState] = useState9("idle");
+  const [err, setErr] = useState9(null);
+  const [playing, setPlaying] = useState9(false);
+  const [rate, setRate] = useState9("1");
+  const [t, setT] = useState9({ at: 0, of: 0 });
+  const audio = useRef5(null);
+  const urls = useRef5([]);
+  const part = useRef5(0);
+  useEffect7(() => () => {
+    try {
+      audio.current && audio.current.pause();
+    } catch (e) {
+    }
+    urls.current.forEach((u) => URL.revokeObjectURL(u));
+  }, []);
+  const load2 = async () => {
+    setState("loading");
+    setErr(null);
+    try {
+      const d = await post("round/listen", { speech_id: id });
+      urls.current = d.parts.map((p) => {
+        const bin = atob(p.b64);
+        const bytes = new Uint8Array(bin.length);
+        for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+        return URL.createObjectURL(new Blob([bytes], { type: p.mime }));
+      });
+      part.current = 0;
+      setState("ready");
+      setTimeout(() => play(true), 0);
+    } catch (e) {
+      setErr(errText(e));
+      setState("idle");
+    }
+  };
+  const play = (quiet) => {
+    const a = audio.current;
+    if (!a) return;
+    if (!a.src) a.src = urls.current[part.current];
+    a.playbackRate = Number(rate);
+    a.play().then(() => {
+      setPlaying(true);
+      setErr(null);
+    }, () => {
+      setPlaying(false);
+      if (quiet !== true) setErr("This window could not play the audio. Read the speech instead.");
+    });
+  };
+  const pause = () => {
+    try {
+      audio.current.pause();
+    } catch (e) {
+    }
+    setPlaying(false);
+  };
+  const ended = () => {
+    if (part.current < urls.current.length - 1) {
+      part.current += 1;
+      audio.current.src = urls.current[part.current];
+      play();
+    } else setPlaying(false);
+  };
+  const speed = (v) => {
+    setRate(v);
+    if (audio.current) audio.current.playbackRate = Number(v);
+  };
+  return jsxs9("div", { className: "ldw-listen", children: [
+    jsx9("audio", {
+      ref: audio,
+      preload: "auto",
+      onEnded: ended,
+      onError: () => {
+        if (state === "ready") setErr("The audio would not play. Read the speech instead.");
+      },
+      onTimeUpdate: (e) => setT({ at: e.currentTarget.currentTime || 0, of: e.currentTarget.duration || 0 })
+    }),
+    state !== "ready" ? jsx9(Button7, {
+      variant: "secondary",
+      size: "sm",
+      loading: state === "loading",
+      onClick: load2,
+      children: jsxs9(Fragment7, { children: [jsx9(Codicon6, { name: "unmute" }), state === "loading" ? "Getting the voice ready" : "Hear it"] })
+    }) : null,
+    state === "ready" ? jsx9(Button7, {
+      variant: "secondary",
+      size: "sm",
+      onClick: () => playing ? pause() : play(),
+      children: jsxs9(Fragment7, { children: [jsx9(Codicon6, { name: playing ? "debug-pause" : "play" }), playing ? "Pause" : "Play"] })
+    }) : null,
+    state === "ready" ? jsx9(SegmentedControl3, { value: rate, onChange: speed, "aria-label": "Speed", options: [{ id: "1", label: "1x" }, { id: "1.25", label: "1.25x" }] }) : null,
+    state === "ready" && t.of && isFinite(t.of) ? jsx9("span", { className: "ldw-num ldw-meta", children: `${mmss(t.at)} / ${mmss(t.of)}` }) : null,
+    err ? jsx9(Notice, { tone: "warn", children: err }) : null
   ] });
 }
 function SpotSpeech({ r, id }) {

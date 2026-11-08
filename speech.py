@@ -559,3 +559,97 @@ def set_text(take_id, text):
                            "model": tr.get("model"), "error": None, "edited": True}
         t["stats"] = measure(t, t["transcript"], t.get("answer"))
     return change_take(take_id, put)
+
+
+# ---------- hearing the opponent: the user's own Hermes voice output ----------
+VOICE_OFF = ("Hermes has no voice output set up. In Hermes Settings, Voice, choose a text-to-speech provider. "
+             "You can still read the speech.")
+VOICE_KEEP = 8
+VOICE_MAX_BYTES = 20 * 1024 * 1024
+VOICE_MIMES = {".mp3": "audio/mpeg", ".ogg": "audio/ogg", ".opus": "audio/ogg", ".wav": "audio/wav",
+               ".m4a": "audio/mp4", ".aac": "audio/mp4", ".flac": "audio/flac", ".webm": "audio/webm"}
+
+
+def _voice_dir():
+    d = store.data_dir() / "voice"
+    d.mkdir(parents=True, exist_ok=True)
+    return d
+
+
+def voice_key(text):
+    import hashlib
+    return hashlib.sha256(" ".join(str(text or "").split()).encode("utf-8")).hexdigest()[:16]
+
+
+def _voice_cached(key):
+    for p in _voice_dir().glob(f"{key}.*"):
+        if p.suffix in VOICE_MIMES and p.is_file() and 0 < p.stat().st_size <= VOICE_MAX_BYTES:
+            return p
+    return None
+
+
+def parse_tts(raw):
+    """The audio file Hermes's text_to_speech tool wrote, from its JSON envelope; a plain message otherwise."""
+    import json as _json
+    data = raw
+    if isinstance(raw, (bytes, str)):
+        try:
+            data = _json.loads(raw)
+        except ValueError:
+            raise ValueError("The voice answered with something unreadable. Try again, or read the speech.")
+    if not isinstance(data, dict):
+        raise ValueError("The voice answered with something unreadable. Try again, or read the speech.")
+    if not data.get("success") or data.get("error"):
+        err = str(data.get("error") or "").lower()
+        if "unknown tool" in err or "not configured" in err or "api key" in err or "no tts" in err or "not available" in err:
+            raise ValueError(VOICE_OFF)
+        raise ValueError("The voice could not read this speech. Try again, or read the speech.")
+    paths = data.get("file_paths") or ([data.get("file_path")] if data.get("file_path") else [])
+    out = [Path(p) for p in paths if isinstance(p, str) and Path(p).suffix.lower() in VOICE_MIMES and Path(p).is_file()]
+    if not out:
+        raise ValueError("The voice made no audio. Try again, or read the speech.")
+    return out
+
+
+def opponent_audio(text, synth):
+    """The opponent's speech as audio: cached by its words, made once with ``synth(text, out_path) -> raw``.
+
+    Returns {"parts": [{"b64", "mime"}], "cached": bool}. Several parts when the provider split a long speech."""
+    import base64 as _b64
+    words = " ".join(str(text or "").split())
+    if len(words) < 20:
+        raise ValueError("There is no speech to read yet.")
+    key = voice_key(words)
+    hit = _voice_cached(key)
+    files, cached = ([hit], True) if hit else (None, False)
+    if not files:
+        files = parse_tts(synth(words, str(_voice_dir() / f"{key}.mp3")))
+        keep = []
+        for i, f in enumerate(files):  # move them under our own name so the cache and cleanup can find them
+            dest = _voice_dir() / (f"{key}{f.suffix.lower()}" if i == 0 else f"{key}-{i}{f.suffix.lower()}")
+            if f.resolve() != dest.resolve():
+                try:
+                    os.replace(f, dest)
+                except OSError:
+                    dest = f
+            keep.append(dest)
+        files = keep
+        olds = sorted((p for p in _voice_dir().iterdir() if p.is_file()), key=lambda p: p.stat().st_mtime, reverse=True)
+        stems = []
+        for p in olds:
+            stem = p.stem.split("-")[0]
+            if stem not in stems:
+                stems.append(stem)
+            if stems.index(stem) >= VOICE_KEEP:
+                try:
+                    p.unlink()
+                except OSError:
+                    pass
+    parts, total = [], 0
+    for f in files:
+        b = f.read_bytes()
+        total += len(b)
+        if total > VOICE_MAX_BYTES:
+            raise ValueError("The audio for this speech is too large to play here. Read the speech instead.")
+        parts.append({"b64": _b64.b64encode(b).decode("ascii"), "mime": VOICE_MIMES[f.suffix.lower()]})
+    return {"parts": parts, "cached": cached}
