@@ -107,6 +107,7 @@ async function rest(path, options = {}) {
   if (path === 'ballots') return clone(BALLOTS)
   if (path === 'outlets') return { ...clone(OUTLETS), suggested: [], labels_checked: 'Nov 7, 2026', leans: ['Left', 'Lean Left', 'Center', 'Lean Right', 'Right'], sides: ['left', 'center', 'right'] }
   if (path === 'headlines/pull') return clone(PULL)
+  if (/^extemp\/file\/[^/]+\/delete$/.test(path)) return { ok: true }
   if (path === 'extemp/file') return options.method === 'POST' ? { ...options.body, id: `w${Date.now()}`, topics: [] } : clone(FILE)
   if (path === 'round/listen') return { parts: [{ b64: silentWav(5), mime: 'audio/wav' }], cached: false }
   if (path === 'extemp/search') return { query: 'tariff repeal veto override', results: WEB }

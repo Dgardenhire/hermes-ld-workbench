@@ -41,6 +41,25 @@ class File(unittest.TestCase):
         run(api.post_extemp_file_delete(out["id"]))
         self.assertEqual(run(api.get_extemp_file(q="", topic=""))["count"], 0)
 
+    def test_remove_unpicks_the_source_and_says_when_it_is_gone(self):
+        a = extemp.add_item({"title": "Fed holds rates", "outlet": "AP"})
+        b = extemp.add_item({"title": "Jobs report beats forecasts", "outlet": "Reuters"})
+        r = run(api.post_extemp_round_start({"question": "Should the Federal Reserve care more about prices or about jobs right now?", "area": "us"}))
+        run(api.post_extemp_round({"outline": dict(r["outline"], sources=[a["id"], b["id"]])}))
+        self.assertEqual(run(api.post_extemp_file_delete(a["id"])), {"ok": True})
+        self.assertEqual([i["id"] for i in extemp.file_items()], [b["id"]])
+        self.assertEqual(store.read("extemp_round.json")["outline"]["sources"], [b["id"]])
+        with self.assertRaises(HTTPException) as e:
+            run(api.post_extemp_file_delete(a["id"]))  # a second click, or a stale page
+        self.assertEqual(e.exception.status_code, 400)
+        self.assertIn("no longer in your file", e.exception.detail)
+
+    def test_remove_with_no_round_in_progress(self):
+        a = extemp.add_item({"title": "Fed holds rates", "outlet": "AP"})
+        extemp.remove_item(a["id"])
+        self.assertEqual(extemp.file_items(), [])
+        self.assertIsNone(store.read("extemp_round.json"))
+
     def test_citation_is_outlet_and_date(self):
         t = time.mktime((2026, 11, 5, 12, 0, 0, 0, 0, -1))
         self.assertEqual(extemp.citation({"outlet": "Reuters", "at": int(t)}), "Reuters, Nov 5, 2026")

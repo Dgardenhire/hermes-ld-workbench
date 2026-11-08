@@ -62,5 +62,13 @@ class Bundle(unittest.TestCase):
             self.assertTrue(f"'{path}'" in self.code or f'"{path}"' in self.code, path)
 
 
+    def test_extemp_file_items_have_a_remove_control_with_a_confirm(self):
+        api_src = (ROOT / "dashboard" / "plugin_api.py").read_text()
+        self.assertIn('"/extemp/file/{item_id}/delete"', api_src)
+        self.assertIn("/delete`", self.code)
+        self.assertIn("extemp/file/${encodeURIComponent(item.id)}/delete", self.code)
+        self.assertIn("Remove this from your file? It cannot be brought back.", self.code)
+
+
 if __name__ == "__main__":
     unittest.main()

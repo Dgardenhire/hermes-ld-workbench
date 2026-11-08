@@ -45,6 +45,10 @@ DEFAULT_OUTLETS = [
     {"id": "npr", "name": "NPR", "domain": "npr.org", "side": "left", "lean": "Lean Left", "feed": "https://feeds.npr.org/1001/rss.xml"},
     {"id": "nyt", "name": "The New York Times", "domain": "nytimes.com", "side": "left", "lean": "Lean Left",
      "feed": "https://rss.nytimes.com/services/xml/rss/nyt/Politics.xml", "note": "News pages"},
+    {"id": "atlantic", "name": "The Atlantic", "domain": "theatlantic.com", "side": "left", "lean": "Left",
+     "feed": "https://www.theatlantic.com/feed/all/", "note": "A magazine, opposite National Review"},
+    {"id": "wamonthly", "name": "Washington Monthly", "domain": "washingtonmonthly.com", "side": "left", "lean": "Lean Left",
+     "feed": "https://washingtonmonthly.com/feed/", "note": "A magazine, opposite City Journal"},
     {"id": "reuters", "name": "Reuters", "domain": "reuters.com", "side": "center", "lean": "Center", "feed": "", "note": "Wire"},
     {"id": "ap", "name": "Associated Press", "domain": "apnews.com", "side": "center", "lean": "Lean Left", "feed": "",
      "note": "Wire. AllSides has moved it between Center and Lean Left"},
@@ -62,10 +66,9 @@ DEFAULT_OUTLETS = [
      "note": "American Enterprise Institute, a think tank; low confidence"},
 ]
 # Offered under "Add an outlet", with labels checked the same day.
+# Brookings has no feed of its own (its /feed/ address redirects to the home page); Google News reaches it.
 SUGGESTED = [
-    {"name": "The Atlantic", "domain": "theatlantic.com", "side": "left", "lean": "Left", "feed": "https://www.theatlantic.com/feed/all/"},
-    {"name": "Washington Monthly", "domain": "washingtonmonthly.com", "side": "left", "lean": "Lean Left", "feed": ""},
-    {"name": "Brookings", "domain": "brookings.edu", "side": "center", "lean": "Center", "feed": "", "note": "A think tank"},
+    {"name": "Brookings", "domain": "brookings.edu", "side": "center", "lean": "Center", "feed": "", "note": "A think tank, opposite AEI"},
     {"name": "The Wall Street Journal", "domain": "wsj.com", "side": "center", "lean": "Center", "feed": "https://feeds.a.dj.com/rss/RSSWorldNews.xml", "note": "News pages"},
 ]
 
@@ -117,13 +120,19 @@ def reset_outlets():
     return outlets()
 
 
+LEAN_GROUP = {"Left": "left", "Lean Left": "left", "Center": "center", "Lean Right": "right", "Right": "right"}
+
+
 def balance(items):
-    """How many outlets sit on each side; the page warns when one side has twice the other."""
+    """How many outlets sit in each column, and how many lean each way by AllSides label (a wire can sit in
+    the center column with a Lean Left label). The page warns when one side has twice the other."""
     n = {s: 0 for s in SIDES}
+    by_label = {s: 0 for s in SIDES}
     for o in items:
         n[o["side"]] = n.get(o["side"], 0) + 1
+        by_label[LEAN_GROUP.get(o.get("lean"), "center")] += 1
     lopsided = bool(n["left"] or n["right"]) and (n["left"] >= 2 * max(1, n["right"]) or n["right"] >= 2 * max(1, n["left"]))
-    return {"counts": n, "lopsided": lopsided}
+    return {"counts": n, "by_label": by_label, "lopsided": lopsided}
 
 
 # ---------- fetching ----------
@@ -183,6 +192,13 @@ def _date(s):
     return None
 
 
+def _unprefix(chunk):
+    """A lone <item> cut from a feed loses the root's namespace declarations, so <media:content> or
+    xml:lang no longer parse. Drop the prefixes: the parser only reads plain names (title, link, pubDate)."""
+    chunk = re.sub(r"(</?)[A-Za-z_][\w.-]*:(?=[A-Za-z_])", r"\1", chunk)
+    return re.sub(r"(\s)[A-Za-z_][\w.-]*:([A-Za-z_][\w.-]*\s*=)", r"\1\2", chunk)
+
+
 def parse_feed(raw):
     """Items from RSS or Atom: [{title, url, at, source}]. Refuses a document with a DTD, so no
     entity can expand. A cut-off document (the byte cap) keeps the items that closed before the cut."""
@@ -196,7 +212,7 @@ def parse_feed(raw):
         nodes = []
         for chunk in re.findall(r"<item\b.*?</item>|<entry\b.*?</entry>", text, re.S):
             try:
-                nodes.append(ET.fromstring(chunk))
+                nodes.append(ET.fromstring(_unprefix(chunk)))
             except ET.ParseError:
                 continue
         nodes = [n for c in nodes for n in c.iter()]
@@ -237,11 +253,14 @@ def strip_outlet(title, outlet):
 INDEX_PAGE = re.compile(r"^(tags?|topics?|category|author|archives?)\s*[:|]|\barchives?$|^page \d+", re.I)
 
 
-def tidy(items):
-    """Drop index pages ("Tag: Tariffs", "Mexico Archives") and repeated titles."""
+def tidy(items, topic=""):
+    """Drop index pages ("Tag: Tariffs", "Mexico Archives", a bare "Federal Reserve" for that topic) and repeated titles."""
     out, seen = [], set()
+    bare = set(topic_words(topic)) if topic else set()
     for i in items:
         key = re.sub(r"\W+", " ", i["title"].lower()).strip()
+        if bare and set(topic_words(i["title"])) == bare and len(key.split()) <= len(bare) + 1:
+            continue
         if not key or key in seen or INDEX_PAGE.search(i["title"].strip()):
             continue
         seen.add(key)
@@ -268,7 +287,7 @@ def pull_outlet(o, topic, hosts, getter=fetch):
     errors = []
     try:
         raw = getter(google_url(topic, o["domain"]), hosts)
-        items = tidy([dict(i, title=strip_outlet(i["title"], o)) for i in parse_feed(raw)])
+        items = tidy([dict(i, title=strip_outlet(i["title"], o)) for i in parse_feed(raw)], topic)
         if items:
             items = [i for _, i in rank(items, topic_words(topic))]
             return {"id": o["id"], "ok": True, "items": items[:PER_OUTLET], "via": "Google News", "error": None}
@@ -278,7 +297,7 @@ def pull_outlet(o, topic, hosts, getter=fetch):
     if o.get("feed"):
         try:
             words = topic_words(topic)
-            items = [i for i in tidy(parse_feed(getter(o["feed"], hosts))) if matches(i["title"], words)]
+            items = [i for i in tidy(parse_feed(getter(o["feed"], hosts)), topic) if matches(i["title"], words)]
             items.sort(key=lambda i: i["at"] or 0, reverse=True)
             return {"id": o["id"], "ok": True, "items": items[:PER_OUTLET], "via": "own feed", "error": None}
         except Exception as e:
@@ -305,7 +324,7 @@ def pull(topic, getter=fetch, deadline=None):
     hosts = allowed_hosts(items)
     # The socket timeout bounds each read, not a whole fetch: a server that drips a byte every few seconds
     # could hold a column for minutes. The pull as a whole stops at DEADLINE; a late column fails alone.
-    ex = ThreadPoolExecutor(max_workers=min(8, len(items)), thread_name_prefix="ldw-headlines")
+    ex = ThreadPoolExecutor(max_workers=min(MAX_OUTLETS, len(items)), thread_name_prefix="ldw-headlines")  # one per column, so none waits in a queue
     futures = [ex.submit(pull_outlet, o, topic, hosts, getter) for o in items]
     wait(futures, timeout=deadline)
     columns = []

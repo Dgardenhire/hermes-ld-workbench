@@ -250,10 +250,14 @@ export function OutletEditor({ onClose, embedded }) {
   const set = (i, k, v) => setRows(rows.map((r, j) => (j === i ? { ...r, [k]: v } : r)))
   const save = async body => { setBusy(true); setErr(null); try { const d = await post('outlets', body); setRows(d.outlets); setData({ ...data, ...d }); onClose(d) } catch (e) { setErr(errText(e)) } finally { setBusy(false) } }
   const counts = { left: 0, center: 0, right: 0 }
-  rows.forEach(r => { counts[r.side] = (counts[r.side] || 0) + 1 })
+  const leans = { left: 0, center: 0, right: 0 }
+  const leanSide = l => (/Left/.test(l) ? 'left' : /Right/.test(l) ? 'right' : 'center')
+  rows.forEach(r => { counts[r.side] = (counts[r.side] || 0) + 1; leans[leanSide(r.lean)] += 1 })
+  const lopsided = (counts.left || counts.right) && (counts.left >= 2 * Math.max(1, counts.right) || counts.right >= 2 * Math.max(1, counts.left))
   return jsxs('section', { className: embedded ? 'hk-stack ldw-outlets-embedded' : 'ldw-panel', 'aria-label': 'Your outlets', children: [
     embedded ? null : jsx('h3', { className: 'ldw-h2', children: 'Your outlets' }),
-    jsx('p', { className: 'ldw-meta', children: `${counts.left} left, ${counts.center} center, ${counts.right} right. Lean labels: AllSides, checked ${data.labels_checked}. Change any label you disagree with.` }),
+    jsx('p', { className: 'ldw-meta', children: `${counts.left} left, ${counts.center} center, ${counts.right} right. By label, ${leans.left} lean left, ${leans.center} center, ${leans.right} lean right. Lean labels: AllSides, checked ${data.labels_checked}. Change any label you disagree with.` }),
+    lopsided ? jsx(Notice, { tone: 'warn', children: `One side has twice the outlets of the other. Add from the ${counts.left < counts.right ? 'left' : 'right'} to read both sides.` }) : null,
     jsx('table', { className: 'ldw-outlet-table', children: jsx('tbody', { children: rows.map((r, i) => jsxs('tr', { children: [
       jsx('td', { children: jsx(Input, { 'aria-label': 'Outlet name', value: r.name, onChange: e => set(i, 'name', e.target.value) }) }),
       jsx('td', { children: jsx(Input, { 'aria-label': 'Web address', value: r.domain, onChange: e => set(i, 'domain', e.target.value) }) }),
@@ -426,6 +430,16 @@ function PrepStage({ round, setRound, modeSwitch }) {
     setRound(await post('extemp/round', { outline, phase: 'speak', prep_left: prep.left }))
   }
   const chosen = file.filter(i => outline.sources.includes(i.id))
+  const [removing, setRemoving] = useState(null)
+  const [fileErr, setFileErr] = useState(null)
+  const remove = async item => {
+    setFileErr(null)
+    try {
+      await post(`extemp/file/${encodeURIComponent(item.id)}/delete`)
+      setFile(file.filter(i => i.id !== item.id))
+      if (outline.sources.includes(item.id)) change('sources', outline.sources.filter(x => x !== item.id))
+    } catch (e) { setFileErr(errText(e)) } finally { setRemoving(null) }
+  }
   return jsxs(Fragment, { children: [
     jsx(Strip, { segments: [
       { key: 'draw', code: 'Draw', sub: AREAS[round.area], minutes: 3, min: 120, state: 'done' },
@@ -443,10 +457,20 @@ function PrepStage({ round, setRound, modeSwitch }) {
         jsxs('div', { className: 'ldw-prepclock', children: [jsx('span', { className: 'ldw-num', children: mmss(prep.left) }),
           jsx('button', { type: 'button', className: 'hk-link', onClick: prep.toggle, children: prep.running ? 'Pause prep' : 'Resume prep' })] }),
         jsx('h3', { className: 'ldw-h3', children: `Sources from your file · ${chosen.length} picked` }),
-        file.length ? jsx('ul', { className: 'ldw-srcs', children: file.slice(0, 40).map(i => jsx('li', { children: jsxs('label', { children: [
-          jsx('input', { type: 'checkbox', checked: outline.sources.includes(i.id), onChange: () => toggleSource(i.id) }),
-          jsxs('span', { children: [jsx('b', { children: i.outlet || 'Saved link' }), ` · ${dateOf(i.at) || 'no date'} · ${i.title}`] }),
-        ] }) }, i.id)) }) : jsx('p', { className: 'ldw-meta', children: 'Your file is empty. Pull headlines and save a few before your next round.' }),
+        fileErr ? jsx(Notice, { tone: 'bad', children: fileErr }) : null,
+        file.length ? jsx('ul', { className: 'ldw-srcs', children: file.slice(0, 40).map(i => jsxs('li', { children: [
+          jsxs('div', { className: 'ldw-src-row', children: [
+            jsxs('label', { children: [
+              jsx('input', { type: 'checkbox', checked: outline.sources.includes(i.id), onChange: () => toggleSource(i.id) }),
+              jsxs('span', { children: [jsx('b', { children: i.outlet || 'Saved link' }), ` · ${dateOf(i.at) || 'no date'} · ${i.title}`] }),
+            ] }),
+            removing === i.id ? null : jsx('button', { type: 'button', className: 'hk-link ldw-src-remove', 'aria-label': `Remove ${i.title} from your file`, onClick: () => setRemoving(i.id), children: 'Remove' }),
+          ] }),
+          removing === i.id ? jsx(Notice, { tone: 'warn', children: 'Remove this from your file? It cannot be brought back.', action: jsxs('div', { className: 'hk-actions', children: [
+            jsx(Button, { size: 'sm', variant: 'secondary', className: 'ldw-danger', onClick: () => remove(i), children: 'Remove' }),
+            jsx(Button, { size: 'sm', variant: 'secondary', onClick: () => setRemoving(null), children: 'Keep it' }),
+          ] }) }) : null,
+        ] }, i.id)) }) : jsx('p', { className: 'ldw-meta', children: 'Your file is empty. Pull headlines and save a few before your next round.' }),
         round.mode === 'internet' ? jsx(WebSearch, { question: round.question, onSaved: item => { setFile([item, ...file]); change('sources', [...outline.sources, item.id]) } }) : null,
         jsx(Button, { className: 'ldw-big', onClick: toPodium, children: 'Go to the podium' }),
       ] }),

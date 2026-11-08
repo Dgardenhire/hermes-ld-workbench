@@ -94,7 +94,20 @@ def edit_item(item_id, b):
 
 
 def remove_item(item_id):
-    return store.update("extemp_file.json", lambda f: (f.__setitem__("items", [i for i in f["items"] if i["id"] != item_id]), f)[1])
+    """Take one item out of the file, and out of the sources picked for the round in progress."""
+    def drop(f):
+        kept = [i for i in f["items"] if i["id"] != item_id]
+        if len(kept) == len(f["items"]):
+            raise ValueError("That item is no longer in your file.")
+        f["items"] = kept
+        return f
+    store.update("extemp_file.json", drop)
+
+    def unpick(r):
+        if r and item_id in ((r.get("outline") or {}).get("sources") or []):
+            r["outline"]["sources"] = [s for s in r["outline"]["sources"] if s != item_id]
+        return r
+    store.update("extemp_round.json", unpick)
 
 
 def search(query=None, topic=None):

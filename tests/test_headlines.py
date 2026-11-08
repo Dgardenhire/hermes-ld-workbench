@@ -32,6 +32,23 @@ class Parser(unittest.TestCase):
     def test_cut_off_document_keeps_closed_items(self):
         self.assertEqual(len(headlines.parse_feed(RSS[: RSS.index(b"<item><title>No link")] + b"<item><title>half")), 2)
 
+    def test_cut_off_feed_with_namespaced_tags_keeps_its_items(self):
+        """The Atlantic's feed is bigger than the byte cap, and each entry carries media: and xml: names
+        declared on the root. A cut document is read item by item, so the prefixes must not sink it."""
+        doc = (b'<?xml version="1.0"?><rss xmlns:media="http://search.yahoo.com/mrss/" xml:lang="en-us" version="2.0"><channel>'
+               + b''.join(b'<entry><title type="html">Fed holds rates %d</title><link href="https://www.theatlantic.com/a%d/" rel="alternate"/>'
+                          b'<media:content url="https://cdn.example/i.jpg" xml:lang="en"/><published>2026-11-0%dT10:00:00Z</published></entry>' % (i, i, i)
+                          for i in range(1, 4))
+               + b'<entry><title>cut here')
+        items = headlines.parse_feed(doc)
+        self.assertEqual([i["title"] for i in items], ["Fed holds rates 1", "Fed holds rates 2", "Fed holds rates 3"])
+        self.assertTrue(all(i["at"] for i in items))
+
+    def test_bare_topic_page_dropped(self):
+        items = [{"title": "Federal Reserve"}, {"title": "The Fed holds rates"}, {"title": "The Federal Reserve's next move"}]
+        self.assertEqual([i["title"] for i in headlines.tidy(items, "the Federal Reserve")],
+                         ["The Fed holds rates", "The Federal Reserve's next move"])
+
     def test_google_suffix_stripped(self):
         self.assertEqual(headlines.strip_outlet("Senate weighs repeal - National Review", {}), "Senate weighs repeal")
         aei = {"name": "AEI", "domain": "aei.org", "note": "American Enterprise Institute, a think tank"}
@@ -65,10 +82,32 @@ class Outlets(unittest.TestCase):
         self.assertEqual(by["UnHerd"]["lean"], "Center")  # AllSides' own label, not ours
         self.assertIn("Manhattan Institute", by["City Journal"]["note"])
 
-    def test_default_set_is_reported_lopsided(self):
-        bal = headlines.balance(headlines.outlets())
-        self.assertEqual(bal["counts"], {"left": 2, "center": 3, "right": 5})
-        self.assertTrue(bal["lopsided"])
+    def test_defaults_are_balanced_by_allsides_label(self):
+        """Damon asked for balance between center-left and center-right: the Atlantic and Washington
+        Monthly sit opposite National Review and City Journal, so the labels run 5 to 5."""
+        items = headlines.outlets()
+        by = {o["name"]: o for o in items}
+        self.assertEqual((by["The Atlantic"]["lean"], by["The Atlantic"]["side"]), ("Left", "left"))
+        self.assertEqual((by["Washington Monthly"]["lean"], by["Washington Monthly"]["side"]), ("Lean Left", "left"))
+        bal = headlines.balance(items)
+        self.assertEqual(bal["counts"], {"left": 4, "center": 3, "right": 5})
+        self.assertEqual(bal["by_label"], {"left": 5, "center": 2, "right": 5})
+        self.assertFalse(bal["lopsided"])
+        self.assertTrue(all(o["lean"] in headlines.LEANS and o["side"] in headlines.SIDES for o in items))
+        self.assertTrue(all(o["feed"] == "" or o["feed"].startswith("https://") for o in items))
+
+    def test_brookings_stays_a_suggestion_and_suggestions_are_not_defaults(self):
+        names = [s["name"] for s in headlines.SUGGESTED]
+        self.assertIn("Brookings", names)
+        self.assertFalse(set(names) & {o["name"] for o in headlines.DEFAULT_OUTLETS})
+        for s in headlines.SUGGESTED:
+            headlines.clean_outlet(s)  # each one passes the same check as a typed outlet
+
+    def test_lopsided_list_still_flagged(self):
+        self.assertTrue(headlines.balance([dict(o) for o in headlines.DEFAULT_OUTLETS if o["side"] != "left"])["lopsided"])
+
+    def test_defaults_fit_in_one_pull(self):
+        self.assertLessEqual(len(headlines.DEFAULT_OUTLETS), headlines.MAX_OUTLETS)
 
     def test_edit_validates_and_resets(self):
         with self.assertRaises(ValueError):

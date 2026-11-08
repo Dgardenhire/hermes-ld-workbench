@@ -160,7 +160,10 @@ export const FRAME_CSS = `
 .ldw-prepclock{display:flex;align-items:baseline;justify-content:space-between;gap:10px}
 .ldw-prepclock .ldw-num{font-family:var(--ldw-cond);font-weight:700;font-size:64px;line-height:1}
 .ldw-srcs{list-style:none;margin:0;padding:0;display:grid;gap:6px;max-height:340px;overflow:auto;font-size:13px}
-.ldw-srcs label{display:flex;gap:8px;align-items:flex-start;cursor:pointer}
+.ldw-srcs label{display:flex;gap:8px;align-items:flex-start;cursor:pointer;flex:1;min-width:0}
+.ldw-src-row{display:flex;gap:10px;align-items:flex-start}
+.ldw-src-remove{flex:none;font-size:12px}
+.ldw-srcs .hk-notice{margin-top:6px}
 
 /* rhetoric */
 .ldw-read{display:grid;grid-template-columns:220px minmax(0,1fr) 230px;gap:24px;align-items:start}
