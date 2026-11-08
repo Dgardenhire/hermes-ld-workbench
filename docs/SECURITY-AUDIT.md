@@ -222,3 +222,158 @@ every figure the two products share: the eleven revised ones against The Clearin
 Clearing's figure list now also rewords those 26 (for example epizeuxis, "A word said twice or more in a
 row", where the workbench keeps the craft-path gloss "Immediate repetition"), and five figures the workbench
 wrote itself (rhyme, versification, antithesis, paradox, personification) now have Clearing wording too.
+
+## Second review
+
+Reviewed Nov 8, 2026, on branch `v0.2`, every change in `09c476f..ac0ec0f` (3 commits, 83 files): Hermes's own
+transcription, the WAV conversion, the speech model download, Delete transcripts and ballots, the coach's
+question list and "Ask only my questions", the ballot print and "Save as a file for your coach", the headline
+topic filter, the flow beside the clock, the fallacy quote check and the new fixtures. The reviewer did not
+build these changes. Same rules as the first audit: no `hermes` command was run, nothing was installed into
+`~/.hermes`, `~/.hermes/.env`, `auth.json` and the Keychain were not read, and no model was downloaded. Hermes's
+transcription source (`~/.hermes/hermes-agent/tools/transcription_*.py`, `voice_mode.py`, at `a48ba459ea`) was
+read to check what the plugin assumes about it.
+
+### Verdict
+
+Fit to ship after this pass. One medium finding was fixed: a pattern in the new fallacy quote check backtracked
+in cubic time, so a model answer with one long line of spaces could hold Hermes's whole backend for minutes.
+Two low findings were fixed (any bytes sent as "audio" were kept and decoded, and a WAV copy left by a crash
+outlived Delete all recordings), plus bandit's one high, which was a false positive. Nothing high or critical.
+Cloud transcription is reported below, unchanged, for Damon's decision.
+
+Tests: 273, all passing (`/usr/bin/python3 -m unittest discover -s tests`), up from 267: 6 new in
+`tests/test_security.py` (`SecondReview`). Five fail on `ac0ec0f` (shown by restoring the three source files);
+the sixth guards the quote formats the faster pattern must still read. Eight existing tests now send recordings
+that start like real WebM, since bare strings such as `b"webm"` are no longer accepted as audio.
+
+### Tools run
+
+| Tool | Command | Result |
+|---|---|---|
+| gitleaks 8 | `gitleaks git .` (38 commits, 1.89 MB) and `gitleaks dir .` | No leaks, before and after. |
+| pip-audit (uvx) | `uvx pip-audit -r runtime-reqs.txt` over fastapi, faster-whisper, huggingface-hub, av (newest: fastapi 0.162.2, starlette 1.10.0, faster-whisper 1.2.1, ctranslate2 4.8.5, av 19.0.2, huggingface-hub 2.4.0) | 30 packages, no known vulnerabilities. huggingface-hub is new to the list: the download now calls it directly. |
+| bandit (uvx) | `uvx bandit -r . -x ./tests` (4,941 lines) | Before: 1 high, 3 medium, 11 low. After: 0 high, 3 medium, 11 low. |
+| semgrep (uvx, `--metrics=off`) | `p/python`, `p/security-audit`, `p/secrets`, `p/javascript`, `p/owasp-top-ten`, tests excluded (356 rules, 50 files) | 8 findings, 0 errors: the 7 from the first audit plus `insecure-hash-algorithm-sha1` (S-4). |
+| desktop bundle | `node ~/products/hermes-ui-kit/scripts/build.mjs . --check` | up to date; no `innerHTML` in the bundle. |
+
+New static findings, each explained (the 7 carried over are explained in the first audit):
+
+- **bandit B324 (high) and semgrep `insecure-hash-algorithm-sha1`** at `extemp.py:101`: SHA-1 of a question's
+  words makes its id. Not a secret, not an integrity check. Now `usedforsecurity=False` (S-4), which clears
+  bandit; semgrep's rule does not read that flag and still reports it.
+- **bandit B404, B603 (low)** at `speech.py:26`, `:711`, `:847`: the two new subprocesses, reviewed below.
+  List arguments, no shell, stdin closed, timeouts.
+- **bandit B106 (low)** at `speech.py:845`: `HF_HUB_DISABLE_IMPLICIT_TOKEN="1"` read as a password. False positive.
+- **bandit B110 (low)** at `speech.py:727`: `to_wav` swallows a converter's error and tries the next one, then
+  deletes the half-written file. Intended.
+
+### Findings
+
+| ID | Severity | Where (at `ac0ec0f`) | Status |
+|---|---|---|---|
+| S-1 | Medium | `engine.py:594` | Fixed |
+| S-2 | Low | `speech.py:315` | Fixed |
+| S-3 | Low | `speech.py:386`, `speech.py:733` | Fixed |
+| S-4 | Info | `extemp.py:101` | Fixed |
+| S-5 | Info | `speech.py:604-631`, `dashboard/plugin_api.py:772` | Reported, unchanged (Damon's decision) |
+| S-6 | Info | `engine.py:758` | Open, accepted |
+
+**S-1. The fallacy quote check could hold Hermes's backend for minutes.** `check_quotes` runs the `_LABEL`
+pattern over every line of the model's answer, on the event loop (`run_spot`, and `run_tool` for the fallacy
+finder). The pattern began `\s*(bullet)?\s*\*{0,2}\s*`: with no bullet and no stars, three whitespace runs sit
+side by side and a line that does not match backtracks in cubic time. Measured on `/usr/bin/python3`: 400
+spaces 0.6 s, 800 spaces 5 s, so 4,000 would take minutes, and Python's regex engine holds the GIL the whole
+time, so every route of every plugin waits. The model writes that line, and the text it reads can ask for it
+(a pasted argument in Spot the fallacy, a case from a shared file). Fix (`engine.py:596`): each optional part
+carries its own whitespace, so no two runs touch. 115,200 generated label lines match exactly as before, and
+the worst shapes at 20,000 characters take under 6 ms. Tests: `test_a_long_run_of_spaces_from_the_model_does_not_stall_hermes`
+(run in a child process with a 20-second limit, since the old pattern cannot be interrupted),
+`test_the_label_pattern_still_reads_every_format`.
+
+**S-2. Any bytes sent as audio were kept, decoded and possibly uploaded.** `save_audio` checked only the
+declared type. PyAV, ffmpeg and faster-whisper choose a reader from the bytes, not the file name, so a text
+playlist (`#EXTM3U`) or `ffconcat` list saved as `<id>.webm` is read as a playlist, the classic way to make
+ffmpeg open other files; with a cloud speech-to-text the file is also uploaded as it is. Current ffmpeg and
+PyAV's bundled copy refuse HLS under a non-playlist name, and `ffconcat`'s safe mode stays inside the folder,
+so this is defense in depth, and the route is reachable only from the student's own page. Fix
+(`speech.py:315`, `is_audio`): a recording must open like WebM/Matroska, Ogg, MP4/M4A, WAV or MP3, the formats
+`MediaRecorder` makes in Hermes Desktop (`floor.js` asks for WebM, then Ogg, then MP4). Tests:
+`test_a_file_that_is_not_audio_is_refused` (playlist, `ffconcat`, HTML, zip, zero bytes; nothing written),
+`test_every_recording_a_browser_makes_is_kept`.
+
+**S-3. A WAV copy of a take could outlive Delete all recordings.** `hermes_transcribe` converts each take to a
+16 kHz WAV in `plugin-data/ld-workbench/tmp/` and deletes it in a `finally`; a crash or restart mid-transcript
+leaves it, and Delete all recordings cleared only `recordings/`. Fix: that button also empties `tmp/` (the count
+it reports is still recordings only). Test: `test_delete_all_recordings_also_removes_a_wav_left_by_a_crash`.
+
+**S-4. SHA-1 for question ids.** See the bandit note above. Test: `test_the_question_id_hash_is_marked_not_for_security`
+(the ids do not change).
+
+**S-5. Cloud transcription follows Hermes, starts without a press, and is said on each take.** Reported for
+Damon's decision (whether a cloud transcript should wait for a press); behavior not changed.
+- What happens: a recording that arrives is transcribed at once (`post_take_audio` calls `TRANSCRIBER.start`
+  with no download allowed). When Hermes Settings, Voice names a cloud provider (OpenAI, Groq, Mistral, xAI,
+  ElevenLabs, DeepInfra; `nous` is OpenAI), the take goes to that provider through Hermes's
+  `transcribe_recording`, with no press. The plugin's cloud list matches Hermes's `CLOUD_STT_PROVIDERS`
+  exactly (`tools/transcription_common.py`).
+- The gap worth knowing: with no provider chosen in Hermes and no local faster-whisper or whisper command,
+  Hermes auto-detects and uses the first cloud key it finds (Groq, OpenAI, Mistral, xAI, ElevenLabs,
+  DeepInfra, in that order), including a key set up for chat. The plugin cannot know which in advance
+  (`hermes_plan` returns `local: None`), so before the first take Settings says "If that is a cloud service,
+  each recording goes to it", not which one. On a computer with an OpenAI key and no local speech-to-text, a
+  student's first recording goes to OpenAI without anyone having chosen cloud transcription.
+- Disclosure, per take: Hermes returns the provider it used, the plugin marks the take `local: false` for
+  any cloud provider, and the take reads "Transcript by OpenAI, through Hermes" (`floor.js` `transcriptLine`).
+  A provider from a Hermes plugin reads "Transcript by Hermes's speech-to-text". Settings says the provider by
+  name when Hermes names it, and the conditional line above when it does not.
+- Never downloads: Hermes's local engine runs only when its model is already cached (it would download on a
+  miss), and Hermes's lazy faster-whisper install is never reached, because the plugin plans local only when
+  faster-whisper is importable. Profile scoping holds: settings are read with `load_config_readonly` in the
+  request's profile and the job runs in a copy of that context (`test_it_runs_in_the_profile_of_the_request_that_started_it`).
+- If Damon wants a press first: make `hermes_plan` not usable when `local` is not `True` unless
+  `allow_download` (the Transcribe now press) is set, and say "Press Transcribe now to send this take to
+  <provider>" on the take.
+
+**S-6. A question the student or coach writes reaches the extemp judge unfenced.** `run_extemp_judge` puts the
+question on a `Question:` line. It is the student's own text from this computer (one line, 240 characters,
+`extemp.clean_question`), never outside text, and the judge's answer is bounded as in F-5 (points clamped,
+lines checked, tags from a fixed list, no tools). Accepted.
+
+### Checked and clean
+
+- **WAV conversion.** ffmpeg is found with `shutil.which`, run as a list (no shell) with `-nostdin`, stdin
+  closed, a 120-second timeout and a 20-minute cap on the output; input and output are absolute paths the
+  plugin built (`recordings/<12 hex>.<ext>`, `tmp/<stem>-<8 hex>.wav`), so no argument can start with `-` and no
+  protocol prefix can appear. PyAV decodes in-process and stops at 20 minutes of samples. Both stay inside the
+  plugin's data folder; the temp WAV is deleted on every path, tested in `test_the_temp_wav_is_deleted_even_when_hermes_raises`.
+- **The guarded import.** `from tools.voice_mode import transcribe_recording` is inside `try/except Exception`
+  and checked callable; a missing or changed function falls back to the plugin's own engine (tested).
+- **Model download.** Runs only on the Transcribe now press, after the take has said the model's name and size
+  (145 MB base.en, 485 MB small.en). The child is `sys.executable -I -c <fixed script> <repo> <folder>`: no
+  shell, stdin closed, a 30-minute timeout. The repo comes from `_repo(name)` with `name` limited to the two
+  models; the folder is `plugin-data/ld-workbench/models/.<name>.part`, renamed into place only when complete.
+  Every `HF_*` and `HUGGINGFACE*` variable is removed and `HF_HOME`, `HF_HUB_CACHE` and `HF_XET_CACHE` point
+  inside the plugin's folder, so the user's token file, cache and endpoint are never read; `token=False`,
+  implicit token and telemetry off. The user's shared Hugging Face cache is only read. Tests in
+  `SpeechModelDownload` and `SpeechModelLocation`.
+- **Delete transcripts and ballots.** One confirm in Settings, a dashboard route the model cannot reach. Clears
+  every transcript, typed text and outline answer, every ballot, and both rounds in progress; a transcript being
+  made is cancelled and cannot come back (`test_a_transcript_in_progress_does_not_come_back`). Recordings, cases
+  and the extemp file stay, as the page says. A ballots file the student already saved for a coach stays where
+  they saved it.
+- **Question list and "Ask only my questions".** Text is whitespace-collapsed to 240 characters, ids are
+  derived (no client id reaches a path), the list is capped at 200, a delete takes a 40-character id, and the
+  text is shown as React text only. See S-6 for the prompt.
+- **Ballot print and "Save as a file for your coach".** Print is `window.print()` of React-rendered sheets.
+  The save is plain text (`ballots.as_text`), never HTML, through the first audit's `export_path`: absolute,
+  inside the home folder, not hidden and not `~/Library` (cloud drives allowed), `.txt` forced, temp file and
+  rename. The student's name is cut to 60 characters. No script can run from the saved file.
+- **Headline topic filter.** `_word` and `_plain` are linear patterns built with `re.escape`; topic length is
+  capped by `clean_topic`; the filter only removes items. Feed handling is unchanged from the first audit.
+- **Flow beside the clock, fallacy marks.** Flow points are React text children (`plugin.js:166`); the
+  fallacy answer goes through `renderChecked` into React elements. `[[not-found]]` is stripped from the
+  model's text before marking (`check_quotes`), so the model cannot forge or hide a mark.
+- **Fixtures.** `harness/make_fixtures.py`, `harness/fixtures02.js` and `harness/pull-fed-2026-11-07.json`
+  hold no email addresses, phone numbers, personal paths (`/Users/student` is invented) or private names. The
+  pull is public headlines from ten outlets' feeds and Google News links.

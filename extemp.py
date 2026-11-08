@@ -98,7 +98,7 @@ QUESTION_CAP = 200  # questions a student or coach can add
 def question_id(text):
     """A built-in or added question's id, from its words, so it never shifts when the list grows."""
     import hashlib
-    return "q" + hashlib.sha1(" ".join(str(text).lower().split()).encode("utf-8")).hexdigest()[:9]
+    return "q" + hashlib.sha1(" ".join(str(text).lower().split()).encode("utf-8"), usedforsecurity=False).hexdigest()[:9]  # an id, not a secret
 
 
 def questions_view():

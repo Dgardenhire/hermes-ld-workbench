@@ -591,7 +591,9 @@ async def run_drill(p, model):
 # Every "Exact words" quote the fallacy finder gives is checked against the text it was reading, the way a
 # ballot's lines are. A quote that is not there is marked on its line, so it is never trusted by mistake.
 NOT_FOUND = "[[not-found]]"  # the page shows this as "Not found in the speech. Check it."
-_LABEL = re.compile(r"^(?P<lead>\s*(?:[-*\u2022]|\d+[.)])?\s*)(?P<label>\*{0,2}\s*(?:the\s+)?(?:exact\s+words?|exact\s+quote|quoted?|quotes?)\s*\*{0,2}\s*:\s*\*{0,2})(?P<rest>.*)$", re.I)
+# No two whitespace runs may sit side by side in this pattern: "\s*X?\s*" with X absent backtracks in cubic
+# time, and a model line of a few thousand spaces then held Hermes's event loop for minutes (second review, S-1).
+_LABEL = re.compile(r"^(?P<lead>\s*(?:(?:[-*\u2022]|\d+[.)])\s*)?)(?P<label>(?:\*{1,2}\s*)?(?:the\s+)?(?:exact\s+words?|exact\s+quote|quoted?|quotes?)\s*(?:\*{1,2}\s*)?:\s*\*{0,2})(?P<rest>.*)$", re.I)
 _QUOTED = re.compile(r"\u201c([^\u201d]+)\u201d|\"([^\"]+)\"")
 
 

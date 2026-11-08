@@ -122,7 +122,7 @@ class WithHermes(unittest.TestCase):
 
     def recorded(self, answer="yes, through the budget"):
         t = speech.new_take({"event": "drill", "limit": 60, "duration": 21, "levels": levels(1, 20), "answer": answer})
-        speech.save_audio(t["id"], b"webm-bytes", "audio/webm")
+        speech.save_audio(t["id"], b"\x1a\x45\xdf\xa3webm-bytes", "audio/webm")
         return t
 
     def wait(self, take_id):

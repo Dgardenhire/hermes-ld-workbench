@@ -312,6 +312,17 @@ def public(take, with_levels=True):
     return out
 
 
+def is_audio(data):
+    """True when ``data`` opens like one of the recordings a browser makes: WebM/Matroska, Ogg, MP4/M4A, WAV
+    or MP3. A take is decoded by PyAV or ffmpeg, which pick a reader from the bytes, not the name, and with a
+    cloud speech-to-text it is uploaded as it is; a text playlist (``#EXTM3U``, ``ffconcat``) or any other
+    file sent as "audio/webm" never gets that far (second review, S-2)."""
+    head = bytes(data[:12])
+    return (head.startswith(b"\x1a\x45\xdf\xa3") or head.startswith(b"OggS") or head[4:8] == b"ftyp"
+            or (head.startswith(b"RIFF") and head[8:12] == b"WAVE") or head.startswith(b"ID3")
+            or (len(head) > 1 and head[0] == 0xFF and head[1] & 0xE0 == 0xE0))
+
+
 def save_audio(take_id, data, mime):
     """Keep the recording for a take. ``data`` is bytes. Old recordings past the cap are deleted."""
     mime = check_mime(mime)
@@ -319,6 +330,8 @@ def save_audio(take_id, data, mime):
         raise ValueError("The recording is empty. Try again.")
     if len(data) > UPLOAD_CAP:
         raise ValueError("That recording is over 30 MB. Keep takes under 20 minutes.")
+    if not is_audio(data):
+        raise ValueError("That is not an audio recording.")
     take = get_take(take_id)
     name = f"{take['id']}{_ext(mime)}"
     path = _rec_dir() / name
@@ -393,6 +406,16 @@ def delete_all_recordings():
                 n += 1
             except OSError:
                 pass
+    # The WAV copies made for Hermes's speech-to-text are deleted after each take, but one left by a crash or
+    # a restart mid-transcript is the student's voice too (second review, S-3).
+    tmp = store.data_dir() / "tmp"
+    if tmp.is_dir():
+        for p in tmp.iterdir():
+            if p.is_file() and not p.is_symlink():
+                try:
+                    p.unlink()
+                except OSError:
+                    pass
 
     def clear(p):
         for t in p["takes"]:

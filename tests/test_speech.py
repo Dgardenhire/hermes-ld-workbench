@@ -117,7 +117,7 @@ class Recordings(unittest.TestCase):
         for i in range(23):
             t = self.take()
             speech.change_take(t["id"], lambda x, i=i: x.__setitem__("at", 1000 + i))
-            speech.save_audio(t["id"], b"a" * 10, "audio/webm")
+            speech.save_audio(t["id"], b"\x1a\x45\xdf\xa3" + b"a" * 10, "audio/webm")
             ids.append(t["id"])
         kept = [t["id"] for t in store.read("practice.json")["takes"] if t["file"]]
         self.assertEqual(len(kept), 20)
@@ -127,7 +127,7 @@ class Recordings(unittest.TestCase):
 
     def test_delete_all(self):
         t = self.take()
-        speech.save_audio(t["id"], b"a" * 10, "audio/webm")
+        speech.save_audio(t["id"], b"\x1a\x45\xdf\xa3" + b"a" * 10, "audio/webm")
         self.assertEqual(speech.delete_all_recordings(), 1)
         self.assertFalse(speech.get_take(t["id"])["file"])
         self.assertEqual(speech.recordings_summary()["count"], 0)
@@ -158,7 +158,7 @@ class Transcript(unittest.TestCase):
 
     def recorded(self):
         t = speech.new_take({"event": "drill", "limit": 60, "duration": 20, "levels": levels("20:loud"), "answer": "yes, through the budget"})
-        speech.save_audio(t["id"], b"audio", "audio/webm")
+        speech.save_audio(t["id"], b"\x1a\x45\xdf\xa3audio", "audio/webm")
         return t
 
     def test_done_fills_transcript_and_stats(self):
@@ -204,11 +204,11 @@ class Transcript(unittest.TestCase):
         self.use(lambda path, model: {"text": "my answer is yes", "words": words_at("my answer is yes")})
         t = run(api.post_take({"event": "drill", "limit": 60, "duration": 12, "levels": levels("12:loud"), "prompt": "Q?"}))
         self.assertNotIn("file", t)
-        out = run(api.post_take_audio(t["id"], {"b64": base64.b64encode(b"webm").decode(), "mime": "audio/webm"}))
+        out = run(api.post_take_audio(t["id"], {"b64": base64.b64encode(b"\x1a\x45\xdf\xa3webm").decode(), "mime": "audio/webm"}))
         self.assertIn(out["transcript"]["status"], ("waiting", "working", "done"))
         wait_status(t["id"])
         self.assertEqual(run(api.get_take(t["id"]))["transcript"]["text"], "my answer is yes")
-        self.assertEqual(base64.b64decode(run(api.get_take_audio(t["id"]))["b64"]), b"webm")
+        self.assertEqual(base64.b64decode(run(api.get_take_audio(t["id"]))["b64"]), b"\x1a\x45\xdf\xa3webm")
         with self.assertRaises(HTTPException) as e:
             run(api.get_take("missing"))
         self.assertEqual(e.exception.status_code, 400)

@@ -287,7 +287,7 @@ class SpeechModelDownload(unittest.TestCase):
 
     def _take(self):
         t = run(api.post_take({"event": "drill", "limit": 60, "duration": 5, "levels": [0.2] * 50}))
-        return run(api.post_take_audio(t["id"], {"b64": base64.b64encode(b"webm").decode(), "mime": "audio/webm"}))
+        return run(api.post_take_audio(t["id"], {"b64": base64.b64encode(b"\x1a\x45\xdf\xa3webm").decode(), "mime": "audio/webm"}))
 
     def _wait(self, tid):
         import time
@@ -444,7 +444,7 @@ class SpeechModelLocation(unittest.TestCase):
             speech.download_model("base.en")
         self.assertFalse(speech.transcript_status()["own_folder_writable"])
         t = speech.new_take({"event": "drill", "limit": 60, "duration": 12, "levels": [0.0] * 10 + [0.5] * 100})
-        speech.save_audio(t["id"], b"webm", "audio/webm")
+        speech.save_audio(t["id"], b"\x1a\x45\xdf\xa3webm", "audio/webm")
 
         tr = speech.Transcriber()  # the real chain: no model anywhere, the press, then the folder check
         tr.fallback_ready = lambda: True
@@ -501,6 +501,84 @@ class PathsAndDisclosure(unittest.TestCase):
             self.assertIn(host, readme)
         self.assertIn("Students and minors", readme)
         self.assertIn("press Transcribe now", readme)
+
+
+class SecondReview(unittest.TestCase):
+    """The second review (docs/SECURITY-AUDIT.md, "Second review"): S-1 to S-4."""
+
+    def setUp(self):
+        reset()
+
+    def test_a_long_run_of_spaces_from_the_model_does_not_stall_hermes(self):
+        """S-1: the "Exact words" label pattern backtracked in cubic time; 800 spaces took 5 s, 4,000 minutes,
+        on Hermes's event loop (the regex holds the GIL, so it is timed in a child process)."""
+        import subprocess
+        from pathlib import Path
+        child = ("import sys; sys.path.insert(0, sys.argv[1]); from _load import engine\n"
+                 "lines = [' ' * 20000 + 'x', '- ' + ' ' * 20000 + '**' + ' ' * 20000 + 'exact words' + ' ' * 20000,\n"
+                 "         '1. ' + '\\t' * 20000 + 'quote' + ' ' * 20000 + '*']\n"
+                 "print(engine.check_quotes('a b c d', '\\n'.join(lines))[1])\n")
+        try:
+            r = subprocess.run([sys.executable, "-c", child, str(Path(__file__).resolve().parent)],
+                               capture_output=True, text=True, timeout=20)
+        except subprocess.TimeoutExpired:
+            self.fail("the quote check was still running after 20 seconds")
+        self.assertEqual(r.stdout.strip(), "[]", r.stderr[-500:])
+
+    def test_the_label_pattern_still_reads_every_format(self):
+        text, quotes = engine.check_quotes("we must act now or lose everything",
+                                           "1. **Exact words:** \u201cwe must act now\u201d\n- Quote: \"lose it all forever\"")
+        self.assertEqual([q["found"] for q in quotes], [True, False])
+        self.assertIn(engine.NOT_FOUND, text.split("\n")[1])
+
+    def test_a_file_that_is_not_audio_is_refused(self):
+        """S-2: any bytes sent as audio/webm were kept, decoded by PyAV or ffmpeg (which choose a reader from
+        the bytes) and, with a cloud speech-to-text, uploaded. A playlist is the classic way to make ffmpeg
+        open other files."""
+        for data in (b"#EXTM3U\n#EXT-X-MEDIA-SEQUENCE:0\nfile:///etc/passwd\n", b"ffconcat version 1.0\nfile ../practice.json\n",
+                     b"<html><script>alert(1)</script></html>", b"PK\x03\x04 a zip", b"\x00" * 64):
+            t = speech.new_take({"event": "drill", "limit": 60, "duration": 10, "levels": [0.5] * 100})
+            with self.assertRaises(ValueError):
+                speech.save_audio(t["id"], data, "audio/webm")
+            with self.assertRaises(HTTPException):
+                run(api.post_take_audio(t["id"], {"b64": base64.b64encode(data).decode(), "mime": "audio/webm"}))
+            self.assertIsNone(speech.get_take(t["id"]).get("file"))
+        rec = store.data_dir() / "recordings"
+        self.assertEqual([p.name for p in rec.iterdir()] if rec.exists() else [], [])
+
+    def test_every_recording_a_browser_makes_is_kept(self):
+        for data in (b"\x1a\x45\xdf\xa3\x9f\x42\x86\x81", b"OggS\x00\x02" + b"\x00" * 8, b"\x00\x00\x00\x1cftypM4A " + b"\x00" * 4,
+                     b"RIFF\x24\x00\x00\x00WAVEfmt ", b"ID3\x04\x00\x00", b"\xff\xfb\x90\x64\x00"):
+            self.assertTrue(speech.is_audio(data), data)
+            t = speech.new_take({"event": "drill", "limit": 60, "duration": 10, "levels": [0.5] * 100})
+            self.assertTrue(speech.save_audio(t["id"], data, "audio/webm")["file"])
+
+    def test_delete_all_recordings_also_removes_a_wav_left_by_a_crash(self):
+        """S-3: the WAV copy made for Hermes's speech-to-text is deleted after each take, but one left by a
+        restart mid-transcript stayed after Delete all recordings."""
+        tmp = store.data_dir() / "tmp"
+        tmp.mkdir(parents=True, exist_ok=True)
+        (tmp / "abc123-dead.wav").write_bytes(b"RIFF\x24\x00\x00\x00WAVE")
+        t = speech.new_take({"event": "drill", "limit": 60, "duration": 10, "levels": [0.5] * 100})
+        speech.save_audio(t["id"], b"\x1a\x45\xdf\xa3webm", "audio/webm")
+        self.assertEqual(speech.delete_all_recordings(), 1)  # the count is recordings, not leftovers
+        self.assertEqual(list(tmp.iterdir()), [])
+
+    def test_the_question_id_hash_is_marked_not_for_security(self):
+        """S-4 (bandit B324, high): SHA-1 makes a question's id, not a secret; said so, and the ids do not move."""
+        import hashlib
+        seen, real = [], hashlib.sha1
+
+        def spy(*a, **k):
+            seen.append(k)
+            return real(*a, **k)
+        hashlib.sha1 = spy
+        try:
+            qid = extemp.question_id("Should the Federal Reserve care more about prices or about jobs right now?")
+        finally:
+            hashlib.sha1 = real
+        self.assertEqual(seen, [{"usedforsecurity": False}])
+        self.assertEqual(qid, "qabc9c3775")
 
 
 if __name__ == "__main__":

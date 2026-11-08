@@ -81,7 +81,7 @@ class TakesNeverStick(unittest.TestCase):
 
     def recorded(self):
         t = speech.new_take({"event": "drill", "limit": 60, "duration": 10, "levels": [0.5] * 100})
-        return speech.save_audio(t["id"], b"webm", "audio/webm")
+        return speech.save_audio(t["id"], b"\x1a\x45\xdf\xa3webm", "audio/webm")
 
     def test_a_take_left_waiting_by_a_restart_is_released(self):
         t = self.recorded()  # status "waiting", but no job in this process
