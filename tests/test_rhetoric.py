@@ -7,6 +7,7 @@ from pathlib import Path
 
 from _load import HTTPException, R, api, fake_model, reset, run
 
+HERMES_CLEARING = Path(__file__).resolve().parents[2] / "hermes-clearing"
 CLEARING_PATHS = Path.home() / "Documents/Codex/2026-09-06/https-every-to-guides-compound-writing/outputs/writing-bench/shared/craft-paths.js"
 
 
@@ -26,7 +27,7 @@ class Data(unittest.TestCase):
             self.assertLess(w["year"], 1929, w["id"])
             self.assertIn("Project Gutenberg", w["source"])
         from_books = sorted(f["id"] for f in R.FIGURES if f["example"] and "work" in f["example"])
-        self.assertEqual(from_books, ["syllepsis", "zeugma"])
+        self.assertEqual(from_books, ["syllepsis"])
         self.assertEqual({w["id"] for w in R.config()["works"]}, R.WORK_IDS)
         self.assertTrue(all(R.spot_item(__import__("random").Random(n))["speech"]["id"] for n in range(60)))  # Spot never draws a book line
 
@@ -46,7 +47,7 @@ class Data(unittest.TestCase):
     def test_clearing_definitions_are_word_for_word(self):
         src = CLEARING_PATHS.read_text(encoding="utf-8").lower()
         for f in R.FIGURES:
-            if f["source"] == R.CLEARING:
+            if f["source"] == R.CLEARING and f["id"] not in R.CLEARING_REVISED:  # revised in hermes-clearing; see below
                 gloss = f["definition"].rstrip(".").lower()
                 self.assertIn(gloss, src, f["id"])
         effects = re.findall(r"title:'([^']+)'", CLEARING_PATHS.read_text(encoding="utf-8"))
@@ -70,20 +71,33 @@ class Data(unittest.TestCase):
                 continue
             for n, g in zip(names, glosses):
                 f = by_name[n.lower()]
-                if f["source"] == R.CLEARING:
+                if f["source"] == R.CLEARING and f["id"] not in R.CLEARING_REVISED:
                     self.assertEqual(f["definition"].rstrip(".").lower(), g.lower(), n)
                     checked += 1
         self.assertGreaterEqual(checked, 14)  # repetition (7), interruption (8), and more as The Clearing grows
 
-    def test_shared_glosses_are_only_the_known_pairs(self):
-        """Two figures with one gloss read as a mistake on the figure list. Zeugma and syllepsis share one in
-        The Clearing itself; merism and synecdoche share one because The Clearing gives eight image figures
-        only seven glosses. Both pairs are listed in docs/STATUS.md for Damon; nothing else may collide."""
+    def test_no_two_figures_share_a_definition(self):
+        """Two figures with one gloss read as a mistake on the figure list. Zeugma and syllepsis, and merism
+        and synecdoche, used to share one; The Clearing fixed both pairs on Nov 8, 2026."""
         seen = {}
         for f in R.FIGURES:
             seen.setdefault(f["definition"].lower(), []).append(f["id"])
-        shared = sorted(sorted(v) for v in seen.values() if len(v) > 1)
-        self.assertEqual(shared, [["merism", "synecdoche"], ["syllepsis", "zeugma"]])
+        self.assertEqual(sorted(sorted(v) for v in seen.values() if len(v) > 1), [])
+
+    def test_the_four_revised_figures_have_their_own_example(self):
+        by = {f["id"]: f for f in R.FIGURES}
+        quotes = [by[i]["example"]["quote"] for i in R.CLEARING_REVISED]
+        self.assertEqual(len(set(quotes)), 4)
+
+    @unittest.skipUnless((HERMES_CLEARING / ".git").exists(), "The Clearing's repo is not beside this one")
+    def test_the_four_revised_definitions_match_the_clearing_word_for_word(self):
+        import subprocess
+        raw = subprocess.run(["git", "-C", str(HERMES_CLEARING), "show", "3a97a48:library/additions.json"],
+                             capture_output=True, text=True, check=True).stdout
+        theirs = {f[0]: f[1] for g in json.loads(raw)["figures"]["groups"] for f in g["figures"]}
+        by = {f["id"]: f for f in R.FIGURES}
+        for fid in R.CLEARING_REVISED:
+            self.assertEqual(by[fid]["definition"], theirs[fid], fid)
 
     def test_no_text_from_forsyth(self):
         self.assertEqual(R.FURTHER_READING, "Mark Forsyth, The Elements of Eloquence (2013)")

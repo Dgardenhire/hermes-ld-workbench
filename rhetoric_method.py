@@ -9,7 +9,7 @@ definition and ``source: "workbench"``; those are the lines to copy back into Th
 The figure list follows the chapters of Mark Forsyth, The Elements of Eloquence (2013), which the
 page names as further reading. No text and no examples come from that book. Every example is an
 exact line from a public-domain speech in ``data/speeches.json``, or, for the two figures no speech in
-the library shows cleanly (zeugma and syllepsis), from a public-domain book in ``WORKS`` below, quoted
+the library shows cleanly (syllepsis), from a public-domain book in ``WORKS`` below, quoted
 from its Project Gutenberg text (tests check each one).
 
 Kept apart from ld_method.py on purpose: the Lincoln-Douglas method core is mirrored from the web app.
@@ -48,17 +48,13 @@ EFFECTS = [
 ]
 
 
-# Public-domain books for the figures no speech in the library shows cleanly. The passage is the
+# Public-domain books for a figure no speech in the library shows cleanly (syllepsis). The passage is the
 # sentence the example comes from, as printed in the Project Gutenberg eBook named (checked Nov 7, 2026;
 # Gutenberg's "--" printed as a dash).
 WORKS = [
     {"id": "pope-rape-of-the-lock", "title": "The Rape of the Lock", "author": "Alexander Pope", "year": 1714,
      "source": "Project Gutenberg eBook 9800, Canto III",
-     "text": "Here thou, great Anna! whom three realms obey,\nDost sometimes counsel take—and sometimes tea."},
-    {"id": "dickens-pickwick", "title": "The Pickwick Papers", "author": "Charles Dickens", "year": 1837,
-     "source": "Project Gutenberg eBook 580, Chapter 35",
-     "text": "when they left off at ten minutes past eleven, Miss Bolo rose from the table considerably agitated, "
-             "and went straight home, in a flood of tears and a sedan-chair."},
+     "text": "Here thou, great Anna! whom three realms obey,\nDost sometimes counsel take—and sometimes tea."}
 ]
 WORK_IDS = {w["id"] for w in WORKS}
 
@@ -72,7 +68,11 @@ def _f(fid, name, effect, definition, source, example=None, extra=False):
             "example": ex, "classical": extra}
 
 
-# Definitions marked CLEARING are The Clearing's own glosses from craft-paths.js, sentence-cased.
+# Definitions marked CLEARING are The Clearing's own glosses from craft-paths.js, sentence-cased, except
+# the four in CLEARING_REVISED: The Clearing gave each its own definition on Nov 8, 2026 (hermes-clearing
+# 3a97a48, library/additions.json, figures.groups), and these copy that text word for word. The
+# Clearing's examples for them are its own sentences; ours stay real public-domain lines.
+CLEARING_REVISED = ("merism", "syllepsis", "synecdoche", "zeugma")
 FIGURES = [
     # Sound & verbal music
     _f("alliteration", "Alliteration", "sound", "Words close together that start with the same sound.", WORKBENCH,
@@ -116,10 +116,10 @@ FIGURES = [
     _f("hendiadys", "Hendiadys", "syntax", "Noun-and-noun emphasis.", CLEARING,
        ("gettysburg", "It is altogether fitting and proper that we should do this.")),
     _f("enallage", "Enallage", "syntax", "Deliberate grammar break.", CLEARING),
-    _f("syllepsis", "Syllepsis", "syntax", "One governing word across clauses.", CLEARING,
+    _f("syllepsis", "Syllepsis", "syntax", "A single word read two ways at once, literally with one partner and figuratively with the other.", CLEARING,
        ("pope-rape-of-the-lock", "Dost sometimes counsel take—and sometimes tea.")),
-    _f("zeugma", "Zeugma", "syntax", "One governing word across clauses.", CLEARING,
-       ("dickens-pickwick", "went straight home, in a flood of tears and a sedan-chair")),
+    _f("zeugma", "Zeugma", "syntax", "A verb or adjective said once and left to serve every clause in a list, in the same sense each time.", CLEARING,
+       ("anthony-vote", "which ordains all men sovereigns, all women subjects")),
     _f("prolepsis", "Prolepsis", "syntax", "Anticipatory reference.", CLEARING),
     _f("scesis-onomaton", "Scesis onomaton", "syntax", "A verbless sentence.", CLEARING,
        ("douglass-fourth", "your boasted liberty, an unholy license; your national greatness, swelling vanity")),
@@ -128,14 +128,14 @@ FIGURES = [
     _f("polysyndeton", "Polysyndeton", "syntax", "A list with a joining word between every item.", WORKBENCH,
        ("roosevelt-arena", "whose face is marred by dust and sweat and blood"), extra=True),
     # Image, sense & substitution
-    _f("merism", "Merism", "image", "Parts standing for a whole.", CLEARING,
+    _f("merism", "Merism", "image", "A short list of parts, often a pair of opposites, that stands for the entire range between them.", CLEARING,
        ("gettysburg", "The brave men, living and dead, who struggled here")),
     _f("blazon", "Blazon", "image", "An extended catalog of parts.", CLEARING),
     _f("synaesthesia", "Synaesthesia", "image", "Crossed senses.", CLEARING),
     _f("catachresis", "Catachresis", "image", "A deliberately impossible word pairing.", CLEARING),
     _f("metonymy", "Metonymy", "image", "An associated object standing for its subject.", CLEARING,
        ("lincoln-second-inaugural", "every drop of blood drawn with the lash shall be paid by another drawn with the sword")),
-    _f("synecdoche", "Synecdoche", "image", "Parts standing for a whole.", CLEARING,
+    _f("synecdoche", "Synecdoche", "image", "One piece of something, or one member of a group, named in place of the whole it belongs to.", CLEARING,
        ("lincoln-second-inaugural", "wringing their bread from the sweat of other men's faces")),
     _f("transferred-epithet", "Transferred epithet", "image", "A transferred modifier.", CLEARING),
     _f("personification", "Personification", "image", "A thing or an idea given human actions or feelings.", WORKBENCH,
