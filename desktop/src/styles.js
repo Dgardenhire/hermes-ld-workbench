@@ -272,4 +272,16 @@ export const FRAME_CSS = `
 .ldw-webres-text .ldw-meta{font-size:13px;line-height:1.45}
 .ldw-listen{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
 .ldw-listen .hk-notice{flex-basis:100%}
+.ldw-ocards{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;align-items:start}
+.ldw-ocard{position:relative;background:var(--hk-surface);border:1px solid var(--hk-stroke);border-radius:var(--ldw-r);padding:14px 16px;display:grid;gap:8px;justify-items:start;min-height:120px}
+.ldw-ocard[data-active]{border-color:var(--hk-accent);box-shadow:inset 0 0 0 1px var(--hk-accent)}
+.ldw-ocard-best{border-color:var(--hk-ink);box-shadow:inset 0 0 0 1px var(--hk-ink)}
+.ldw-ocard-head{display:flex;justify-content:space-between;gap:10px;width:100%;align-items:center;flex-wrap:wrap}
+.ldw-ocard-head b{font-family:var(--ldw-cond);font-size:19px;text-transform:uppercase;letter-spacing:.02em}
+.ldw-ocard-said{margin:0;font-size:15px;line-height:1.45}
+.ldw-stamp-best{color:var(--hk-ink);margin-right:auto}
+.ldw-bad{color:var(--hk-bad)}
+.ldw-onote{display:grid;gap:4px;font-size:13.5px;line-height:1.45;border-top:1px dashed var(--hk-stroke);padding-top:8px}.ldw-onote p{margin:0}
+.ldw-ocoach{display:grid;gap:6px;max-width:760px}.ldw-ocoach p{margin:0;font-size:15px;line-height:1.5}
+@container (max-width:900px){.ldw-ocards{grid-template-columns:1fr}}
 `

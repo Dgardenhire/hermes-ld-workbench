@@ -33,6 +33,11 @@ shot settings-dark "view=settings" 1440,1400
 shot settings-light "view=settings&theme=light" 1440,1400
 # Screens behind a click:
 H=1300 node "$ROOT/harness/click.mjs" "view=extemp&x=prep&pm=internet" "$OUT/extemp-prep-web-dark.png" "Search" "Save as a source"
+O1="In 1979 a gallon of milk cost a dollar ten. Tonight the question is whether the Fed should fight prices or protect jobs."
+O2="Ask anyone at a grocery store what worries them. Prices. So should the Fed care more about prices or jobs? Prices, for now."
+O3="Jobs matter. Prices matter too. Today I will talk about the Fed and whether it should care about prices or about jobs."
+H=1300 node "$ROOT/harness/click.mjs" "view=extemp&theme=light" "$OUT/extemp-openings-light.png" "Openings" "Type instead" "type:$O1" "Use this" "Type instead" "type:$O2" "Use this" "Type instead" "type:$O3" "Use this" "Ask the coach"
+H=1100 node "$ROOT/harness/click.mjs" "view=room&scene=opp" "$OUT/ld-opponent-listen-dark.png" "Hear it"
 H=1500 node "$ROOT/harness/click.mjs" "view=room&scene=ballot&theme=light" "$OUT/ld-ballot-open-light.png" "Read the full reason for decision"
 # The live recorder, from Chrome's fake microphone (a steady tone):
 cd "$ROOT" && node harness/live.mjs "$OUT" && THEME=light NAME=extemp-speaking-light node harness/live.mjs "$OUT"

@@ -28,6 +28,12 @@ try {
   await send('Page.navigate', { url: `http://127.0.0.1:${process.env.PORT || 8793}/harness/?${query}` })
   await pause(3500)
   for (const label of labels) {
+    if (label.startsWith('type:')) { // focus the last text box on the page and type into it
+      await send('Runtime.evaluate', { expression: `(() => { const t = [...document.querySelectorAll('textarea')].pop(); t && t.focus() })()` })
+      await send('Input.insertText', { text: label.slice(5) })
+      await pause(300)
+      continue
+    }
     const r = await send('Runtime.evaluate', { expression: `(() => { const b = [...document.querySelectorAll('button')].find(x => x.textContent.trim().startsWith(${JSON.stringify(label)})); if (!b) return false; b.click(); return true })()`, returnByValue: true })
     if (!r.result.result.value) console.error(`no button: ${label}`)
     await pause(900)

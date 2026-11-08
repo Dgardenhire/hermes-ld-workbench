@@ -43,7 +43,7 @@ DEFAULT_MODEL = "base.en"
 MODELS = ("base.en", "small.en")
 MODEL_MB = {"base.en": 145, "small.en": 485}  # model.bin in Systran/faster-whisper-<name>, downloaded once
 IDLE_UNLOAD = 300
-EVENTS = ("ld", "extemp", "drill", "rhetoric")
+EVENTS = ("ld", "extemp", "drill", "rhetoric", "opening")
 
 # Words the transcript can catch. "Like" and "so" count only where they are not part of the sentence
 # (a crude but honest rule: alone between pauses or commas, or at the start of a clause).

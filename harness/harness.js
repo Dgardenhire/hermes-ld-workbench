@@ -112,6 +112,16 @@ async function rest(path, options = {}) {
   if (path === 'extemp/search') return { query: 'tariff repeal veto override', results: WEB }
   if (path === 'extemp/round') return home().extemp_round
   if (/^speech\/[^/]+\/judge$/.test(path)) return X === 'take' ? new Promise(() => {}) : clone(BALLOT)
+  if (path === 'speech/take' && options.body.typed) {
+    const w = options.body.text.trim().split(/\s+/).length
+    return { ...clone(TAKE), id: `t${Math.random().toString(16).slice(2, 8)}`, event: options.body.event, typed: true, has_audio: false, levels: [],
+      transcript: { status: 'typed', text: options.body.text, words: [] }, stats: { estimated: true, estimated_seconds: Math.round(w / 140 * 60), words: w } }
+  }
+  if (path === 'openings/coach') return { best: 2, why: 'It reaches the question in the second sentence and answers it right away; the other two take longer to get there.',
+    notes: [{ n: 1, worked: 'A real number from 1979 makes people listen.', fix: 'Get from the milk price to the question in one sentence, not two.' },
+      { n: 2, worked: 'You answered the question before 15 seconds.', fix: 'Name where the grocery-store worry comes from: a survey or a report, with its date.' },
+      { n: 3, worked: 'You said the question clearly.', fix: 'Start with something concrete, a person or a number, instead of "Jobs matter."' }],
+    next: 'Open with one person: who they are, what happened to them, and how it ties to the question.' }
   if (path === 'speech/take') return { ...clone(TAKE), id: 'live1', levels: options.body.levels || [], duration: options.body.duration, transcript: { status: 'waiting', text: '', words: [] } }
   if (/^speech\/[^/]+\/(upload|audio)$/.test(path)) return { ...clone(TAKE), id: 'live1', transcript: { status: 'working', text: '', words: [] } }
   if (/^speech\/[^/]+$/.test(path)) return clone(TAKE)

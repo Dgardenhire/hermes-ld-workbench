@@ -1018,6 +1018,30 @@ async def post_extemp_search(body: dict):
         _fail(e)
 
 
+@router.post("/openings/coach")
+async def post_openings_coach(body: dict):
+    """The coach's read on three openings for one question. It picks the strongest and never writes one."""
+    try:
+        b = _body(body)
+        ids = b.get("take_ids")
+        if not isinstance(ids, list) or len(ids) != 3:
+            raise ValueError("Give all three openings first.")
+        takes = [speech.get_take(str(i)) for i in ids]
+        for k, t in enumerate(takes, 1):
+            if t.get("event") != "opening":
+                raise ValueError("Those are not openings.")
+            if t["transcript"]["status"] in ("waiting", "working"):
+                raise ValueError(f"Opening {k} is still being transcribed. The coach reads it when it is done.")
+            if not (t["transcript"].get("text") or "").strip():
+                raise ValueError(f"Opening {k} has no words yet. Use Type what you said under it.")
+        question = extemp.clean_question(b.get("question") or takes[0].get("prompt") or "")
+        raw = await _once(("openings",) + tuple(ids), lambda: MODEL.json(extemp.OPENINGS_PROMPT, "", extemp.openings_body(question, takes),
+                                                                          max_tokens=3000, purpose="ld-workbench.openings.coach"))
+        return extemp.tidy_openings(raw)
+    except Exception as e:
+        _fail(e)
+
+
 @router.post("/extemp/round/start")
 async def post_extemp_round_start(body: dict):
     try:

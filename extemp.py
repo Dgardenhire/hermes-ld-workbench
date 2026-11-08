@@ -271,3 +271,50 @@ Return JSON only:
   "decisive": [{{"line": "the student's exact words", "effect": "..."}}],
   "reason": "the full reason for decision, 150-300 words",
   "strengths": ["..."], "drill": {{"name": "...", "how": "..."}}, "tags": ["..."]}}"""
+
+
+# ---------- the openings lab: three attention-getters for one question ----------
+OPENING_SECONDS = 45
+OPENINGS_PROMPT = """You coach high school extemp speakers on their opening: the attention-getter and the link to the question, in the first 45 seconds.
+
+The student gave three different openings for the same question, out loud. You receive what they said (from a transcript, or typed) and how long each took.
+
+Pick the strongest of the three and say why in one sentence a 14-year-old understands. For each opening, say what worked and the one thing to fix. Then give one thing to try in the next opening.
+
+Rules: you never write an opening, an attention-getter, or any sentence for them to say; you describe what to do. Quote the student only with words they really said. Plain English, short sentences, no jargon. An opening that ran past 45 seconds or never reached the question loses to one that did.
+
+Return JSON only: {"best": 1|2|3, "why": "...", "notes": [{"n": 1, "worked": "...", "fix": "..."}, {"n": 2, ...}, {"n": 3, ...}], "next": "..."}"""
+
+
+def openings_body(question, takes):
+    parts = [f"Question: {question}"]
+    for i, t in enumerate(takes, 1):
+        st = t.get("stats") or {}
+        said = ((t.get("transcript") or {}).get("text") or "").strip()
+        secs = st.get("estimated_seconds") if st.get("estimated") else st.get("speaking")
+        parts.append(f"OPENING {i} ({'typed' if t.get('typed') else 'spoken'}, about {int(secs or 0)} seconds):\n<<<\n{said[:3000]}\n>>>")
+    return "\n\n".join(parts)
+
+
+def tidy_openings(raw, n=3):
+    """The coach's read, as the page shows it; anything malformed is dropped, never invented."""
+    raw = raw if isinstance(raw, dict) else {}
+
+    def s(v, k=600):
+        return " ".join(str(v or "").split())[:k]
+    try:
+        best = int(raw.get("best"))
+    except (TypeError, ValueError):
+        best = None
+    best = best if best and 1 <= best <= n else None
+    notes = {}
+    for x in raw.get("notes") if isinstance(raw.get("notes"), list) else []:
+        try:
+            k = int(x.get("n"))
+        except (TypeError, ValueError, AttributeError):
+            continue
+        if 1 <= k <= n and k not in notes:
+            notes[k] = {"n": k, "worked": s(x.get("worked")), "fix": s(x.get("fix"))}
+    if best is None and not notes:
+        raise RuntimeError("The coach's answer came back unreadable. Ask again.")
+    return {"best": best, "why": s(raw.get("why")), "notes": [notes[k] for k in sorted(notes)], "next": s(raw.get("next"))}

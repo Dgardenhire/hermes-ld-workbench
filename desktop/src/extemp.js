@@ -111,6 +111,89 @@ function DrillFloor({ home, modeSwitch }) {
   ] })
 }
 
+/* ------------------------------------------------------------------ the openings lab -- */
+
+const OPENING = 45
+
+// One opening's card: what was said (serif) and how long it took, polled until its transcript is in.
+function OpeningCard({ n, take, setTake, best, note, active, onRedo }) {
+  useTakePoll(take, setTake)
+  const st = take && take.transcript.status
+  const s = (take && take.stats) || {}
+  const secs = s.estimated ? s.estimated_seconds : s.speaking
+  return jsxs('article', { className: cls('ldw-ocard', best && 'ldw-ocard-best'), 'data-active': active ? '' : undefined, 'aria-label': `Opening ${n}`, children: [
+    jsxs('div', { className: 'ldw-ocard-head', children: [
+      jsx('b', { children: `Opening ${n}` }),
+      best ? jsx('span', { className: 'ldw-stamp2 ldw-stamp-sm ldw-stamp-best', children: 'Strongest' }) : null,
+      take ? jsx('span', { className: cls('ldw-num', secs > OPENING + 5 && 'ldw-bad'), children: `${mmss(secs || 0)}${s.estimated ? ', estimated' : ''}` }) : jsx('span', { className: 'ldw-meta', children: active ? 'Next' : '' }),
+    ] }),
+    take && (st === 'done' || st === 'typed') ? jsx('p', { className: 'ldw-spoken ldw-ocard-said', children: take.transcript.text || 'No words were caught.' }) : null,
+    take && (st === 'waiting' || st === 'working') ? jsx(Thinking, { label: 'Making the transcript' }) : null,
+    take && ['unavailable', 'failed', 'cancelled'].includes(st) ? jsx(LastTake, { take, limit: OPENING, title: 'Timing only', onChange: setTake }) : null,
+    note ? jsxs('div', { className: 'ldw-onote', children: [
+      note.worked ? jsxs('p', { children: [jsx('b', { children: 'Worked: ' }), note.worked] }) : null,
+      note.fix ? jsxs('p', { children: [jsx('b', { children: 'Fix: ' }), note.fix] }) : null,
+    ] }) : null,
+    take ? jsx('button', { type: 'button', className: 'hk-link', onClick: onRedo, children: 'Give this one again' }) : null,
+  ] })
+}
+
+// Three attention-getters for one question, 45 seconds each, out loud. The coach picks the strongest
+// and says why; it never writes an opening.
+function OpeningsFloor({ home, modeSwitch }) {
+  const pool = (home.starter || []).concat()
+  const [i, setI] = useState(1)
+  const q = pool.length ? pool[i % pool.length] : { area: 'us', text: 'Should your town spend more on roads or on parks?' }
+  const [takes, setTakes] = useState([null, null, null])
+  const [slot, setSlot] = useState(0)
+  const [busy, setBusy] = useState(null)
+  const [err, setErr] = useState(null)
+  const [coach, setCoach] = useState(null)
+  const setAt = k => t => setTakes(prev => prev.map((x, j) => (j === k ? t : x)))
+  const got = async rec => {
+    const k = slot
+    setBusy('sending'); setErr(null); setCoach(null)
+    try {
+      setAt(k)(await sendTake({ event: 'opening', segment: `o${k + 1}`, limit: OPENING, prompt: q.text }, rec))
+      const nextFree = [0, 1, 2].find(j => j !== k && !takes[j])
+      if (nextFree !== undefined) setSlot(nextFree)
+    } catch (e) { setErr(errText(e)) } finally { setBusy(null) }
+  }
+  const rec = useRecorder({ limit: OPENING, onTake: got })
+  const live = rec.state === 'live' || rec.state === 'armed'
+  const ready = takes.every(t => t && ['done', 'typed'].includes(t.transcript.status) && t.transcript.text)
+  const ask = async () => {
+    setBusy('coach'); setErr(null)
+    try { setCoach(await post('openings/coach', { question: q.text, take_ids: takes.map(t => t.id) })) } catch (e) { setErr(errText(e)) } finally { setBusy(null) }
+  }
+  const another = () => { if (live) return; setI(n => n + 1); setTakes([null, null, null]); setSlot(0); setCoach(null); setErr(null) }
+  const notes = Object.fromEntries(((coach && coach.notes) || []).map(x => [x.n, x]))
+  return jsxs(Fragment, { children: [
+    jsx(Strip, { segments: [
+      ...[0, 1, 2].map(k => ({ key: `o${k}`, code: `Opening ${k + 1} 0:45`, sub: takes[k] ? 'Done' : k === slot ? (live ? 'Now' : 'Next') : '', minutes: 0.75, min: 150,
+        state: k === slot && !coach ? 'now' : takes[k] ? 'done' : 'later', fill: live && k === slot ? rec.elapsed / OPENING : 0, onClick: live ? null : () => setSlot(k) })),
+      { key: 'coach', code: 'Coach', sub: coach ? `Opening ${coach.best || '?'}` : 'Picks one', minutes: 0.5, min: 110, state: coach ? 'now' : 'later' },
+    ] }),
+    jsx(Slip, { kicker: [`Openings · ${AREAS[q.area] || 'United States'}`, modeSwitch], question: q.text, onAnother: live ? null : another }),
+    jsxs('div', { className: 'ldw-stage2', children: [
+      jsx(Clock, { limit: OPENING, elapsed: rec.elapsed, live, label: `Opening ${slot + 1} of 3` }),
+      jsx(SpeakControls, { rec, onTyped: text => got({ typed: text }), startLabel: `Give opening ${slot + 1}${takes[slot] ? ' again' : ''}` }),
+    ] }),
+    live ? jsx(LiveWave, { rec, limit: OPENING }) : null,
+    busy === 'sending' ? jsx(Thinking, { label: 'Saving your opening' }) : null,
+    jsx('div', { className: 'ldw-ocards', children: [0, 1, 2].map(k => jsx(OpeningCard, { n: k + 1, take: takes[k], setTake: setAt(k), active: k === slot && !live && !takes[k],
+      best: coach && coach.best === k + 1, note: notes[k + 1], onRedo: () => { setSlot(k); setCoach(null) } }, k)) }),
+    coach ? jsxs('section', { className: 'ldw-ocoach', 'aria-label': 'The coach', children: [
+      jsx('h3', { className: 'ldw-h3', children: coach.best ? `Opening ${coach.best} is the strongest` : 'The coach' }),
+      coach.why ? jsx('p', { children: coach.why }) : null,
+      coach.next ? jsxs('div', { className: 'ldw-drillrow', children: [jsx('span', { className: 'ldw-stamp2', children: 'Next' }), jsx('p', { children: coach.next })] }) : null,
+    ] }) : null,
+    !coach ? jsx('div', { children: jsx(Button, { loading: busy === 'coach', disabled: !ready || live, onClick: ask,
+      children: ready ? 'Ask the coach which one is strongest' : `Give all three openings, then ask the coach (${takes.filter(Boolean).length} of 3)` }) }) : null,
+    err ? jsx(Notice, { tone: 'bad', children: err }) : null,
+  ] })
+}
+
 /* ------------------------------------------------------------------ headlines -- */
 
 const SIDE_TITLES = { left: 'Left and lean left', center: 'Center and wires', right: 'Right and lean right' }
@@ -396,7 +479,8 @@ export function ExtempView() {
   if (!home) return jsx(Thinking, { label: 'Opening extemp' })
   const mode = chosen || (home.extemp_round ? 'round' : 'drill')
   const modeSwitch = jsx(SegmentedControl, { key: 'mode', value: mode, onChange: v => $extempMode.set(v),
-    options: [{ id: 'drill', label: '60-second answer' }, { id: 'round', label: 'Full round' }] })
+    options: [{ id: 'drill', label: '60-second answer' }, { id: 'openings', label: 'Openings' }, { id: 'round', label: 'Full round' }] })
   const sw = jsx('span', { className: 'ldw-modeswitch', children: modeSwitch }, 'sw')
+  if (mode === 'openings') return jsx(OpeningsFloor, { home, modeSwitch: sw })
   return mode === 'drill' ? jsx(DrillFloor, { home, modeSwitch: sw }) : jsx(RoundFloor, { home, modeSwitch: sw })
 }
