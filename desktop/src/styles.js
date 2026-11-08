@@ -102,10 +102,10 @@ export const FRAME_CSS = `
 .ldw-sheet .ldw-box{width:16px;height:16px;border:1.6px solid currentColor;margin-right:6px;vertical-align:-3px}
 .ldw-sheet .ldw-box[data-x="1"]::before,.ldw-sheet .ldw-box[data-x="1"]::after{background:var(--hk-accent);width:2.6px;height:22px;top:-4px;left:6px;border-radius:2px}
 .ldw-verdict{font-size:18px;font-weight:700;line-height:1.3}
-.ldw-pts{display:grid;gap:4px}
+.ldw-pts{display:grid;gap:4px;padding-bottom:14px}
 .ldw-pts-lbl{font-size:13px}.ldw-pts-lbl b{font-family:var(--hk-mono)}
 .ldw-pts-scale{position:relative;height:30px;border-bottom:1.5px solid currentColor;margin:0 8px}
-.ldw-pts-scale span{position:absolute;bottom:-24px;transform:translateX(-50%);font-family:var(--hk-mono);font-size:12px}
+.ldw-pts-scale span{position:absolute;bottom:-29px;transform:translateX(-50%);font-family:var(--hk-mono);font-size:12px}
 .ldw-pts-mark{position:absolute;bottom:-11px;width:30px;height:20px;border:2.4px solid var(--hk-accent);border-radius:50%;transform:translateX(-50%) rotate(-8deg)}
 .ldw-declines{padding:22px 0 4px;display:grid;gap:2px;font-style:normal}
 .ldw-declines h4,.ldw-sheet-rfd h4{margin:0 0 4px;font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase}
@@ -228,4 +228,28 @@ export const FRAME_CSS = `
 @container (max-width:900px){.ldw-frame{grid-template-columns:1fr}.ldw-rail{flex-direction:row;overflow-x:auto;border-right:0;border-bottom:1px solid var(--hk-stroke);padding:0;position:static;min-height:0}
   .ldw-ev-ballots{margin-top:0}.ldw-stage2,.ldw-prep,.ldw-heads-grid,.ldw-drawn,.ldw-read,.ldw-patgrid,.ldw-slip{grid-template-columns:1fr}.ldw-sheet-dec,.ldw-sheet-fields{grid-template-columns:1fr 1fr}
   .ldw-outline-side{text-align:left}.ldw-strip{flex-wrap:wrap}.ldw-seg{min-width:96px !important}}
+/* Lincoln-Douglas in the frame: the big clock and its actions on one row, the speech and last ballot under it */
+.ldw-floor{display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:var(--ldw-gap) 30px;align-items:start}
+.ldw-floor>.ldw-clock{grid-column:1/-1;position:static;border-bottom:1px solid var(--hk-stroke);padding:4px 0 20px}
+.ldw-ldface{display:grid;gap:12px;justify-items:start}
+.ldw-ldside{display:grid;gap:12px;align-content:start}
+.ldw-ldside .ldw-rows{margin:0}
+.ldw-ldactions{position:sticky;top:0}
+.ldw-ldactions .hb-menu-trigger,.ldw-ldactions>button{width:100%}
+.ldw-ldballot{display:grid;gap:12px;min-width:0}
+.ldw-ldballot .ldw-sheet{max-width:none}
+.ldw-paper{background:var(--ldw-paper) !important;color:var(--ldw-paper-ink) !important;border-color:var(--hk-stroke) !important}
+.ldw-paper .ldw-stamp{color:var(--hk-bad-fill)}
+.ldw-line-btn{all:unset;cursor:pointer;display:flex;gap:10px;align-items:baseline}
+.ldw-line-btn:hover .ldw-line-said{text-decoration-thickness:3px}
+.ldw-line-btn:focus-visible{outline:2px solid var(--hk-accent);outline-offset:2px}
+.ldw-line-code{font-family:var(--hk-mono);font-size:12px;font-weight:700;min-width:34px}
+.ldw-ldverdict{font-family:var(--ldw-cond);font-size:38px;line-height:1;text-transform:uppercase;letter-spacing:.01em}
+.ldw-sheet-why{margin:0;padding:10px 0;border-bottom:1px solid var(--ldw-paper-rule);font-size:15px;line-height:1.45;max-width:70ch}
+.ldw-sheet-rfd h4{margin-top:12px}
+.ldw-drill2{display:grid;gap:2px;padding:6px 0;border-bottom:1px dashed var(--ldw-paper-rule)}.ldw-drill2 p{margin:0}
+.ldw-live{background:var(--hk-surface);border:1px solid var(--hk-stroke);box-shadow:inset 3px 0 0 var(--hk-accent);border-radius:var(--ldw-r);padding:14px 16px 12px;display:grid;gap:10px}
+.ldw-live .ldw-wave-bar{fill:var(--hk-accent)}
+.ldw-live-wait{font-size:14px}
+@container (max-width:900px){.ldw-floor{grid-template-columns:1fr}.ldw-floor .ldw-stage2{grid-template-columns:1fr}}
 `

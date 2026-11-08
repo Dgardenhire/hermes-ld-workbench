@@ -6,7 +6,7 @@ import { Fragment, jsx, jsxs } from 'react/jsx-runtime'
 import { Button, Codicon, Input, SegmentedControl, Textarea, atom, useValue } from '@hermes/plugin-sdk'
 import { Notice } from 'hermes-ui-kit'
 import { Thinking, api, cls, errText, mmss, post, rest } from './core.js'
-import { Clock, ExtempSheet, LastTake, SpeakControls, Strip, sendTake, takeSettled, useRecorder, useTakePoll } from './floor.js'
+import { Clock, ExtempSheet, LastTake, LiveWave, SpeakControls, Strip, sendTake, takeSettled, useRecorder, useTakePoll } from './floor.js'
 
 export const $home = atom(null)
 export const $extempMode = atom(null) // drill | round (null: decide from the saved round)
@@ -64,6 +64,7 @@ function Floor({ limit, label, jt, startLabel, extra }) {
       jsx(Clock, { limit, elapsed: jt.recorder.elapsed, live, label }),
       jsx(SpeakControls, { rec: jt.recorder, onTyped: text => jt.got({ typed: text }), startLabel, extra }),
     ] }) : null,
+    live ? jsx(LiveWave, { rec: jt.recorder, limit }) : null,
     jt.busy === 'sending' ? jsx(Thinking, { label: 'Saving your take' }) : null,
     jt.err ? jsx(Notice, { tone: 'bad', children: jt.err, action: jt.take && !jt.ballot ? jsx(Button, { size: 'sm', variant: 'secondary', onClick: () => jt.judge(jt.take), children: 'Ask for the ballot again' }) : null }) : null,
     jt.take && !live ? jsx(LastTake, { take: jt.take, limit, title: jt.ballot ? 'Your take' : 'Your take, just now', onChange: jt.setTake }) : null,

@@ -163,7 +163,39 @@ export function useRecorder({ limit, onTake }) {
     }, 50)
   }
 
-  return { state, err, elapsed, level, start, stop: () => finish(false), cancel: () => finish(true), clearErr: () => setErr(null) }
+  const x = R.current
+  const firstIdx = x.first ? Math.round((x.first - x.t0) / 100) : null
+  return { state, err, elapsed, level, levels: x.levels || [], firstIdx, start, stop: () => finish(false), cancel: () => finish(true), clearErr: () => setErr(null) }
+}
+
+// While a take runs: the level as it comes in, drawn on the same timeline the finished take will use, with
+// a mark over each silence of 2 seconds or more (and the one still going). It starts at the first sound.
+const QUIET = 0.04
+export function livePauses(levels, minSeconds = 2) {
+  const out = []
+  let start = null
+  for (let i = 0; i <= levels.length; i++) {
+    const quiet = i < levels.length && levels[i] <= QUIET
+    if (quiet && start === null) start = i
+    else if (!quiet && start !== null) {
+      if ((i - start) / 10 >= minSeconds) out.push({ at: start / 10, length: (i - start) / 10, open: i === levels.length })
+      start = null
+    }
+  }
+  return out
+}
+export function LiveWave({ rec, limit }) {
+  if (rec.firstIdx === null || rec.firstIdx === undefined) {
+    return jsx('div', { className: 'ldw-live ldw-live-wait', children: jsx('span', { children: 'The clock starts when you do.' }) })
+  }
+  const levels = rec.levels.slice(rec.firstIdx)
+  const pauses = livePauses(levels)
+  const open = pauses.length && pauses[pauses.length - 1].open
+  return jsxs('section', { className: 'ldw-live', 'aria-label': 'Your take so far', children: [
+    jsxs('div', { className: 'ldw-last-head', children: [jsx('h3', { className: 'ldw-h3', children: 'Recording' }),
+      jsx('span', { className: 'ldw-prov', children: open ? 'Pausing' : `${pauses.length} pause${pauses.length === 1 ? '' : 's'} over 2 seconds` })] }),
+    jsx(Wave, { levels, duration: levels.length / 10, pauses, limit }),
+  ] })
 }
 
 /* ------------------------------------------------------------------ sending a take -- */
@@ -388,6 +420,65 @@ export function ExtempSheet({ b, onDrill, drillLabel = 'Run the drill' }) {
     open ? jsxs('div', { className: 'ldw-sheet-rfd', children: [
       jsx('p', { children: b.reason }),
       b.strengths && b.strengths.length ? jsxs(Fragment, { children: [jsx('h4', { children: 'What worked' }), jsx('ul', { children: b.strengths.map((s, i) => jsx('li', { children: s }, i)) })] }) : null,
+    ] }) : null,
+  ] })
+}
+
+const SIDE = { aff: 'Affirmative', neg: 'Negative' }
+const firstSentence = t => { const m = String(t || '').match(/^.{20,170}?[.!?](\s|$)/); return m ? m[0].trim() : clip2(t, 150) }
+const clip2 = (t, n) => { t = String(t || ''); return t.length > n ? `${t.slice(0, n - 1).trimEnd()}...` : t }
+
+// The Lincoln-Douglas ballot, read in ten seconds: the decision, your points, the three lines that decided
+// it (checked against the speeches), one drill stamped. The full reason, framework and the rest are folded.
+export function LdSheet({ b, onLine, onDrill }) {
+  const [open, setOpen] = useState(false)
+  const pts = b.speaker_points || {}
+  const won = b.decision === b.side
+  const spoken = b.measured ? Object.keys(b.measured) : []
+  const lines = (b.decisive || []).slice(0, 3)
+  const more = (b.decisive || []).slice(3)
+  const [drill, ...drills] = b.drills || []
+  const line = (d, i) => {
+    const said = jsxs(Fragment, { children: [jsx('span', { className: 'ldw-line-code', children: d.speech }), jsx('span', { className: 'ldw-line-said', children: `"${d.line}"` })] })
+    return jsxs('div', { className: 'ldw-line', children: [
+      onLine ? jsx('button', { type: 'button', className: 'ldw-line-btn', onClick: () => onLine(d.speech), title: `Find the ${d.speech} on the flow`, children: said }) : jsx('div', { children: said }),
+      jsx('span', { className: 'ldw-line-effect', children: d.effect }),
+      d.checked === false ? jsx('span', { className: 'ldw-line-flag', children: `Not found in the ${d.speech || 'round'} as given. Check it on the flow.` }) : null,
+    ] }, i)
+  }
+  return jsxs('article', { className: 'ldw-sheet', 'aria-label': 'Ballot', children: [
+    jsxs('div', { className: 'ldw-sheet-head', children: [jsx('b', { children: 'Lincoln-Douglas' }), jsx('span', { children: `Practice ballot${b.round_no ? ` · round ${b.round_no}` : ''}` })] }),
+    jsxs('div', { className: 'ldw-sheet-fields', children: [
+      jsxs('div', { children: [jsx('i', { children: 'Judge' }), b.judge || 'Judge'] }),
+      jsxs('div', { children: [jsx('i', { children: 'You' }), SIDE[b.side] || 'Your side'] }),
+      jsxs('div', { children: [jsx('i', { children: 'Speeches' }), spoken.length ? `${spoken.length} spoken, timed` : 'typed'] }),
+      jsxs('div', { children: [jsx('i', { children: 'Opponent' }), pts.opponent ? `${pts.opponent.toFixed(1)} points` : 'no points'] }),
+    ] }),
+    b.resolution ? jsx('div', { className: 'ldw-sheet-q', children: b.resolution }) : null,
+    jsxs('div', { className: 'ldw-sheet-dec', children: [
+      jsxs('div', { className: 'ldw-boxes', role: 'img', 'aria-label': `Decision: ${SIDE[b.decision] || 'none'}`, children: ['aff', 'neg'].map(k => jsxs('span', { children: [
+        jsx('span', { className: 'ldw-box', 'data-x': b.decision === k ? '1' : '0' }), SIDE[k]] }, k)) }),
+      jsx('div', { className: 'ldw-verdict ldw-ldverdict', children: won ? 'You won' : 'You lost' }),
+      jsx(PointsScale, { points: pts.student }),
+    ] }),
+    b.reason ? jsx('p', { className: 'ldw-sheet-why', children: firstSentence(b.reason) }) : null,
+    lines.length ? jsxs('div', { className: 'ldw-declines', children: [jsx('h4', { children: 'The lines that decided it' }), ...lines.map(line)] }) : null,
+    drill ? jsxs('div', { className: 'ldw-drillrow', children: [
+      jsx('span', { className: 'ldw-stamp2', children: 'Drill' }),
+      jsxs('p', { children: [jsx('strong', { children: drill.name }), '. ', drill.how] }),
+      onDrill ? jsx(Button, { size: 'sm', onClick: onDrill, children: 'Redo a speech' }) : null,
+    ] }) : null,
+    jsxs('button', { type: 'button', className: 'ldw-fold', 'aria-expanded': open, onClick: () => setOpen(v => !v), children: [
+      jsx('span', { children: open ? 'Hide the full reason for decision' : 'Read the full reason for decision' }),
+      jsx('span', { children: `${words(b.reason)} words${drills.length ? ` · ${drills.length} more drill${drills.length === 1 ? '' : 's'}` : ''}` })] }),
+    open ? jsxs('div', { className: 'ldw-sheet-rfd', children: [
+      jsx('p', { children: b.reason }),
+      b.framework ? jsxs(Fragment, { children: [jsx('h4', { children: 'Framework' }), jsx('p', { children: b.framework })] }) : null,
+      b.ownership ? jsxs(Fragment, { children: [jsx('h4', { children: 'Did you own your case?' }), jsx('p', { children: b.ownership })] }) : null,
+      more.length ? jsxs(Fragment, { children: [jsx('h4', { children: 'More lines the judge named' }), ...more.map((d, i) => line(d, `m${i}`))] }) : null,
+      b.strengths && b.strengths.length ? jsxs(Fragment, { children: [jsx('h4', { children: 'What worked' }), jsx('ul', { children: b.strengths.map((s, i) => jsx('li', { children: s }, i)) })] }) : null,
+      drills.length ? jsxs(Fragment, { children: [jsx('h4', { children: 'More drills' }), ...drills.map((d, i) => jsxs('div', { className: 'ldw-drill2', children: [
+        jsx('strong', { children: d.name }), jsx('p', { children: d.why }), jsx('p', { children: d.how })] }, i))] }) : null,
     ] }) : null,
   ] })
 }

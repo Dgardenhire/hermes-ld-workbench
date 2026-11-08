@@ -665,17 +665,17 @@ function useRecorder({ limit, onTake }) {
   const done = useRef3(onTake);
   done.current = onTake;
   const cleanup = () => {
-    const x = R.current;
-    clearInterval(x.timer);
+    const x2 = R.current;
+    clearInterval(x2.timer);
     try {
-      x.stream && x.stream.getTracks().forEach((t) => t.stop());
+      x2.stream && x2.stream.getTracks().forEach((t) => t.stop());
     } catch (e) {
     }
     try {
-      x.ac && x.ac.state !== "closed" && x.ac.close();
+      x2.ac && x2.ac.state !== "closed" && x2.ac.close();
     } catch (e) {
     }
-    R.current = { cancelled: x.cancelled };
+    R.current = { cancelled: x2.cancelled };
   };
   useEffect3(() => () => {
     R.current.cancelled = true;
@@ -687,14 +687,14 @@ function useRecorder({ limit, onTake }) {
     cleanup();
   }, []);
   const finish = (cancelled) => {
-    const x = R.current;
-    if (!x.rec || x.rec.state === "inactive") {
+    const x2 = R.current;
+    if (!x2.rec || x2.rec.state === "inactive") {
       cleanup();
       setState("idle");
       return;
     }
-    x.cancelled = cancelled;
-    x.rec.stop();
+    x2.cancelled = cancelled;
+    x2.rec.stop();
   };
   const start = async () => {
     setErr(null);
@@ -742,49 +742,80 @@ function useRecorder({ limit, onTake }) {
     } catch (e) {
       rec = new MediaRecorder(stream);
     }
-    const x = { stream, ac, an, rec, chunks: [], levels: [], half: 0, n: 0, t0: performance.now(), first: null, buf: new Float32Array(an.fftSize), cancelled: false };
-    R.current = x;
+    const x2 = { stream, ac, an, rec, chunks: [], levels: [], half: 0, n: 0, t0: performance.now(), first: null, buf: new Float32Array(an.fftSize), cancelled: false };
+    R.current = x2;
     rec.ondataavailable = (e) => {
-      if (e.data && e.data.size) x.chunks.push(e.data);
+      if (e.data && e.data.size) x2.chunks.push(e.data);
     };
     rec.onerror = () => {
       setErr({ kind: "broke", text: MIC_ERRORS.broke });
       finish(false);
     };
     rec.onstop = () => {
-      const duration = (performance.now() - x.t0) / 1e3;
-      const blob = new Blob(x.chunks, { type: (rec.mimeType || mime || "audio/webm").split(";")[0] });
-      const cancelled = x.cancelled;
+      const duration = (performance.now() - x2.t0) / 1e3;
+      const blob = new Blob(x2.chunks, { type: (rec.mimeType || mime || "audio/webm").split(";")[0] });
+      const cancelled = x2.cancelled;
       cleanup();
       setState("idle");
-      if (!cancelled && done.current) done.current({ blob, duration, levels: x.levels, mime: blob.type, firstSound: x.first === null ? null : (x.first - x.t0) / 1e3 });
+      if (!cancelled && done.current) done.current({ blob, duration, levels: x2.levels, mime: blob.type, firstSound: x2.first === null ? null : (x2.first - x2.t0) / 1e3 });
     };
     rec.start(1e3);
     setState("armed");
-    x.timer = setInterval(() => {
-      an.getFloatTimeDomainData(x.buf);
+    x2.timer = setInterval(() => {
+      an.getFloatTimeDomainData(x2.buf);
       let sum = 0;
-      for (let i = 0; i < x.buf.length; i++) sum += x.buf[i] * x.buf[i];
-      const lv = Math.min(1, Math.sqrt(sum / x.buf.length) * 4);
-      x.half = Math.max(x.half, lv);
-      if (++x.n % 2 === 0) {
-        x.levels.push(Math.round(x.half * 1e3) / 1e3);
-        x.half = 0;
+      for (let i = 0; i < x2.buf.length; i++) sum += x2.buf[i] * x2.buf[i];
+      const lv = Math.min(1, Math.sqrt(sum / x2.buf.length) * 4);
+      x2.half = Math.max(x2.half, lv);
+      if (++x2.n % 2 === 0) {
+        x2.levels.push(Math.round(x2.half * 1e3) / 1e3);
+        x2.half = 0;
       }
       setLevel(lv);
       const now = performance.now();
-      if (x.first === null && lv > SOUND) {
-        x.first = now;
+      if (x2.first === null && lv > SOUND) {
+        x2.first = now;
         setState("live");
       }
-      if (x.first !== null) {
-        const el = (now - x.first) / 1e3;
+      if (x2.first !== null) {
+        const el = (now - x2.first) / 1e3;
         setElapsed(el);
         if (el > limit + 60) finish(false);
-      } else if ((now - x.t0) / 1e3 > 120) finish(true);
+      } else if ((now - x2.t0) / 1e3 > 120) finish(true);
     }, 50);
   };
-  return { state, err, elapsed, level, start, stop: () => finish(false), cancel: () => finish(true), clearErr: () => setErr(null) };
+  const x = R.current;
+  const firstIdx = x.first ? Math.round((x.first - x.t0) / 100) : null;
+  return { state, err, elapsed, level, levels: x.levels || [], firstIdx, start, stop: () => finish(false), cancel: () => finish(true), clearErr: () => setErr(null) };
+}
+var QUIET = 0.04;
+function livePauses(levels, minSeconds = 2) {
+  const out = [];
+  let start = null;
+  for (let i = 0; i <= levels.length; i++) {
+    const quiet = i < levels.length && levels[i] <= QUIET;
+    if (quiet && start === null) start = i;
+    else if (!quiet && start !== null) {
+      if ((i - start) / 10 >= minSeconds) out.push({ at: start / 10, length: (i - start) / 10, open: i === levels.length });
+      start = null;
+    }
+  }
+  return out;
+}
+function LiveWave({ rec, limit }) {
+  if (rec.firstIdx === null || rec.firstIdx === void 0) {
+    return jsx4("div", { className: "ldw-live ldw-live-wait", children: jsx4("span", { children: "The clock starts when you do." }) });
+  }
+  const levels = rec.levels.slice(rec.firstIdx);
+  const pauses = livePauses(levels);
+  const open = pauses.length && pauses[pauses.length - 1].open;
+  return jsxs4("section", { className: "ldw-live", "aria-label": "Your take so far", children: [
+    jsxs4("div", { className: "ldw-last-head", children: [
+      jsx4("h3", { className: "ldw-h3", children: "Recording" }),
+      jsx4("span", { className: "ldw-prov", children: open ? "Pausing" : `${pauses.length} pause${pauses.length === 1 ? "" : "s"} over 2 seconds` })
+    ] }),
+    jsx4(Wave, { levels, duration: levels.length / 10, pauses, limit })
+  ] });
 }
 function toB64(buf) {
   const bytes = new Uint8Array(buf);
@@ -1027,6 +1058,73 @@ function ExtempSheet({ b, onDrill, drillLabel = "Run the drill" }) {
     ] }) : null
   ] });
 }
+var SIDE = { aff: "Affirmative", neg: "Negative" };
+var firstSentence = (t) => {
+  const m = String(t || "").match(/^.{20,170}?[.!?](\s|$)/);
+  return m ? m[0].trim() : clip2(t, 150);
+};
+var clip2 = (t, n) => {
+  t = String(t || "");
+  return t.length > n ? `${t.slice(0, n - 1).trimEnd()}...` : t;
+};
+function LdSheet({ b, onLine, onDrill }) {
+  const [open, setOpen] = useState4(false);
+  const pts = b.speaker_points || {};
+  const won = b.decision === b.side;
+  const spoken = b.measured ? Object.keys(b.measured) : [];
+  const lines = (b.decisive || []).slice(0, 3);
+  const more = (b.decisive || []).slice(3);
+  const [drill, ...drills] = b.drills || [];
+  const line = (d, i) => {
+    const said = jsxs4(Fragment2, { children: [jsx4("span", { className: "ldw-line-code", children: d.speech }), jsx4("span", { className: "ldw-line-said", children: `"${d.line}"` })] });
+    return jsxs4("div", { className: "ldw-line", children: [
+      onLine ? jsx4("button", { type: "button", className: "ldw-line-btn", onClick: () => onLine(d.speech), title: `Find the ${d.speech} on the flow`, children: said }) : jsx4("div", { children: said }),
+      jsx4("span", { className: "ldw-line-effect", children: d.effect }),
+      d.checked === false ? jsx4("span", { className: "ldw-line-flag", children: `Not found in the ${d.speech || "round"} as given. Check it on the flow.` }) : null
+    ] }, i);
+  };
+  return jsxs4("article", { className: "ldw-sheet", "aria-label": "Ballot", children: [
+    jsxs4("div", { className: "ldw-sheet-head", children: [jsx4("b", { children: "Lincoln-Douglas" }), jsx4("span", { children: `Practice ballot${b.round_no ? ` · round ${b.round_no}` : ""}` })] }),
+    jsxs4("div", { className: "ldw-sheet-fields", children: [
+      jsxs4("div", { children: [jsx4("i", { children: "Judge" }), b.judge || "Judge"] }),
+      jsxs4("div", { children: [jsx4("i", { children: "You" }), SIDE[b.side] || "Your side"] }),
+      jsxs4("div", { children: [jsx4("i", { children: "Speeches" }), spoken.length ? `${spoken.length} spoken, timed` : "typed"] }),
+      jsxs4("div", { children: [jsx4("i", { children: "Opponent" }), pts.opponent ? `${pts.opponent.toFixed(1)} points` : "no points"] })
+    ] }),
+    b.resolution ? jsx4("div", { className: "ldw-sheet-q", children: b.resolution }) : null,
+    jsxs4("div", { className: "ldw-sheet-dec", children: [
+      jsxs4("div", { className: "ldw-boxes", role: "img", "aria-label": `Decision: ${SIDE[b.decision] || "none"}`, children: ["aff", "neg"].map((k) => jsxs4("span", { children: [
+        jsx4("span", { className: "ldw-box", "data-x": b.decision === k ? "1" : "0" }),
+        SIDE[k]
+      ] }, k)) }),
+      jsx4("div", { className: "ldw-verdict ldw-ldverdict", children: won ? "You won" : "You lost" }),
+      jsx4(PointsScale, { points: pts.student })
+    ] }),
+    b.reason ? jsx4("p", { className: "ldw-sheet-why", children: firstSentence(b.reason) }) : null,
+    lines.length ? jsxs4("div", { className: "ldw-declines", children: [jsx4("h4", { children: "The lines that decided it" }), ...lines.map(line)] }) : null,
+    drill ? jsxs4("div", { className: "ldw-drillrow", children: [
+      jsx4("span", { className: "ldw-stamp2", children: "Drill" }),
+      jsxs4("p", { children: [jsx4("strong", { children: drill.name }), ". ", drill.how] }),
+      onDrill ? jsx4(Button3, { size: "sm", onClick: onDrill, children: "Redo a speech" }) : null
+    ] }) : null,
+    jsxs4("button", { type: "button", className: "ldw-fold", "aria-expanded": open, onClick: () => setOpen((v) => !v), children: [
+      jsx4("span", { children: open ? "Hide the full reason for decision" : "Read the full reason for decision" }),
+      jsx4("span", { children: `${words(b.reason)} words${drills.length ? ` · ${drills.length} more drill${drills.length === 1 ? "" : "s"}` : ""}` })
+    ] }),
+    open ? jsxs4("div", { className: "ldw-sheet-rfd", children: [
+      jsx4("p", { children: b.reason }),
+      b.framework ? jsxs4(Fragment2, { children: [jsx4("h4", { children: "Framework" }), jsx4("p", { children: b.framework })] }) : null,
+      b.ownership ? jsxs4(Fragment2, { children: [jsx4("h4", { children: "Did you own your case?" }), jsx4("p", { children: b.ownership })] }) : null,
+      more.length ? jsxs4(Fragment2, { children: [jsx4("h4", { children: "More lines the judge named" }), ...more.map((d, i) => line(d, `m${i}`))] }) : null,
+      b.strengths && b.strengths.length ? jsxs4(Fragment2, { children: [jsx4("h4", { children: "What worked" }), jsx4("ul", { children: b.strengths.map((s, i) => jsx4("li", { children: s }, i)) })] }) : null,
+      drills.length ? jsxs4(Fragment2, { children: [jsx4("h4", { children: "More drills" }), ...drills.map((d, i) => jsxs4("div", { className: "ldw-drill2", children: [
+        jsx4("strong", { children: d.name }),
+        jsx4("p", { children: d.why }),
+        jsx4("p", { children: d.how })
+      ] }, i))] }) : null
+    ] }) : null
+  ] });
+}
 
 // desktop/src/extemp.js
 import { useEffect as useEffect4, useRef as useRef4, useState as useState5 } from "react";
@@ -1103,6 +1201,7 @@ function Floor({ limit, label, jt, startLabel, extra }) {
       jsx5(Clock, { limit, elapsed: jt.recorder.elapsed, live, label }),
       jsx5(SpeakControls, { rec: jt.recorder, onTyped: (text) => jt.got({ typed: text }), startLabel, extra })
     ] }) : null,
+    live ? jsx5(LiveWave, { rec: jt.recorder, limit }) : null,
     jt.busy === "sending" ? jsx5(Thinking, { label: "Saving your take" }) : null,
     jt.err ? jsx5(Notice, { tone: "bad", children: jt.err, action: jt.take && !jt.ballot ? jsx5(Button4, { size: "sm", variant: "secondary", onClick: () => jt.judge(jt.take), children: "Ask for the ballot again" }) : null }) : null,
     jt.take && !live ? jsx5(LastTake, { take: jt.take, limit, title: jt.ballot ? "Your take" : "Your take, just now", onChange: jt.setTake }) : null,
@@ -1974,10 +2073,10 @@ var FRAME_CSS = `
 .ldw-sheet .ldw-box{width:16px;height:16px;border:1.6px solid currentColor;margin-right:6px;vertical-align:-3px}
 .ldw-sheet .ldw-box[data-x="1"]::before,.ldw-sheet .ldw-box[data-x="1"]::after{background:var(--hk-accent);width:2.6px;height:22px;top:-4px;left:6px;border-radius:2px}
 .ldw-verdict{font-size:18px;font-weight:700;line-height:1.3}
-.ldw-pts{display:grid;gap:4px}
+.ldw-pts{display:grid;gap:4px;padding-bottom:14px}
 .ldw-pts-lbl{font-size:13px}.ldw-pts-lbl b{font-family:var(--hk-mono)}
 .ldw-pts-scale{position:relative;height:30px;border-bottom:1.5px solid currentColor;margin:0 8px}
-.ldw-pts-scale span{position:absolute;bottom:-24px;transform:translateX(-50%);font-family:var(--hk-mono);font-size:12px}
+.ldw-pts-scale span{position:absolute;bottom:-29px;transform:translateX(-50%);font-family:var(--hk-mono);font-size:12px}
 .ldw-pts-mark{position:absolute;bottom:-11px;width:30px;height:20px;border:2.4px solid var(--hk-accent);border-radius:50%;transform:translateX(-50%) rotate(-8deg)}
 .ldw-declines{padding:22px 0 4px;display:grid;gap:2px;font-style:normal}
 .ldw-declines h4,.ldw-sheet-rfd h4{margin:0 0 4px;font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase}
@@ -2100,6 +2199,30 @@ var FRAME_CSS = `
 @container (max-width:900px){.ldw-frame{grid-template-columns:1fr}.ldw-rail{flex-direction:row;overflow-x:auto;border-right:0;border-bottom:1px solid var(--hk-stroke);padding:0;position:static;min-height:0}
   .ldw-ev-ballots{margin-top:0}.ldw-stage2,.ldw-prep,.ldw-heads-grid,.ldw-drawn,.ldw-read,.ldw-patgrid,.ldw-slip{grid-template-columns:1fr}.ldw-sheet-dec,.ldw-sheet-fields{grid-template-columns:1fr 1fr}
   .ldw-outline-side{text-align:left}.ldw-strip{flex-wrap:wrap}.ldw-seg{min-width:96px !important}}
+/* Lincoln-Douglas in the frame: the big clock and its actions on one row, the speech and last ballot under it */
+.ldw-floor{display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:var(--ldw-gap) 30px;align-items:start}
+.ldw-floor>.ldw-clock{grid-column:1/-1;position:static;border-bottom:1px solid var(--hk-stroke);padding:4px 0 20px}
+.ldw-ldface{display:grid;gap:12px;justify-items:start}
+.ldw-ldside{display:grid;gap:12px;align-content:start}
+.ldw-ldside .ldw-rows{margin:0}
+.ldw-ldactions{position:sticky;top:0}
+.ldw-ldactions .hb-menu-trigger,.ldw-ldactions>button{width:100%}
+.ldw-ldballot{display:grid;gap:12px;min-width:0}
+.ldw-ldballot .ldw-sheet{max-width:none}
+.ldw-paper{background:var(--ldw-paper) !important;color:var(--ldw-paper-ink) !important;border-color:var(--hk-stroke) !important}
+.ldw-paper .ldw-stamp{color:var(--hk-bad-fill)}
+.ldw-line-btn{all:unset;cursor:pointer;display:flex;gap:10px;align-items:baseline}
+.ldw-line-btn:hover .ldw-line-said{text-decoration-thickness:3px}
+.ldw-line-btn:focus-visible{outline:2px solid var(--hk-accent);outline-offset:2px}
+.ldw-line-code{font-family:var(--hk-mono);font-size:12px;font-weight:700;min-width:34px}
+.ldw-ldverdict{font-family:var(--ldw-cond);font-size:38px;line-height:1;text-transform:uppercase;letter-spacing:.01em}
+.ldw-sheet-why{margin:0;padding:10px 0;border-bottom:1px solid var(--ldw-paper-rule);font-size:15px;line-height:1.45;max-width:70ch}
+.ldw-sheet-rfd h4{margin-top:12px}
+.ldw-drill2{display:grid;gap:2px;padding:6px 0;border-bottom:1px dashed var(--ldw-paper-rule)}.ldw-drill2 p{margin:0}
+.ldw-live{background:var(--hk-surface);border:1px solid var(--hk-stroke);box-shadow:inset 3px 0 0 var(--hk-accent);border-radius:var(--ldw-r);padding:14px 16px 12px;display:grid;gap:10px}
+.ldw-live .ldw-wave-bar{fill:var(--hk-accent)}
+.ldw-live-wait{font-size:14px}
+@container (max-width:900px){.ldw-floor{grid-template-columns:1fr}.ldw-floor .ldw-stage2{grid-template-columns:1fr}}
 `;
 
 // desktop/src/plugin.js
@@ -2156,15 +2279,15 @@ function stops() {
 var speakerOf = (stop, side) => stop.side === side ? "student" : "ai";
 var currentStop = (r) => r && r.phase === "live" ? stops()[r.i] : null;
 function Board({ r }) {
-  return jsx8("ol", { className: "ldw-board", "aria-label": "Speeches in this round", children: stops().map((s, i) => {
+  const all = stops();
+  const segs = all.map((s, i) => {
     const state = !r ? "later" : r.phase !== "live" || i < r.i ? "done" : i === r.i ? "now" : "later";
-    const who = !r ? s.kind === "cx" ? "CX" : "Speech" : s.kind === "cx" ? speakerOf(s, r.side) === "student" ? "You ask" : "Opp asks" : speakerOf(s, r.side) === "student" ? "You" : "Opp";
-    return jsxs8("li", { className: "ldw-slot", "data-state": state, "aria-current": state === "now" ? "step" : void 0, children: [
-      jsx8("div", { className: "ldw-slot-id", children: s.kind === "cx" ? "CX" : s.id }),
-      jsxs8("div", { className: "ldw-slot-who", children: [who, " · ", mmss(s.minutes * 60)] }),
-      state === "done" ? jsx8(Codicon6, { name: "check", className: "ldw-slot-check" }) : null
-    ] }, s.id);
-  }) });
+    const who = !r ? s.kind === "cx" ? "Cross-ex" : sideShort(s.side) : s.kind === "cx" ? speakerOf(s, r.side) === "student" ? "You ask" : "Opp asks" : speakerOf(s, r.side) === "student" ? "You" : "Opp";
+    return { key: s.id, code: `${s.kind === "cx" ? "CX" : s.id} ${mmss(s.minutes * 60)}`, sub: who, minutes: s.minutes, state, min: 58 };
+  });
+  const ballotState = !r ? "later" : r.phase === "ballot" || r.phase === "judging" ? "now" : "later";
+  segs.push({ key: "ballot", code: "Ballot", sub: r && r.ballots.length ? `${r.ballots.length} written` : "Judge", minutes: 2.4, state: ballotState, min: 76 });
+  return jsx8(Strip, { segments: segs, label: "The round, drawn to scale in time" });
 }
 function usePrep(r) {
   const [left, setLeft] = useState8(r ? r.prep : 0);
@@ -2208,37 +2331,38 @@ function useCountdown(seconds, key) {
   }, [running]);
   return { left, running, total: seconds, start: () => setRunning(true), pause: () => setRunning(false) };
 }
-function ClockPanel({ big, label, fraction, rows = [], primary, clock, prep, over, extra }) {
-  return jsxs8("section", { className: "ldw-panel ldw-clock", "aria-label": "Clock", children: [
-    jsxs8("div", { className: "ldw-watch", children: [
-      jsx8("div", { className: cls("ldw-watch-time", over && "ldw-over"), role: "timer", "aria-live": "off", children: big }),
-      jsxs8("div", { className: "ldw-watch-sub", children: [
-        jsx8("span", { className: "ldw-mono ldw-accent", children: label }),
-        clock ? jsx8("button", {
-          type: "button",
-          className: "ldw-iconbtn",
-          onClick: clock.running ? clock.pause : clock.start,
-          "aria-label": clock.running ? "Pause clock" : clock.left === clock.total ? "Start clock" : "Resume clock",
-          title: clock.running ? "Pause clock" : clock.left === clock.total ? "Start clock" : "Resume clock",
-          children: jsx8(Codicon6, { name: clock.running ? "debug-pause" : "play" })
-        }) : null
-      ] })
-    ] }),
-    jsx8("div", { className: "ldw-bar", children: jsx8("span", { style: { width: `${Math.max(0, Math.min(1, fraction || 0)) * 100}%` } }) }),
-    prep ? jsxs8("div", { className: "ldw-preprow", children: [
-      jsx8("span", { children: "Prep left" }),
-      jsx8("b", { className: "ldw-num", children: mmss(prep.left) }),
-      jsx8("button", {
+function ClockPanel({ big, label, rows = [], primary, clock, prep, over, extra, limit, elapsed, go }) {
+  const face = limit ? jsx8(Clock, { limit, elapsed: elapsed || 0, label }) : jsxs8("div", { className: "ldw-clockface", children: [
+    jsx8("div", { className: "ldw-clock-label", children: label }),
+    jsx8("div", { className: cls("ldw-bigclock", over && "ldw-over"), role: "timer", "aria-live": "off", children: big })
+  ] });
+  return jsxs8("section", { className: "ldw-clock ldw-stage2", "aria-label": "Clock", children: [
+    jsxs8("div", { className: "ldw-ldface", children: [
+      face,
+      clock ? jsx8("button", {
         type: "button",
         className: "hk-link",
-        onClick: prep.toggle,
-        disabled: !prep.running && prep.left <= 0,
-        children: prep.running ? "Stop prep" : prep.left > 0 ? "Use prep" : "None left"
-      })
-    ] }) : null,
-    rows.length ? jsx8("dl", { className: "ldw-rows", children: rows.map(([k, v]) => jsxs8(Fragment6, { children: [jsx8("dt", { children: k }), jsx8("dd", { children: v })] }, k)) }) : null,
-    primary || null,
-    extra || null
+        onClick: clock.running ? clock.pause : clock.start,
+        children: clock.running ? "Pause the clock" : clock.left === clock.total ? "Start the clock by hand" : "Resume the clock"
+      }) : null
+    ] }),
+    jsxs8("div", { className: "ldw-ldside", children: [
+      go || null,
+      primary || null,
+      prep ? jsxs8("div", { className: "ldw-preprow", children: [
+        jsx8("span", { children: "Prep left" }),
+        jsx8("b", { className: "ldw-num", children: mmss(prep.left) }),
+        jsx8("button", {
+          type: "button",
+          className: "hk-link",
+          onClick: prep.toggle,
+          disabled: !prep.running && prep.left <= 0,
+          children: prep.running ? "Stop prep" : prep.left > 0 ? "Use prep" : "None left"
+        })
+      ] }) : null,
+      rows.length ? jsx8("dl", { className: "ldw-rows", children: rows.map(([k, v]) => jsxs8(Fragment6, { children: [jsx8("dt", { children: k }), jsx8("dd", { children: v })] }, k)) }) : null,
+      extra || null
+    ] })
   ] });
 }
 var BigButton = ({ primary, icon, children, ...rest2 }) => jsx8(Button6, {
@@ -2314,21 +2438,21 @@ function StudentSpeech({ r, stop }) {
   const pace = !text.trim() && real === null ? "Not started" : length > target ? `${mmss(length - target)} too long` : length < target * 0.6 ? "Short" : "On time";
   return jsxs8(Fragment6, { children: [
     jsx8(ClockPanel, {
-      big: mmss(shown),
-      over: shown < 0,
+      limit: target,
+      elapsed: target - shown,
       label: `${stop.id} · your speech`,
-      fraction: 1 - shown / target,
       clock: recording ? null : clock,
       prep: recording ? null : prep,
-      rows: [["Pace", pace], real !== null ? ["Spoken length", `${mmss(real)}, recorded`] : ["Spoken length", `about ${mmss(spoken)}, estimated`]],
-      primary: jsx8(BigButton, { primary: true, icon: "arrow-right", onClick: finish, loading: busy, disabled: recording || take && ["waiting", "working"].includes(take.transcript.status), children: "Finish speech" })
+      go: jsx8(SpeakControls, { rec, startLabel: `Speak your ${stop.id}`, onTyped: (t) => change(text.trim() ? `${text}
+
+${t}` : t) }),
+      rows: recording ? [] : [["Pace", pace], real !== null ? ["Spoken length", `${mmss(real)}, recorded`] : ["Spoken length", `about ${mmss(spoken)}, estimated`]],
+      primary: recording ? null : jsx8(BigButton, { icon: "arrow-right", onClick: finish, loading: busy, disabled: take && ["waiting", "working"].includes(take.transcript.status), children: "Finish speech" })
     }),
     jsxs8("section", { className: "ldw-panel ldw-stage", "aria-label": "Your speech", children: [
       jsx8(StageHead, { title: `Your ${stop.id}`, sub: stop.name }),
       jsx8("p", { className: "ldw-goal", children: ($cfg.get().speech_goals || {})[stop.id] }),
-      jsx8(SpeakControls, { rec, startLabel: `Speak your ${stop.id}`, onTyped: (t) => change(text.trim() ? `${text}
-
-${t}` : t) }),
+      recording ? jsx8(LiveWave, { rec, limit: target }) : null,
       take && !recording ? jsx8(LastTake, { take, limit: target, title: `Your ${stop.id}, spoken`, onChange: setTake }) : null,
       undo !== null ? jsx8(Notice, {
         tone: "info",
@@ -2375,9 +2499,9 @@ function OpponentSpeech({ r, stop }) {
   };
   return jsxs8(Fragment6, { children: [
     jsx8(ClockPanel, {
-      big: mmss(prep.left),
-      label: `${stop.id} · opponent · your prep`,
-      fraction: 1 - prep.left / (($cfg.get().prep_minutes || 4) * 60),
+      limit: ($cfg.get().prep_minutes || 4) * 60,
+      elapsed: ($cfg.get().prep_minutes || 4) * 60 - prep.left,
+      label: `Your prep · opponent's ${stop.id}`,
       prep,
       rows: [["Speech time", mmss(stop.minutes * 60)]],
       primary: jsx8(BigButton, { primary: true, icon: "arrow-right", disabled: !pending, loading: busy, onClick: next, children: "Continue" })
@@ -2466,10 +2590,9 @@ function CrossEx({ r, stop }) {
   };
   return jsxs8(Fragment6, { children: [
     jsx8(ClockPanel, {
-      big: mmss(clock.left),
-      over: clock.left < 0,
-      label: `CX · ${studentAsks ? "you ask" : "opponent asks"}`,
-      fraction: 1 - clock.left / (stop.minutes * 60),
+      limit: stop.minutes * 60,
+      elapsed: stop.minutes * 60 - clock.left,
+      label: `Cross-ex · ${studentAsks ? "you ask" : "opponent asks"}`,
       clock,
       prep,
       rows: [["Exchanges", String(log.length)]],
@@ -2537,12 +2660,11 @@ function PaperBallot({ b, roundNo }) {
     ] }, i)) }) : null
   ] });
 }
-function FullBallot({ r, onRedo, onFlowHit }) {
+function FullBallot({ r, onRedo, onFlowHit, onNew }) {
   const b = r.ballots[r.ballots.length - 1];
   const judges = ($cfg.get() || {}).judges || {};
   const [busy, setBusy] = useState8(null);
   const [err, setErr] = useState8(null);
-  const won = b.decision === r.side;
   const ask = async (key) => {
     setBusy(key);
     setErr(null);
@@ -2555,38 +2677,18 @@ function FullBallot({ r, onRedo, onFlowHit }) {
     }
   };
   const mine = r.transcript.filter((t) => t.speaker === "student").map((t) => t.id);
-  return jsxs8("section", { className: "ldw-panel ldw-stage ldw-ballot", "aria-label": "Ballot", children: [
-    jsxs8("div", { className: "ldw-row-between", children: [
-      jsx8(StageHead, { title: `${won ? "You won" : "You lost"}. Decision: ${b.decision === "aff" ? "Affirmative" : "Negative"}`, sub: `${b.judge} · ballot ${r.ballots.length} for this round` }),
-      jsxs8("div", { className: "hk-actions", children: [
-        jsx8(Menu, { label: busy ? "Judging..." : "Ask another judge", icon: "law", align: "end", items: Object.entries(judges).filter(([k]) => k !== b.judge_key).map(([k, j]) => ({ label: `Ask the ${j.label.toLowerCase()}`, meta: j.summary, disabled: !!busy, onSelect: () => ask(k) })) }),
-        jsx8(Menu, { label: "Redo a speech", icon: "refresh", align: "end", items: mine.map((id) => ({ label: `Redo your ${id}`, disabled: !!busy, onSelect: () => onRedo(id) })) })
-      ] })
+  return jsxs8(Fragment6, { children: [
+    jsxs8("section", { className: "ldw-ldballot", "aria-label": "Ballot", children: [
+      busy ? jsx8(Thinking, { label: `The ${judges[busy].label.toLowerCase()} is writing a ballot` }) : null,
+      err ? jsx8(Notice, { tone: "bad", children: err }) : null,
+      jsx8(LdSheet, { b: { ...b, side: b.side || r.side, resolution: b.resolution || r.resolution }, onLine: onFlowHit })
     ] }),
-    busy ? jsx8(Thinking, { label: `The ${judges[busy].label.toLowerCase()} is writing a ballot` }) : null,
-    err ? jsx8(Notice, { tone: "bad", children: err }) : null,
-    jsxs8("div", { className: "ldw-ballot-grid", children: [
-      jsxs8("div", { className: "hk-stack", children: [
-        jsx8("h3", { className: "ldw-h3", children: "Reason for decision" }),
-        renderText(b.reason),
-        jsx8("h3", { className: "ldw-h3", children: "Framework" }),
-        jsx8("p", { children: b.framework }),
-        jsx8("h3", { className: "ldw-h3", children: "The lines that decided it" }),
-        jsx8("p", { className: "ldw-meta", children: "Check these against what was actually said. Click one to find it on the flow." }),
-        ...(b.decisive || []).map((d, i) => jsxs8("button", { type: "button", className: "ldw-decisive", onClick: () => onFlowHit(d.speech), children: [
-          jsx8("span", { className: "ldw-mono ldw-accent", children: d.speech }),
-          jsx8("span", { children: d.line }),
-          jsx8("em", { children: d.effect })
-        ] }, i)),
-        jsx8("h3", { className: "ldw-h3", children: "Did you own your case?" }),
-        jsx8("p", { children: b.ownership })
-      ] }),
-      jsxs8("div", { className: "hk-stack", children: [
-        jsx8("h3", { className: "ldw-h3", children: "What worked" }),
-        jsx8("ul", { className: "ldw-list", children: (b.strengths || []).map((s, i) => jsx8("li", { children: s }, i)) }),
-        jsx8("h3", { className: "ldw-h3", children: "Your three drills" }),
-        ...(b.drills || []).map((d, i) => jsxs8("div", { className: "ldw-drill", children: [jsx8("strong", { children: d.name }), jsx8("p", { className: "ldw-why", children: d.why }), jsx8("p", { children: d.how })] }, i))
-      ] })
+    jsxs8("aside", { className: "ldw-ldside ldw-ldactions", "aria-label": "After the ballot", children: [
+      jsx8("div", { className: "ldw-clock-label", children: `Ballot ${r.ballots.length} for this round` }),
+      jsx8(Menu, { label: busy ? "Judging..." : "Ask another judge", icon: "law", align: "end", items: Object.entries(judges).filter(([k]) => k !== b.judge_key).map(([k, j]) => ({ label: `Ask the ${j.label.toLowerCase()}`, meta: j.summary, disabled: !!busy, onSelect: () => ask(k) })) }),
+      jsx8(Menu, { label: "Redo a speech", icon: "refresh", align: "end", items: mine.map((id) => ({ label: `Redo your ${id}`, disabled: !!busy, onSelect: () => onRedo(id) })) }),
+      jsx8(BigButton, { primary: true, icon: "add", onClick: onNew, children: "New round" }),
+      jsx8("dl", { className: "ldw-rows", children: [["Prep left", mmss(r.prep)], ["Your points", b.speaker_points && b.speaker_points.student ? b.speaker_points.student.toFixed(1) : "none"]].map(([k, v]) => jsxs8(Fragment6, { children: [jsx8("dt", { children: k }), jsx8("dd", { children: v })] }, k)) })
     ] })
   ] });
 }
@@ -2614,10 +2716,9 @@ function Redo({ r, id, onDone }) {
   };
   return jsxs8(Fragment6, { children: [
     jsx8(ClockPanel, {
-      big: mmss(clock.left),
-      over: clock.left < 0,
+      limit: stop.minutes * 60,
+      elapsed: stop.minutes * 60 - clock.left,
       label: `${id} · redo`,
-      fraction: 1 - clock.left / (stop.minutes * 60),
       clock,
       rows: [["Spoken length", `about ${mmss(words(text) / WPM * 60)}`]],
       primary: jsx8(BigButton, { primary: true, icon: "arrow-right", loading: busy, onClick: submit, children: "Submit the redo" }),
@@ -2642,7 +2743,6 @@ function Judging({ r }) {
     go();
   }, [r.round_no]);
   return jsxs8(Fragment6, { children: [
-    jsx8(ClockPanel, { big: "0:00", label: "Round over", fraction: 1, rows: [["Prep left", mmss(r.prep)]] }),
     jsxs8("section", { className: "ldw-panel ldw-stage", "aria-label": "Judging", children: [
       jsx8(StageHead, { title: "The ballot" }),
       err ? jsx8(Failure, { title: "The judge could not finish", body: err, onRetry: go }) : jsx8(Thinking, { label: "The judge is writing the ballot" })
@@ -2676,7 +2776,6 @@ function Setup() {
     jsx8(ClockPanel, {
       big: mmss((cfg.prep_minutes || 4) * 60),
       label: "Prep for the whole round",
-      fraction: 0,
       rows: [["Full round", "about 45 minutes"], ["Speech times", "NSDA"]],
       primary: jsx8(BigButton, { primary: true, icon: "play", loading: busy, disabled: !chosen, onClick: start, children: "Start the round" })
     }),
@@ -2746,16 +2845,7 @@ function Room() {
   else if (redo) floor = jsx8(Redo, { r, id: redo, onDone: () => setRedo(null) });
   else if (r.phase === "judging") floor = jsx8(Judging, { r });
   else if (r.phase === "ballot") {
-    floor = jsxs8(Fragment6, { children: [
-      jsx8(ClockPanel, {
-        big: "0:00",
-        label: "Round over",
-        fraction: 1,
-        rows: [["Prep left", mmss(r.prep)], ["Ballots", String(r.ballots.length)]],
-        primary: jsx8(BigButton, { primary: true, icon: "add", onClick: newRound, children: "New round" })
-      }),
-      jsx8(FullBallot, { r, onRedo: setRedo, onFlowHit: flowHit })
-    ] });
+    floor = jsx8(FullBallot, { r, onRedo: setRedo, onFlowHit: flowHit, onNew: newRound });
   } else if (stop.kind === "cx") floor = jsx8(CrossEx, { r, stop }, `${r.round_no}-${stop.id}`);
   else if (speakerOf(stop, r.side) === "student") floor = jsx8(StudentSpeech, { r, stop }, `${r.round_no}-${stop.id}`);
   else floor = jsx8(OpponentSpeech, { r, stop }, `${r.round_no}-${stop.id}`);
@@ -2774,7 +2864,7 @@ function Room() {
       jsx8(Button6, { size: "sm", variant: "secondary", onClick: () => setConfirmEnd(false), children: "Keep going" })
     ] }) }) : null,
     jsx8(Board, { r }),
-    jsxs8("div", { className: "ldw-floor", children: [floor, jsx8(PaperBallot, { b: last, roundNo: st.history && st.history.count })] }),
+    jsxs8("div", { className: "ldw-floor", children: [floor, r && (r.phase === "ballot" && !redo) ? null : jsx8(PaperBallot, { b: last, roundNo: st.history && st.history.count })] }),
     r && (showFlow || r.phase === "ballot") ? jsx8(Flow, { r, hit }) : null
   ] });
 }
@@ -3506,7 +3596,7 @@ function DebatePage() {
 var CSS = `
 .ldw{--ldw-serif:Georgia,"Source Serif 4","Times New Roman",ui-serif,serif;--ldw-gap:22px}
 .ldw-inner{padding:18px 22px 40px;display:grid;gap:var(--ldw-gap);align-content:start;min-width:0}
-.ldw-label{font-family:var(--hk-mono);font-size:11px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--hk-ink)}
+.ldw-label{font-family:var(--hk-mono);font-size:12px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--hk-ink)}
 .ldw-accent{color:color-mix(in srgb,var(--hk-accent) 82%,var(--hk-ink))}
 .ldw-meta{font-size:12px;color:var(--hk-ink)}
 .ldw-head{display:flex;align-items:flex-end;justify-content:space-between;gap:14px;flex-wrap:wrap}
@@ -3522,10 +3612,10 @@ var CSS = `
 .ldw-board{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:8px}
 .ldw-path{grid-template-columns:repeat(6,minmax(0,1fr))}
 .ldw-path li{display:grid}
-.ldw-slot{position:relative;background:var(--hk-surface);border:1px solid var(--hk-stroke);border-radius:8px;padding:10px 12px;min-width:0;color:var(--hk-ink);text-align:left;font:inherit;
+.ldw-slot{position:relative;background:var(--hk-surface);border:1px solid var(--hk-stroke);border-radius:var(--ldw-r);padding:10px 12px;min-width:0;color:var(--hk-ink);text-align:left;font:inherit;
   transition:border-color var(--hk-dur) var(--hk-ease),background-color var(--hk-dur) var(--hk-ease)}
 .ldw-slot-id{font-family:var(--hk-mono);font-weight:800;font-size:18px;line-height:1.2}
-.ldw-slot-who{font-size:11px;letter-spacing:.06em;text-transform:uppercase;margin-top:2px}
+.ldw-slot-who{font-size:12px;letter-spacing:.06em;text-transform:uppercase;margin-top:2px}
 .ldw-slot-check{position:absolute;right:10px;top:10px;color:var(--hk-good)}
 .ldw-slot[data-state=done]{background:var(--hk-sunken)}
 .ldw-slot[data-state=done] .ldw-slot-id{color:color-mix(in srgb,var(--hk-ink) 70%,var(--hk-surface))}
@@ -3538,15 +3628,15 @@ var CSS = `
 .ldw-step-desc{font-size:12px;line-height:1.35}
 
 .ldw-floor{display:grid;grid-template-columns:260px minmax(0,1fr) 330px;gap:var(--ldw-gap);align-items:start}
-.ldw-panel{background:var(--hk-surface);border:1px solid var(--hk-stroke);border-radius:10px;padding:16px;min-width:0;display:grid;gap:10px;align-content:start}
+.ldw-panel{background:var(--hk-surface);border:1px solid var(--hk-stroke);border-radius:var(--ldw-r);padding:16px;min-width:0;display:grid;gap:10px;align-content:start}
 .ldw-panel>*{min-width:0}
 
 .ldw-clock{position:sticky;top:0}
 .ldw-watch{text-align:center;padding:14px 0 4px;display:grid;gap:8px}
 .ldw-watch-time{font-family:var(--hk-mono);font-weight:800;font-size:68px;letter-spacing:-.02em;line-height:1;font-variant-numeric:tabular-nums}
 .ldw-over{color:var(--hk-bad)}
-.ldw-bar{height:6px;background:var(--hk-sunken);border-radius:3px;overflow:hidden}
-.ldw-bar span{display:block;height:100%;background:var(--hk-accent);border-radius:3px;transition:width 160ms var(--hk-ease)}
+.ldw-bar{height:6px;background:var(--hk-sunken);border-radius:var(--ldw-r);overflow:hidden}
+.ldw-bar span{display:block;height:100%;background:var(--hk-accent);border-radius:var(--ldw-r);transition:width 160ms var(--hk-ease)}
 .ldw-bar[data-over] span{background:var(--hk-bad-fill)}
 .ldw-rows{display:grid;grid-template-columns:1fr auto;gap:6px 10px;margin:0;font-size:13px}
 .ldw-rows dt{margin:0}.ldw-rows dd{margin:0;font-family:var(--hk-mono);font-weight:700;text-align:right}
@@ -3568,24 +3658,24 @@ var CSS = `
 .ldw-ask textarea{flex:1;min-height:46px;max-height:160px;resize:vertical}
 .ldw-field-label{font-size:12px;font-weight:700;margin-top:6px}
 .ldw-pick{list-style:none;margin:0;padding:0;display:grid;gap:4px;max-height:220px;overflow:auto}
-.ldw-pick-row,.ldw-case-open{display:flex;gap:10px;align-items:center;width:100%;text-align:left;font:inherit;color:inherit;background:transparent;border:1px solid var(--hk-stroke);border-radius:6px;padding:7px 10px;cursor:pointer}
+.ldw-pick-row,.ldw-case-open{display:flex;gap:10px;align-items:center;width:100%;text-align:left;font:inherit;color:inherit;background:transparent;border:1px solid var(--hk-stroke);border-radius:var(--ldw-r);padding:7px 10px;cursor:pointer}
 .ldw-pick-row:hover,.ldw-case-open:hover{background:var(--hk-hover)}
 .ldw-pick-row[data-active]{border-color:var(--hk-accent);background:var(--hk-active)}
-.ldw-side-tag{font-family:var(--hk-mono);font-size:10px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;padding:1px 6px;border-radius:999px;border:1px solid color-mix(in srgb,var(--hk-accent) 45%,transparent);margin-right:6px}
+.ldw-side-tag{font-family:var(--hk-mono);font-size:12px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;padding:1px 6px;border-radius:var(--ldw-r);border:1px solid color-mix(in srgb,var(--hk-accent) 45%,transparent);margin-right:6px}
 
 .ldw-side{gap:12px}
-.ldw-paper{position:relative;border-radius:6px;padding:16px 18px 18px;font-family:var(--ldw-serif);
+.ldw-paper{position:relative;border-radius:var(--ldw-r);padding:16px 18px 18px;font-family:var(--ldw-serif);
   background:color-mix(in srgb,var(--hk-surface) 90%,var(--hk-warn-fill));color:var(--hk-ink);border:1px solid var(--hk-stroke)}
 :root.dark .ldw-paper{background:color-mix(in srgb,var(--hk-ink) 90%,var(--hk-warn-fill));color:var(--ui-bg-elevated,var(--hk-bg));border-color:transparent}
-.ldw-paper-top{display:flex;justify-content:space-between;gap:4px 10px;flex-wrap:wrap;font-family:var(--hk-mono);font-size:10px;letter-spacing:.14em;font-weight:800;text-transform:uppercase;border-bottom:2px solid currentColor;padding-bottom:8px;margin-bottom:6px}
+.ldw-paper-top{display:flex;justify-content:space-between;gap:4px 10px;flex-wrap:wrap;font-family:var(--hk-mono);font-size:12px;letter-spacing:.14em;font-weight:800;text-transform:uppercase;border-bottom:2px solid currentColor;padding-bottom:8px;margin-bottom:6px}
 .ldw-paper-line{display:flex;justify-content:space-between;gap:10px;font-size:14px;padding:7px 0;border-bottom:1px dashed color-mix(in srgb,currentColor 40%,transparent)}
 .ldw-paper-decided b{text-align:left;max-width:70%}
 .ldw-box{display:inline-block;width:14px;height:14px;border:1.5px solid currentColor;margin-right:7px;vertical-align:-2px;position:relative}
 .ldw-box[data-x="1"]::before,.ldw-box[data-x="1"]::after{content:"";position:absolute;left:50%;top:-2px;width:1.5px;height:16px;background:currentColor;transform:rotate(45deg)}
 .ldw-box[data-x="1"]::after{transform:rotate(-45deg)}
 .ldw-paper-rfd{font-size:14px;line-height:1.45;font-style:italic;margin-top:10px !important;padding-right:6px}
-.ldw-stamp{position:absolute;right:14px;bottom:-10px;font-family:var(--hk-mono);font-weight:800;font-size:11px;letter-spacing:.14em;text-transform:uppercase;padding:4px 8px;transform:rotate(-6deg);
-  color:color-mix(in srgb,var(--hk-bad-fill) 85%,currentColor);border:2px solid currentColor;background:inherit;border-radius:3px}
+.ldw-stamp{position:absolute;right:14px;bottom:-10px;font-family:var(--hk-mono);font-weight:800;font-size:12px;letter-spacing:.14em;text-transform:uppercase;padding:4px 8px;transform:rotate(-6deg);
+  color:color-mix(in srgb,var(--hk-bad-fill) 85%,currentColor);border:2px solid currentColor;background:inherit;border-radius:var(--ldw-r)}
 :root.dark .ldw-stamp{color:color-mix(in srgb,var(--hk-bad-fill) 80%,var(--ui-bg-elevated,var(--hk-bg)))}
 .ldw-drills{display:grid;gap:10px}
 .ldw-drill{display:grid;gap:3px;border-top:1px solid var(--hk-stroke);padding-top:8px}
@@ -3593,14 +3683,14 @@ var CSS = `
 .ldw-why{font-style:italic}
 .ldw-verdict{margin:0;font-size:20px;font-weight:800}
 .ldw-ballot-grid{display:grid;grid-template-columns:1fr;gap:18px}
-.ldw-decisive{display:grid;gap:3px;text-align:left;font:inherit;color:inherit;background:var(--hk-sunken);border:1px solid var(--hk-stroke);border-left:3px solid var(--hk-accent);border-radius:6px;padding:8px 10px;cursor:pointer}
+.ldw-decisive{display:grid;gap:3px;text-align:left;font:inherit;color:inherit;background:var(--hk-sunken);border:1px solid var(--hk-stroke);border-left:3px solid var(--hk-accent);border-radius:var(--ldw-r);padding:8px 10px;cursor:pointer}
 .ldw-decisive:hover{border-color:var(--hk-stroke-strong)}
 .ldw-decisive em{font-size:12.5px}
 .ldw-list{margin:0;padding-left:18px;display:grid;gap:4px}
 .ldw-flow-scroll{overflow-x:auto}
 .ldw-flow table{border-collapse:collapse;width:100%;min-width:860px}
-.ldw-flow th{font-family:var(--hk-mono);font-size:11px;letter-spacing:.12em;text-transform:uppercase;text-align:left;padding:8px 10px;border-bottom:1px solid var(--hk-stroke-strong);border-right:1px solid var(--hk-stroke)}
-.ldw-flow th span{display:block;font-size:10px;letter-spacing:.06em;font-weight:400}
+.ldw-flow th{font-family:var(--hk-mono);font-size:12px;letter-spacing:.12em;text-transform:uppercase;text-align:left;padding:8px 10px;border-bottom:1px solid var(--hk-stroke-strong);border-right:1px solid var(--hk-stroke)}
+.ldw-flow th span{display:block;font-size:12px;letter-spacing:.06em;font-weight:400}
 .ldw-flow td{vertical-align:top;padding:8px 10px;border-right:1px solid var(--hk-stroke);font-size:12.5px;line-height:1.4}
 .ldw-flow td div{padding:3px 0;border-bottom:1px dotted var(--hk-stroke)}
 .ldw-flow td[data-hit]{background:color-mix(in srgb,var(--hk-accent) 14%,transparent);outline:1px solid var(--hk-accent)}
@@ -3633,24 +3723,24 @@ var CSS = `
 .ldw-hint{font-size:13px;font-style:italic;font-family:var(--ldw-serif)}
 .ldw-sec-text{width:100%;min-height:84px;resize:vertical;font-family:var(--ldw-serif) !important;font-size:15px !important;line-height:1.55 !important}
 .ldw-chips{display:flex;gap:6px;flex-wrap:wrap}
-.ldw-chip{display:inline-flex;align-items:center;gap:5px;background:transparent;border:1px solid var(--hk-stroke);border-radius:999px;padding:3px 9px;font:inherit;font-size:12px;font-weight:600;color:var(--hk-ink);cursor:pointer;
+.ldw-chip{display:inline-flex;align-items:center;gap:5px;background:transparent;border:1px solid var(--hk-stroke);border-radius:var(--ldw-r);padding:3px 9px;font:inherit;font-size:12px;font-weight:600;color:var(--hk-ink);cursor:pointer;
   transition:border-color var(--hk-dur) var(--hk-ease),background-color var(--hk-dur) var(--hk-ease)}
 .ldw-chip .codicon{color:color-mix(in srgb,var(--hk-accent) 82%,var(--hk-ink))}
 .ldw-chip:hover:not(:disabled){border-color:var(--hk-accent)}
 .ldw-chip[data-main]{border-color:var(--hk-accent);background:color-mix(in srgb,var(--hk-accent) 14%,transparent)}
 .ldw-chip:disabled{cursor:default;opacity:.6}
-.ldw-helper{border:1px solid var(--hk-stroke);border-left:3px solid var(--hk-accent);border-radius:6px;padding:10px 12px;display:grid;gap:6px;background:var(--hk-sunken)}
+.ldw-helper{border:1px solid var(--hk-stroke);border-left:3px solid var(--hk-accent);border-radius:var(--ldw-r);padding:10px 12px;display:grid;gap:6px;background:var(--hk-sunken)}
 .ldw-helper-body{max-height:420px;overflow:auto}
 .ldw-coach{position:sticky;top:0;max-height:calc(100vh - 80px);grid-template-rows:auto minmax(160px,1fr) auto}
-.ldw-focus{font-size:12px;font-weight:600;border:1px solid var(--hk-stroke-strong);border-radius:999px;padding:1px 9px}
+.ldw-focus{font-size:12px;font-weight:600;border:1px solid var(--hk-stroke-strong);border-radius:var(--ldw-r);padding:1px 9px}
 .ldw-toolgrid{display:grid;grid-template-columns:1fr 1fr;gap:6px}
-.ldw-tool{border-radius:6px;justify-content:flex-start;text-align:left;padding:6px 8px}
+.ldw-tool{border-radius:var(--ldw-r);justify-content:flex-start;text-align:left;padding:6px 8px}
 .ldw-thread{overflow:auto;display:grid;gap:12px;align-content:start;min-height:160px;padding-right:2px}
 .ldw-msg{display:grid;gap:3px;font-size:14px}
 .ldw-msg[data-role=coach]{border-left:2px solid var(--hk-accent);padding-left:10px}
-.ldw-msg[data-role=you] p{background:var(--hk-sunken);border:1px solid var(--hk-stroke);border-radius:6px;padding:6px 10px}
+.ldw-msg[data-role=you] p{background:var(--hk-sunken);border:1px solid var(--hk-stroke);border-radius:var(--ldw-r);padding:6px 10px}
 .ldw-import{gap:10px}
-.ldw-print{background:var(--hk-surface);border:1px solid var(--hk-stroke);border-radius:10px;padding:40px 48px;max-width:780px;font-family:var(--ldw-serif);font-size:15px;line-height:1.6}
+.ldw-print{background:var(--hk-surface);border:1px solid var(--hk-stroke);border-radius:var(--ldw-r);padding:40px 48px;max-width:780px;font-family:var(--ldw-serif);font-size:15px;line-height:1.6}
 .ldw-print h1{font-size:24px;margin:0 0 4px;font-family:inherit}
 .ldw-print h2{font-size:15px;text-transform:uppercase;letter-spacing:.08em;margin:22px 0 6px;font-family:var(--hk-mono)}
 .ldw-print p{margin:0 0 10px}
@@ -3658,7 +3748,7 @@ var CSS = `
 
 .ldw-fx-grid{display:grid;grid-template-columns:1fr 1fr;gap:var(--ldw-gap);align-items:start}
 .ldw-fx-cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,260px),1fr));gap:10px}
-.ldw-fx-card{background:var(--hk-surface);border:1px solid var(--hk-stroke);border-radius:8px;padding:12px 14px;display:grid;gap:6px;align-content:start;font-size:13px}
+.ldw-fx-card{background:var(--hk-surface);border:1px solid var(--hk-stroke);border-radius:var(--ldw-r);padding:12px 14px;display:grid;gap:6px;align-content:start;font-size:13px}
 .ldw-fx-ex{font-family:var(--ldw-serif);font-style:italic;font-size:14px}
 .ldw-fx-use{border-top:1px solid var(--hk-stroke);padding-top:6px}
 .ldw-drill-arg{margin:0;font-family:var(--ldw-serif);font-size:16px;line-height:1.55;border-left:3px solid var(--hk-accent);padding:6px 0 6px 14px}
@@ -3673,7 +3763,7 @@ var CSS = `
 
 /* declutter: sentence-case labels, menus, slim stepper, unboxed case */
 .ldw-label{font-family:inherit;font-size:12px;font-weight:600;letter-spacing:0;text-transform:none}
-.ldw-mono{font-family:var(--hk-mono);font-size:11px;font-weight:700;letter-spacing:.12em;text-transform:uppercase}
+.ldw-mono{font-family:var(--hk-mono);font-size:12px;font-weight:700;letter-spacing:.12em;text-transform:uppercase}
 .ldw-h2{margin:0;font-size:16px;font-weight:700;line-height:1.3}
 .ldw-h3{margin:0;font-size:13px;font-weight:700;line-height:1.35}
 .ldw-who{font-size:12px;font-weight:600}
@@ -3682,9 +3772,9 @@ var CSS = `
 .ldw-menu-wrap{position:relative;display:inline-flex}
 .ldw-caret{font-size:12px !important;margin-left:2px}
 .ldw-menu{position:absolute;top:calc(100% + 4px);left:0;z-index:40;min-width:240px;max-width:360px;max-height:min(560px,70vh);overflow:auto;padding:4px;
-  background:var(--hk-surface);border:1px solid var(--hk-stroke-strong);border-radius:8px;box-shadow:0 10px 30px color-mix(in srgb,var(--hk-ink) 18%,transparent);display:grid;gap:1px}
+  background:var(--hk-surface);border:1px solid var(--hk-stroke-strong);border-radius:var(--ldw-r);box-shadow:0 10px 30px color-mix(in srgb,var(--hk-ink) 18%,transparent);display:grid;gap:1px}
 .ldw-menu[data-align=end]{left:auto;right:0}
-.ldw-menu-item{display:flex;gap:8px;align-items:flex-start;width:100%;text-align:left;background:transparent;border:0;border-radius:5px;padding:6px 8px;font:inherit;font-size:13px;color:var(--hk-ink);cursor:pointer}
+.ldw-menu-item{display:flex;gap:8px;align-items:flex-start;width:100%;text-align:left;background:transparent;border:0;border-radius:var(--ldw-r);padding:6px 8px;font:inherit;font-size:13px;color:var(--hk-ink);cursor:pointer}
 .ldw-menu-item:hover:not(:disabled),.ldw-menu-item:focus-visible{background:var(--hk-hover);outline:none;box-shadow:inset 2px 0 0 var(--hk-accent)}
 .ldw-menu-item:disabled{cursor:default}
 .ldw-menu-item[data-danger]{color:var(--hk-bad)}
@@ -3709,7 +3799,7 @@ var CSS = `
 .ldw-pstep:hover:not(:disabled){border-bottom-color:var(--hk-stroke-strong)}
 .ldw-pstep[aria-current=step]{border-bottom-color:var(--hk-accent)}
 .ldw-pstep:disabled{cursor:default}
-.ldw-pnum{display:inline-grid;place-items:center;width:20px;height:20px;border-radius:50%;border:1px solid var(--hk-stroke-strong);font-size:11px;font-weight:700}
+.ldw-pnum{display:inline-grid;place-items:center;width:20px;height:20px;border-radius:50%;border:1px solid var(--hk-stroke-strong);font-size:12px;font-weight:700}
 .ldw-pstep[data-done] .ldw-pnum{border-color:var(--hk-good-fill);color:var(--hk-good)}
 .ldw-benchgrid{grid-template-columns:minmax(0,1fr) 360px;gap:28px}
 .ldw-case{background:transparent;border:0;padding:0;display:grid;gap:0;overflow:visible}
@@ -3719,7 +3809,7 @@ var CSS = `
 .ldw-sec-actions{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
 .ldw-chip[aria-expanded=true]{border-color:var(--hk-stroke-strong);background:var(--hk-hover)}
 .ldw-casehead{gap:10px}
-.ldw-switcher{display:inline-flex;align-items:center;gap:8px;background:transparent;border:1px solid transparent;border-radius:6px;padding:4px 8px 4px 2px;font:inherit;font-size:18px;font-weight:700;color:var(--hk-ink);cursor:pointer;max-width:520px}
+.ldw-switcher{display:inline-flex;align-items:center;gap:8px;background:transparent;border:1px solid transparent;border-radius:var(--ldw-r);padding:4px 8px 4px 2px;font:inherit;font-size:18px;font-weight:700;color:var(--hk-ink);cursor:pointer;max-width:520px}
 .ldw-switcher:hover,.ldw-switcher[aria-expanded=true]{border-color:var(--hk-stroke);background:var(--hk-hover)}
 .ldw-switcher-name{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .ldw-rename{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
@@ -3732,7 +3822,7 @@ var CSS = `
 .ldw-brief-body{max-width:78ch}
 .ldw-md-h{margin:20px 0 6px;font-size:16px;font-weight:700;font-family:inherit;line-height:1.3}
 .ldw-md-h:first-child{margin-top:2px}
-.ldw-md-h4{margin:12px 0 4px;font-family:var(--hk-mono);font-size:11px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:color-mix(in srgb,var(--hk-accent) 82%,var(--hk-ink))}
+.ldw-md-h4{margin:12px 0 4px;font-family:var(--hk-mono);font-size:12px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:color-mix(in srgb,var(--hk-accent) 82%,var(--hk-ink))}
 .ldw-prose .ldw-md-h{font-family:var(--ldw-serif)}
 .ldw-print .ldw-md-h{font-family:var(--hk-mono);font-size:15px;text-transform:uppercase;letter-spacing:.08em;margin:22px 0 6px}
 @container (max-width:1060px){.ldw-benchgrid{grid-template-columns:1fr}.ldw-benchgrid>.ldw-coach{position:static;max-height:none}}

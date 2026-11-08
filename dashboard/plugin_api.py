@@ -634,6 +634,7 @@ async def post_round_judge(body: dict):
         ballot["round_no"] = r["round_no"]
         ballot["side"] = r["side"]
         ballot["resolution"] = r["resolution"]
+        engine.check_ld_lines(r.get("transcript"), ballot["decisive"])
         spoken = {k: v for k, v in (r.get("spoken") or {}).items() if isinstance(v, dict)}
         if spoken:  # measured tags from every speech the student recorded in this round
             tags = set()

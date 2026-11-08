@@ -51,6 +51,12 @@ function sceneState() {
     if (scene === 'speech') r.drafts = { '1AR': mine ? mine.text : '' }
     if (scene === 'judging') r.transcript = clone(STATE.round.transcript)
   }
+  // The backend checks the judge's quoted lines against the speeches (engine.check_ld_lines); mirror it.
+  const norm = t => String(t || '').replace(/[\u201c\u201d]/g, '"').replace(/\s+/g, ' ').toLowerCase()
+  for (const b of (s.round && s.round.ballots) || []) {
+    const all = norm(s.round.transcript.map(t => t.text).join(' '))
+    for (const d of b.decisive || []) d.checked = String(d.line).split(/\.\.\.|\u2026/).map(x => norm(x).trim()).filter(x => x.split(' ').length >= 3).every(x => all.includes(x))
+  }
   return s
 }
 

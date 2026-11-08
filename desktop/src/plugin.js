@@ -19,7 +19,7 @@ import { useEffect, useRef, useState } from 'react'
 import { Fragment, jsx, jsxs } from 'react/jsx-runtime'
 import { Button, Codicon, Input, SegmentedControl, Textarea, atom, host, useValue } from '@hermes/plugin-sdk'
 import { Empty, Failure, Notice, describeError, installStyles, registerPage } from 'hermes-ui-kit'
-import { LastTake, SpeakControls, sendTake, useRecorder, useTakePoll } from './floor.js'
+import { Clock, LastTake, LdSheet, LiveWave, SpeakControls, Strip, sendTake, useRecorder, useTakePoll } from './floor.js'
 import { $home, ExtempView, loadHome } from './extemp.js'
 import { RhetoricView } from './rhetoric.js'
 import { BallotsView } from './ballotsview.js'
@@ -67,17 +67,18 @@ function stops() { return ($cfg.get() || {}).round || [] }
 const speakerOf = (stop, side) => (stop.side === side ? 'student' : 'ai')
 const currentStop = r => (r && r.phase === 'live' ? stops()[r.i] : null)
 
+// The round drawn to scale in time (6-3-7-3-4-6-3, then the ballot). Each part says who speaks.
 function Board({ r }) {
-  return jsx('ol', { className: 'ldw-board', 'aria-label': 'Speeches in this round', children: stops().map((s, i) => {
+  const all = stops()
+  const segs = all.map((s, i) => {
     const state = !r ? 'later' : r.phase !== 'live' || i < r.i ? 'done' : i === r.i ? 'now' : 'later'
-    const who = !r ? (s.kind === 'cx' ? 'CX' : 'Speech')
+    const who = !r ? (s.kind === 'cx' ? 'Cross-ex' : sideShort(s.side))
       : s.kind === 'cx' ? (speakerOf(s, r.side) === 'student' ? 'You ask' : 'Opp asks') : speakerOf(s, r.side) === 'student' ? 'You' : 'Opp'
-    return jsxs('li', { className: 'ldw-slot', 'data-state': state, 'aria-current': state === 'now' ? 'step' : undefined, children: [
-      jsx('div', { className: 'ldw-slot-id', children: s.kind === 'cx' ? 'CX' : s.id }),
-      jsxs('div', { className: 'ldw-slot-who', children: [who, ' · ', mmss(s.minutes * 60)] }),
-      state === 'done' ? jsx(Codicon, { name: 'check', className: 'ldw-slot-check' }) : null,
-    ] }, s.id)
-  }) })
+    return { key: s.id, code: `${s.kind === 'cx' ? 'CX' : s.id} ${mmss(s.minutes * 60)}`, sub: who, minutes: s.minutes, state, min: 58 }
+  })
+  const ballotState = !r ? 'later' : r.phase === 'ballot' || r.phase === 'judging' ? 'now' : 'later'
+  segs.push({ key: 'ballot', code: 'Ballot', sub: r && r.ballots.length ? `${r.ballots.length} written` : 'Judge', minutes: 2.4, state: ballotState, min: 76 })
+  return jsx(Strip, { segments: segs, label: 'The round, drawn to scale in time' })
 }
 
 // Prep runs on the page and is saved to the round when it stops (it only ever goes down).
@@ -111,29 +112,32 @@ function useCountdown(seconds, key) {
   return { left, running, total: seconds, start: () => setRunning(true), pause: () => setRunning(false) }
 }
 
-// The clock: the big time with a small start/pause control on it, prep as a small control under it,
-// a few facts, and one primary action.
-function ClockPanel({ big, label, fraction, rows = [], primary, clock, prep, over, extra }) {
-  return jsxs('section', { className: 'ldw-panel ldw-clock', 'aria-label': 'Clock', children: [
-    jsxs('div', { className: 'ldw-watch', children: [
-      jsx('div', { className: cls('ldw-watch-time', over && 'ldw-over'), role: 'timer', 'aria-live': 'off', children: big }),
-      jsxs('div', { className: 'ldw-watch-sub', children: [
-        jsx('span', { className: 'ldw-mono ldw-accent', children: label }),
-        clock ? jsx('button', { type: 'button', className: 'ldw-iconbtn', onClick: clock.running ? clock.pause : clock.start,
-          'aria-label': clock.running ? 'Pause clock' : clock.left === clock.total ? 'Start clock' : 'Resume clock',
-          title: clock.running ? 'Pause clock' : clock.left === clock.total ? 'Start clock' : 'Resume clock',
-          children: jsx(Codicon, { name: clock.running ? 'debug-pause' : 'play' }) }) : null,
-      ] }),
+// The clock: the big clock with the timekeeper's cards (or a plain big number when nothing is timed), and
+// beside it the column of actions: speak, the one primary action, prep, a few facts.
+function ClockPanel({ big, label, rows = [], primary, clock, prep, over, extra, limit, elapsed, go }) {
+  const face = limit
+    ? jsx(Clock, { limit, elapsed: elapsed || 0, label })
+    : jsxs('div', { className: 'ldw-clockface', children: [
+        jsx('div', { className: 'ldw-clock-label', children: label }),
+        jsx('div', { className: cls('ldw-bigclock', over && 'ldw-over'), role: 'timer', 'aria-live': 'off', children: big }),
+      ] })
+  return jsxs('section', { className: 'ldw-clock ldw-stage2', 'aria-label': 'Clock', children: [
+    jsxs('div', { className: 'ldw-ldface', children: [
+      face,
+      clock ? jsx('button', { type: 'button', className: 'hk-link', onClick: clock.running ? clock.pause : clock.start,
+        children: clock.running ? 'Pause the clock' : clock.left === clock.total ? 'Start the clock by hand' : 'Resume the clock' }) : null,
     ] }),
-    jsx('div', { className: 'ldw-bar', children: jsx('span', { style: { width: `${Math.max(0, Math.min(1, fraction || 0)) * 100}%` } }) }),
-    prep ? jsxs('div', { className: 'ldw-preprow', children: [
-      jsx('span', { children: 'Prep left' }), jsx('b', { className: 'ldw-num', children: mmss(prep.left) }),
-      jsx('button', { type: 'button', className: 'hk-link', onClick: prep.toggle, disabled: !prep.running && prep.left <= 0,
-        children: prep.running ? 'Stop prep' : prep.left > 0 ? 'Use prep' : 'None left' }),
-    ] }) : null,
-    rows.length ? jsx('dl', { className: 'ldw-rows', children: rows.map(([k, v]) => jsxs(Fragment, { children: [jsx('dt', { children: k }), jsx('dd', { children: v })] }, k)) }) : null,
-    primary || null,
-    extra || null,
+    jsxs('div', { className: 'ldw-ldside', children: [
+      go || null,
+      primary || null,
+      prep ? jsxs('div', { className: 'ldw-preprow', children: [
+        jsx('span', { children: 'Prep left' }), jsx('b', { className: 'ldw-num', children: mmss(prep.left) }),
+        jsx('button', { type: 'button', className: 'hk-link', onClick: prep.toggle, disabled: !prep.running && prep.left <= 0,
+          children: prep.running ? 'Stop prep' : prep.left > 0 ? 'Use prep' : 'None left' }),
+      ] }) : null,
+      rows.length ? jsx('dl', { className: 'ldw-rows', children: rows.map(([k, v]) => jsxs(Fragment, { children: [jsx('dt', { children: k }), jsx('dd', { children: v })] }, k)) }) : null,
+      extra || null,
+    ] }),
   ] })
 }
 
@@ -186,14 +190,15 @@ function StudentSpeech({ r, stop }) {
   const pace = !text.trim() && real === null ? 'Not started' : length > target ? `${mmss(length - target)} too long` : length < target * 0.6 ? 'Short' : 'On time'
   return jsxs(Fragment, { children: [
     jsx(ClockPanel, {
-      big: mmss(shown), over: shown < 0, label: `${stop.id} · your speech`, fraction: 1 - shown / target, clock: recording ? null : clock, prep: recording ? null : prep,
-      rows: [['Pace', pace], real !== null ? ['Spoken length', `${mmss(real)}, recorded`] : ['Spoken length', `about ${mmss(spoken)}, estimated`]],
-      primary: jsx(BigButton, { primary: true, icon: 'arrow-right', onClick: finish, loading: busy, disabled: recording || (take && ['waiting', 'working'].includes(take.transcript.status)), children: 'Finish speech' }),
+      limit: target, elapsed: target - shown, label: `${stop.id} · your speech`, clock: recording ? null : clock, prep: recording ? null : prep,
+      go: jsx(SpeakControls, { rec, startLabel: `Speak your ${stop.id}`, onTyped: t => change(text.trim() ? `${text}\n\n${t}` : t) }),
+      rows: recording ? [] : [['Pace', pace], real !== null ? ['Spoken length', `${mmss(real)}, recorded`] : ['Spoken length', `about ${mmss(spoken)}, estimated`]],
+      primary: recording ? null : jsx(BigButton, { icon: 'arrow-right', onClick: finish, loading: busy, disabled: take && ['waiting', 'working'].includes(take.transcript.status), children: 'Finish speech' }),
     }),
     jsxs('section', { className: 'ldw-panel ldw-stage', 'aria-label': 'Your speech', children: [
       jsx(StageHead, { title: `Your ${stop.id}`, sub: stop.name }),
       jsx('p', { className: 'ldw-goal', children: ($cfg.get().speech_goals || {})[stop.id] }),
-      jsx(SpeakControls, { rec, startLabel: `Speak your ${stop.id}`, onTyped: t => change(text.trim() ? `${text}\n\n${t}` : t) }),
+      recording ? jsx(LiveWave, { rec, limit: target }) : null,
       take && !recording ? jsx(LastTake, { take, limit: target, title: `Your ${stop.id}, spoken`, onChange: setTake }) : null,
       undo !== null ? jsx(Notice, { tone: 'info', children: 'What you said is in the box. Fix any words the transcript got wrong.',
         action: jsx(Button, { size: 'sm', variant: 'secondary', onClick: () => { change(undo); setUndo(null) }, children: 'Bring back my typed draft' }) }) : null,
@@ -218,7 +223,7 @@ function OpponentSpeech({ r, stop }) {
   }
   return jsxs(Fragment, { children: [
     jsx(ClockPanel, {
-      big: mmss(prep.left), label: `${stop.id} · opponent · your prep`, fraction: 1 - prep.left / (($cfg.get().prep_minutes || 4) * 60), prep,
+      limit: ($cfg.get().prep_minutes || 4) * 60, elapsed: ($cfg.get().prep_minutes || 4) * 60 - prep.left, label: `Your prep · opponent's ${stop.id}`, prep,
       rows: [['Speech time', mmss(stop.minutes * 60)]],
       primary: jsx(BigButton, { primary: true, icon: 'arrow-right', disabled: !pending, loading: busy, onClick: next, children: 'Continue' }),
     }),
@@ -272,7 +277,7 @@ function CrossEx({ r, stop }) {
   const end = async () => { clock.pause(); prep.stop(); try { setRound(await post('round/cx/end')) } catch (e) { setErr(errText(e)) } }
   return jsxs(Fragment, { children: [
     jsx(ClockPanel, {
-      big: mmss(clock.left), over: clock.left < 0, label: `CX · ${studentAsks ? 'you ask' : 'opponent asks'}`, fraction: 1 - clock.left / (stop.minutes * 60), clock, prep,
+      limit: stop.minutes * 60, elapsed: stop.minutes * 60 - clock.left, label: `Cross-ex · ${studentAsks ? 'you ask' : 'opponent asks'}`, clock, prep,
       rows: [['Exchanges', String(log.length)]],
       primary: jsx(BigButton, { primary: true, icon: 'arrow-right', onClick: end, children: 'End cross-ex' }),
     }),
@@ -329,45 +334,31 @@ function PaperBallot({ b, roundNo }) {
   ] })
 }
 
-function FullBallot({ r, onRedo, onFlowHit }) {
+// The ballot for the finished round: the ten-second sheet on the left, what to do next on the right.
+function FullBallot({ r, onRedo, onFlowHit, onNew }) {
   const b = r.ballots[r.ballots.length - 1]
   const judges = ($cfg.get() || {}).judges || {}
   const [busy, setBusy] = useState(null)
   const [err, setErr] = useState(null)
-  const won = b.decision === r.side
   const ask = async key => {
     setBusy(key); setErr(null)
     try { setRound(await post('round/judge', { judge: key })) } catch (e) { setErr(errText(e)) } finally { setBusy(null) }
   }
   const mine = r.transcript.filter(t => t.speaker === 'student').map(t => t.id)
-  return jsxs('section', { className: 'ldw-panel ldw-stage ldw-ballot', 'aria-label': 'Ballot', children: [
-    jsxs('div', { className: 'ldw-row-between', children: [
-      jsx(StageHead, { title: `${won ? 'You won' : 'You lost'}. Decision: ${b.decision === 'aff' ? 'Affirmative' : 'Negative'}`, sub: `${b.judge} · ballot ${r.ballots.length} for this round` }),
-      jsxs('div', { className: 'hk-actions', children: [
-        jsx(Menu, { label: busy ? 'Judging...' : 'Ask another judge', icon: 'law', align: 'end', items: Object.entries(judges).filter(([k]) => k !== b.judge_key)
-          .map(([k, j]) => ({ label: `Ask the ${j.label.toLowerCase()}`, meta: j.summary, disabled: !!busy, onSelect: () => ask(k) })) }),
-        jsx(Menu, { label: 'Redo a speech', icon: 'refresh', align: 'end', items: mine.map(id => ({ label: `Redo your ${id}`, disabled: !!busy, onSelect: () => onRedo(id) })) }),
-      ] }),
+  return jsxs(Fragment, { children: [
+    jsxs('section', { className: 'ldw-ldballot', 'aria-label': 'Ballot', children: [
+      busy ? jsx(Thinking, { label: `The ${judges[busy].label.toLowerCase()} is writing a ballot` }) : null,
+      err ? jsx(Notice, { tone: 'bad', children: err }) : null,
+      jsx(LdSheet, { b: { ...b, side: b.side || r.side, resolution: b.resolution || r.resolution }, onLine: onFlowHit }),
     ] }),
-    busy ? jsx(Thinking, { label: `The ${judges[busy].label.toLowerCase()} is writing a ballot` }) : null,
-    err ? jsx(Notice, { tone: 'bad', children: err }) : null,
-    jsxs('div', { className: 'ldw-ballot-grid', children: [
-      jsxs('div', { className: 'hk-stack', children: [
-        jsx('h3', { className: 'ldw-h3', children: 'Reason for decision' }), renderText(b.reason),
-        jsx('h3', { className: 'ldw-h3', children: 'Framework' }), jsx('p', { children: b.framework }),
-        jsx('h3', { className: 'ldw-h3', children: 'The lines that decided it' }),
-        jsx('p', { className: 'ldw-meta', children: 'Check these against what was actually said. Click one to find it on the flow.' }),
-        ...(b.decisive || []).map((d, i) => jsxs('button', { type: 'button', className: 'ldw-decisive', onClick: () => onFlowHit(d.speech), children: [
-          jsx('span', { className: 'ldw-mono ldw-accent', children: d.speech }), jsx('span', { children: d.line }), jsx('em', { children: d.effect }),
-        ] }, i)),
-        jsx('h3', { className: 'ldw-h3', children: 'Did you own your case?' }), jsx('p', { children: b.ownership }),
-      ] }),
-      jsxs('div', { className: 'hk-stack', children: [
-        jsx('h3', { className: 'ldw-h3', children: 'What worked' }),
-        jsx('ul', { className: 'ldw-list', children: (b.strengths || []).map((s, i) => jsx('li', { children: s }, i)) }),
-        jsx('h3', { className: 'ldw-h3', children: 'Your three drills' }),
-        ...(b.drills || []).map((d, i) => jsxs('div', { className: 'ldw-drill', children: [jsx('strong', { children: d.name }), jsx('p', { className: 'ldw-why', children: d.why }), jsx('p', { children: d.how })] }, i)),
-      ] }),
+    jsxs('aside', { className: 'ldw-ldside ldw-ldactions', 'aria-label': 'After the ballot', children: [
+      jsx('div', { className: 'ldw-clock-label', children: `Ballot ${r.ballots.length} for this round` }),
+      jsx(Menu, { label: busy ? 'Judging...' : 'Ask another judge', icon: 'law', align: 'end', items: Object.entries(judges).filter(([k]) => k !== b.judge_key)
+        .map(([k, j]) => ({ label: `Ask the ${j.label.toLowerCase()}`, meta: j.summary, disabled: !!busy, onSelect: () => ask(k) })) }),
+      jsx(Menu, { label: 'Redo a speech', icon: 'refresh', align: 'end', items: mine.map(id => ({ label: `Redo your ${id}`, disabled: !!busy, onSelect: () => onRedo(id) })) }),
+      jsx(BigButton, { primary: true, icon: 'add', onClick: onNew, children: 'New round' }),
+      jsx('dl', { className: 'ldw-rows', children: [['Prep left', mmss(r.prep)], ['Your points', b.speaker_points && b.speaker_points.student ? b.speaker_points.student.toFixed(1) : 'none']]
+        .map(([k, v]) => jsxs(Fragment, { children: [jsx('dt', { children: k }), jsx('dd', { children: v })] }, k)) }),
     ] }),
   ] })
 }
@@ -390,7 +381,7 @@ function Redo({ r, id, onDone }) {
   }
   return jsxs(Fragment, { children: [
     jsx(ClockPanel, {
-      big: mmss(clock.left), over: clock.left < 0, label: `${id} · redo`, fraction: 1 - clock.left / (stop.minutes * 60), clock,
+      limit: stop.minutes * 60, elapsed: stop.minutes * 60 - clock.left, label: `${id} · redo`, clock,
       rows: [['Spoken length', `about ${mmss(words(text) / WPM * 60)}`]],
       primary: jsx(BigButton, { primary: true, icon: 'arrow-right', loading: busy, onClick: submit, children: 'Submit the redo' }),
       extra: jsx('button', { type: 'button', className: 'hk-link ldw-center', disabled: busy, onClick: onDone, children: 'Cancel the redo' }),
@@ -410,7 +401,6 @@ function Judging({ r }) {
   const go = () => { setErr(null); post('round/judge', {}).then(setRound, e => setErr(errText(e))) }
   useEffect(() => { go() }, [r.round_no])
   return jsxs(Fragment, { children: [
-    jsx(ClockPanel, { big: '0:00', label: 'Round over', fraction: 1, rows: [['Prep left', mmss(r.prep)]] }),
     jsxs('section', { className: 'ldw-panel ldw-stage', 'aria-label': 'Judging', children: [
       jsx(StageHead, { title: 'The ballot' }),
       err ? jsx(Failure, { title: 'The judge could not finish', body: err, onRetry: go }) : jsx(Thinking, { label: 'The judge is writing the ballot' }),
@@ -434,7 +424,7 @@ function Setup() {
     try { setRound(await post('round/start', { case_id: caseId, level, judge })); refreshState() } catch (e) { setErr(errText(e)) } finally { setBusy(false) }
   }
   return jsxs(Fragment, { children: [
-    jsx(ClockPanel, { big: mmss((cfg.prep_minutes || 4) * 60), label: 'Prep for the whole round', fraction: 0,
+    jsx(ClockPanel, { big: mmss((cfg.prep_minutes || 4) * 60), label: 'Prep for the whole round',
       rows: [['Full round', 'about 45 minutes'], ['Speech times', 'NSDA']],
       primary: jsx(BigButton, { primary: true, icon: 'play', loading: busy, disabled: !chosen, onClick: start, children: 'Start the round' }) }),
     jsxs('section', { className: 'ldw-panel ldw-stage', 'aria-label': 'Set up a round', children: [
@@ -495,11 +485,7 @@ function Room() {
   else if (redo) floor = jsx(Redo, { r, id: redo, onDone: () => setRedo(null) })
   else if (r.phase === 'judging') floor = jsx(Judging, { r })
   else if (r.phase === 'ballot') {
-    floor = jsxs(Fragment, { children: [
-      jsx(ClockPanel, { big: '0:00', label: 'Round over', fraction: 1, rows: [['Prep left', mmss(r.prep)], ['Ballots', String(r.ballots.length)]],
-        primary: jsx(BigButton, { primary: true, icon: 'add', onClick: newRound, children: 'New round' }) }),
-      jsx(FullBallot, { r, onRedo: setRedo, onFlowHit: flowHit }),
-    ] })
+    floor = jsx(FullBallot, { r, onRedo: setRedo, onFlowHit: flowHit, onNew: newRound })
   } else if (stop.kind === 'cx') floor = jsx(CrossEx, { r, stop }, `${r.round_no}-${stop.id}`)
   else if (speakerOf(stop, r.side) === 'student') floor = jsx(StudentSpeech, { r, stop }, `${r.round_no}-${stop.id}`)
   else floor = jsx(OpponentSpeech, { r, stop }, `${r.round_no}-${stop.id}`)
@@ -515,7 +501,7 @@ function Room() {
       jsx(Button, { size: 'sm', variant: 'secondary', onClick: () => setConfirmEnd(false), children: 'Keep going' }),
     ] }) }) : null,
     jsx(Board, { r }),
-    jsxs('div', { className: 'ldw-floor', children: [floor, jsx(PaperBallot, { b: last, roundNo: st.history && st.history.count })] }),
+    jsxs('div', { className: 'ldw-floor', children: [floor, r && (r.phase === 'ballot' && !redo) ? null : jsx(PaperBallot, { b: last, roundNo: st.history && st.history.count })] }),
     r && (showFlow || r.phase === 'ballot') ? jsx(Flow, { r, hit }) : null,
   ] })
 }
@@ -1102,7 +1088,7 @@ function DebatePage() {
 const CSS = `
 .ldw{--ldw-serif:Georgia,"Source Serif 4","Times New Roman",ui-serif,serif;--ldw-gap:22px}
 .ldw-inner{padding:18px 22px 40px;display:grid;gap:var(--ldw-gap);align-content:start;min-width:0}
-.ldw-label{font-family:var(--hk-mono);font-size:11px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--hk-ink)}
+.ldw-label{font-family:var(--hk-mono);font-size:12px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--hk-ink)}
 .ldw-accent{color:color-mix(in srgb,var(--hk-accent) 82%,var(--hk-ink))}
 .ldw-meta{font-size:12px;color:var(--hk-ink)}
 .ldw-head{display:flex;align-items:flex-end;justify-content:space-between;gap:14px;flex-wrap:wrap}
@@ -1118,10 +1104,10 @@ const CSS = `
 .ldw-board{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:8px}
 .ldw-path{grid-template-columns:repeat(6,minmax(0,1fr))}
 .ldw-path li{display:grid}
-.ldw-slot{position:relative;background:var(--hk-surface);border:1px solid var(--hk-stroke);border-radius:8px;padding:10px 12px;min-width:0;color:var(--hk-ink);text-align:left;font:inherit;
+.ldw-slot{position:relative;background:var(--hk-surface);border:1px solid var(--hk-stroke);border-radius:var(--ldw-r);padding:10px 12px;min-width:0;color:var(--hk-ink);text-align:left;font:inherit;
   transition:border-color var(--hk-dur) var(--hk-ease),background-color var(--hk-dur) var(--hk-ease)}
 .ldw-slot-id{font-family:var(--hk-mono);font-weight:800;font-size:18px;line-height:1.2}
-.ldw-slot-who{font-size:11px;letter-spacing:.06em;text-transform:uppercase;margin-top:2px}
+.ldw-slot-who{font-size:12px;letter-spacing:.06em;text-transform:uppercase;margin-top:2px}
 .ldw-slot-check{position:absolute;right:10px;top:10px;color:var(--hk-good)}
 .ldw-slot[data-state=done]{background:var(--hk-sunken)}
 .ldw-slot[data-state=done] .ldw-slot-id{color:color-mix(in srgb,var(--hk-ink) 70%,var(--hk-surface))}
@@ -1134,15 +1120,15 @@ const CSS = `
 .ldw-step-desc{font-size:12px;line-height:1.35}
 
 .ldw-floor{display:grid;grid-template-columns:260px minmax(0,1fr) 330px;gap:var(--ldw-gap);align-items:start}
-.ldw-panel{background:var(--hk-surface);border:1px solid var(--hk-stroke);border-radius:10px;padding:16px;min-width:0;display:grid;gap:10px;align-content:start}
+.ldw-panel{background:var(--hk-surface);border:1px solid var(--hk-stroke);border-radius:var(--ldw-r);padding:16px;min-width:0;display:grid;gap:10px;align-content:start}
 .ldw-panel>*{min-width:0}
 
 .ldw-clock{position:sticky;top:0}
 .ldw-watch{text-align:center;padding:14px 0 4px;display:grid;gap:8px}
 .ldw-watch-time{font-family:var(--hk-mono);font-weight:800;font-size:68px;letter-spacing:-.02em;line-height:1;font-variant-numeric:tabular-nums}
 .ldw-over{color:var(--hk-bad)}
-.ldw-bar{height:6px;background:var(--hk-sunken);border-radius:3px;overflow:hidden}
-.ldw-bar span{display:block;height:100%;background:var(--hk-accent);border-radius:3px;transition:width 160ms var(--hk-ease)}
+.ldw-bar{height:6px;background:var(--hk-sunken);border-radius:var(--ldw-r);overflow:hidden}
+.ldw-bar span{display:block;height:100%;background:var(--hk-accent);border-radius:var(--ldw-r);transition:width 160ms var(--hk-ease)}
 .ldw-bar[data-over] span{background:var(--hk-bad-fill)}
 .ldw-rows{display:grid;grid-template-columns:1fr auto;gap:6px 10px;margin:0;font-size:13px}
 .ldw-rows dt{margin:0}.ldw-rows dd{margin:0;font-family:var(--hk-mono);font-weight:700;text-align:right}
@@ -1164,24 +1150,24 @@ const CSS = `
 .ldw-ask textarea{flex:1;min-height:46px;max-height:160px;resize:vertical}
 .ldw-field-label{font-size:12px;font-weight:700;margin-top:6px}
 .ldw-pick{list-style:none;margin:0;padding:0;display:grid;gap:4px;max-height:220px;overflow:auto}
-.ldw-pick-row,.ldw-case-open{display:flex;gap:10px;align-items:center;width:100%;text-align:left;font:inherit;color:inherit;background:transparent;border:1px solid var(--hk-stroke);border-radius:6px;padding:7px 10px;cursor:pointer}
+.ldw-pick-row,.ldw-case-open{display:flex;gap:10px;align-items:center;width:100%;text-align:left;font:inherit;color:inherit;background:transparent;border:1px solid var(--hk-stroke);border-radius:var(--ldw-r);padding:7px 10px;cursor:pointer}
 .ldw-pick-row:hover,.ldw-case-open:hover{background:var(--hk-hover)}
 .ldw-pick-row[data-active]{border-color:var(--hk-accent);background:var(--hk-active)}
-.ldw-side-tag{font-family:var(--hk-mono);font-size:10px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;padding:1px 6px;border-radius:999px;border:1px solid color-mix(in srgb,var(--hk-accent) 45%,transparent);margin-right:6px}
+.ldw-side-tag{font-family:var(--hk-mono);font-size:12px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;padding:1px 6px;border-radius:var(--ldw-r);border:1px solid color-mix(in srgb,var(--hk-accent) 45%,transparent);margin-right:6px}
 
 .ldw-side{gap:12px}
-.ldw-paper{position:relative;border-radius:6px;padding:16px 18px 18px;font-family:var(--ldw-serif);
+.ldw-paper{position:relative;border-radius:var(--ldw-r);padding:16px 18px 18px;font-family:var(--ldw-serif);
   background:color-mix(in srgb,var(--hk-surface) 90%,var(--hk-warn-fill));color:var(--hk-ink);border:1px solid var(--hk-stroke)}
 :root.dark .ldw-paper{background:color-mix(in srgb,var(--hk-ink) 90%,var(--hk-warn-fill));color:var(--ui-bg-elevated,var(--hk-bg));border-color:transparent}
-.ldw-paper-top{display:flex;justify-content:space-between;gap:4px 10px;flex-wrap:wrap;font-family:var(--hk-mono);font-size:10px;letter-spacing:.14em;font-weight:800;text-transform:uppercase;border-bottom:2px solid currentColor;padding-bottom:8px;margin-bottom:6px}
+.ldw-paper-top{display:flex;justify-content:space-between;gap:4px 10px;flex-wrap:wrap;font-family:var(--hk-mono);font-size:12px;letter-spacing:.14em;font-weight:800;text-transform:uppercase;border-bottom:2px solid currentColor;padding-bottom:8px;margin-bottom:6px}
 .ldw-paper-line{display:flex;justify-content:space-between;gap:10px;font-size:14px;padding:7px 0;border-bottom:1px dashed color-mix(in srgb,currentColor 40%,transparent)}
 .ldw-paper-decided b{text-align:left;max-width:70%}
 .ldw-box{display:inline-block;width:14px;height:14px;border:1.5px solid currentColor;margin-right:7px;vertical-align:-2px;position:relative}
 .ldw-box[data-x="1"]::before,.ldw-box[data-x="1"]::after{content:"";position:absolute;left:50%;top:-2px;width:1.5px;height:16px;background:currentColor;transform:rotate(45deg)}
 .ldw-box[data-x="1"]::after{transform:rotate(-45deg)}
 .ldw-paper-rfd{font-size:14px;line-height:1.45;font-style:italic;margin-top:10px !important;padding-right:6px}
-.ldw-stamp{position:absolute;right:14px;bottom:-10px;font-family:var(--hk-mono);font-weight:800;font-size:11px;letter-spacing:.14em;text-transform:uppercase;padding:4px 8px;transform:rotate(-6deg);
-  color:color-mix(in srgb,var(--hk-bad-fill) 85%,currentColor);border:2px solid currentColor;background:inherit;border-radius:3px}
+.ldw-stamp{position:absolute;right:14px;bottom:-10px;font-family:var(--hk-mono);font-weight:800;font-size:12px;letter-spacing:.14em;text-transform:uppercase;padding:4px 8px;transform:rotate(-6deg);
+  color:color-mix(in srgb,var(--hk-bad-fill) 85%,currentColor);border:2px solid currentColor;background:inherit;border-radius:var(--ldw-r)}
 :root.dark .ldw-stamp{color:color-mix(in srgb,var(--hk-bad-fill) 80%,var(--ui-bg-elevated,var(--hk-bg)))}
 .ldw-drills{display:grid;gap:10px}
 .ldw-drill{display:grid;gap:3px;border-top:1px solid var(--hk-stroke);padding-top:8px}
@@ -1189,14 +1175,14 @@ const CSS = `
 .ldw-why{font-style:italic}
 .ldw-verdict{margin:0;font-size:20px;font-weight:800}
 .ldw-ballot-grid{display:grid;grid-template-columns:1fr;gap:18px}
-.ldw-decisive{display:grid;gap:3px;text-align:left;font:inherit;color:inherit;background:var(--hk-sunken);border:1px solid var(--hk-stroke);border-left:3px solid var(--hk-accent);border-radius:6px;padding:8px 10px;cursor:pointer}
+.ldw-decisive{display:grid;gap:3px;text-align:left;font:inherit;color:inherit;background:var(--hk-sunken);border:1px solid var(--hk-stroke);border-left:3px solid var(--hk-accent);border-radius:var(--ldw-r);padding:8px 10px;cursor:pointer}
 .ldw-decisive:hover{border-color:var(--hk-stroke-strong)}
 .ldw-decisive em{font-size:12.5px}
 .ldw-list{margin:0;padding-left:18px;display:grid;gap:4px}
 .ldw-flow-scroll{overflow-x:auto}
 .ldw-flow table{border-collapse:collapse;width:100%;min-width:860px}
-.ldw-flow th{font-family:var(--hk-mono);font-size:11px;letter-spacing:.12em;text-transform:uppercase;text-align:left;padding:8px 10px;border-bottom:1px solid var(--hk-stroke-strong);border-right:1px solid var(--hk-stroke)}
-.ldw-flow th span{display:block;font-size:10px;letter-spacing:.06em;font-weight:400}
+.ldw-flow th{font-family:var(--hk-mono);font-size:12px;letter-spacing:.12em;text-transform:uppercase;text-align:left;padding:8px 10px;border-bottom:1px solid var(--hk-stroke-strong);border-right:1px solid var(--hk-stroke)}
+.ldw-flow th span{display:block;font-size:12px;letter-spacing:.06em;font-weight:400}
 .ldw-flow td{vertical-align:top;padding:8px 10px;border-right:1px solid var(--hk-stroke);font-size:12.5px;line-height:1.4}
 .ldw-flow td div{padding:3px 0;border-bottom:1px dotted var(--hk-stroke)}
 .ldw-flow td[data-hit]{background:color-mix(in srgb,var(--hk-accent) 14%,transparent);outline:1px solid var(--hk-accent)}
@@ -1229,24 +1215,24 @@ const CSS = `
 .ldw-hint{font-size:13px;font-style:italic;font-family:var(--ldw-serif)}
 .ldw-sec-text{width:100%;min-height:84px;resize:vertical;font-family:var(--ldw-serif) !important;font-size:15px !important;line-height:1.55 !important}
 .ldw-chips{display:flex;gap:6px;flex-wrap:wrap}
-.ldw-chip{display:inline-flex;align-items:center;gap:5px;background:transparent;border:1px solid var(--hk-stroke);border-radius:999px;padding:3px 9px;font:inherit;font-size:12px;font-weight:600;color:var(--hk-ink);cursor:pointer;
+.ldw-chip{display:inline-flex;align-items:center;gap:5px;background:transparent;border:1px solid var(--hk-stroke);border-radius:var(--ldw-r);padding:3px 9px;font:inherit;font-size:12px;font-weight:600;color:var(--hk-ink);cursor:pointer;
   transition:border-color var(--hk-dur) var(--hk-ease),background-color var(--hk-dur) var(--hk-ease)}
 .ldw-chip .codicon{color:color-mix(in srgb,var(--hk-accent) 82%,var(--hk-ink))}
 .ldw-chip:hover:not(:disabled){border-color:var(--hk-accent)}
 .ldw-chip[data-main]{border-color:var(--hk-accent);background:color-mix(in srgb,var(--hk-accent) 14%,transparent)}
 .ldw-chip:disabled{cursor:default;opacity:.6}
-.ldw-helper{border:1px solid var(--hk-stroke);border-left:3px solid var(--hk-accent);border-radius:6px;padding:10px 12px;display:grid;gap:6px;background:var(--hk-sunken)}
+.ldw-helper{border:1px solid var(--hk-stroke);border-left:3px solid var(--hk-accent);border-radius:var(--ldw-r);padding:10px 12px;display:grid;gap:6px;background:var(--hk-sunken)}
 .ldw-helper-body{max-height:420px;overflow:auto}
 .ldw-coach{position:sticky;top:0;max-height:calc(100vh - 80px);grid-template-rows:auto minmax(160px,1fr) auto}
-.ldw-focus{font-size:12px;font-weight:600;border:1px solid var(--hk-stroke-strong);border-radius:999px;padding:1px 9px}
+.ldw-focus{font-size:12px;font-weight:600;border:1px solid var(--hk-stroke-strong);border-radius:var(--ldw-r);padding:1px 9px}
 .ldw-toolgrid{display:grid;grid-template-columns:1fr 1fr;gap:6px}
-.ldw-tool{border-radius:6px;justify-content:flex-start;text-align:left;padding:6px 8px}
+.ldw-tool{border-radius:var(--ldw-r);justify-content:flex-start;text-align:left;padding:6px 8px}
 .ldw-thread{overflow:auto;display:grid;gap:12px;align-content:start;min-height:160px;padding-right:2px}
 .ldw-msg{display:grid;gap:3px;font-size:14px}
 .ldw-msg[data-role=coach]{border-left:2px solid var(--hk-accent);padding-left:10px}
-.ldw-msg[data-role=you] p{background:var(--hk-sunken);border:1px solid var(--hk-stroke);border-radius:6px;padding:6px 10px}
+.ldw-msg[data-role=you] p{background:var(--hk-sunken);border:1px solid var(--hk-stroke);border-radius:var(--ldw-r);padding:6px 10px}
 .ldw-import{gap:10px}
-.ldw-print{background:var(--hk-surface);border:1px solid var(--hk-stroke);border-radius:10px;padding:40px 48px;max-width:780px;font-family:var(--ldw-serif);font-size:15px;line-height:1.6}
+.ldw-print{background:var(--hk-surface);border:1px solid var(--hk-stroke);border-radius:var(--ldw-r);padding:40px 48px;max-width:780px;font-family:var(--ldw-serif);font-size:15px;line-height:1.6}
 .ldw-print h1{font-size:24px;margin:0 0 4px;font-family:inherit}
 .ldw-print h2{font-size:15px;text-transform:uppercase;letter-spacing:.08em;margin:22px 0 6px;font-family:var(--hk-mono)}
 .ldw-print p{margin:0 0 10px}
@@ -1254,7 +1240,7 @@ const CSS = `
 
 .ldw-fx-grid{display:grid;grid-template-columns:1fr 1fr;gap:var(--ldw-gap);align-items:start}
 .ldw-fx-cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,260px),1fr));gap:10px}
-.ldw-fx-card{background:var(--hk-surface);border:1px solid var(--hk-stroke);border-radius:8px;padding:12px 14px;display:grid;gap:6px;align-content:start;font-size:13px}
+.ldw-fx-card{background:var(--hk-surface);border:1px solid var(--hk-stroke);border-radius:var(--ldw-r);padding:12px 14px;display:grid;gap:6px;align-content:start;font-size:13px}
 .ldw-fx-ex{font-family:var(--ldw-serif);font-style:italic;font-size:14px}
 .ldw-fx-use{border-top:1px solid var(--hk-stroke);padding-top:6px}
 .ldw-drill-arg{margin:0;font-family:var(--ldw-serif);font-size:16px;line-height:1.55;border-left:3px solid var(--hk-accent);padding:6px 0 6px 14px}
@@ -1269,7 +1255,7 @@ const CSS = `
 
 /* declutter: sentence-case labels, menus, slim stepper, unboxed case */
 .ldw-label{font-family:inherit;font-size:12px;font-weight:600;letter-spacing:0;text-transform:none}
-.ldw-mono{font-family:var(--hk-mono);font-size:11px;font-weight:700;letter-spacing:.12em;text-transform:uppercase}
+.ldw-mono{font-family:var(--hk-mono);font-size:12px;font-weight:700;letter-spacing:.12em;text-transform:uppercase}
 .ldw-h2{margin:0;font-size:16px;font-weight:700;line-height:1.3}
 .ldw-h3{margin:0;font-size:13px;font-weight:700;line-height:1.35}
 .ldw-who{font-size:12px;font-weight:600}
@@ -1278,9 +1264,9 @@ const CSS = `
 .ldw-menu-wrap{position:relative;display:inline-flex}
 .ldw-caret{font-size:12px !important;margin-left:2px}
 .ldw-menu{position:absolute;top:calc(100% + 4px);left:0;z-index:40;min-width:240px;max-width:360px;max-height:min(560px,70vh);overflow:auto;padding:4px;
-  background:var(--hk-surface);border:1px solid var(--hk-stroke-strong);border-radius:8px;box-shadow:0 10px 30px color-mix(in srgb,var(--hk-ink) 18%,transparent);display:grid;gap:1px}
+  background:var(--hk-surface);border:1px solid var(--hk-stroke-strong);border-radius:var(--ldw-r);box-shadow:0 10px 30px color-mix(in srgb,var(--hk-ink) 18%,transparent);display:grid;gap:1px}
 .ldw-menu[data-align=end]{left:auto;right:0}
-.ldw-menu-item{display:flex;gap:8px;align-items:flex-start;width:100%;text-align:left;background:transparent;border:0;border-radius:5px;padding:6px 8px;font:inherit;font-size:13px;color:var(--hk-ink);cursor:pointer}
+.ldw-menu-item{display:flex;gap:8px;align-items:flex-start;width:100%;text-align:left;background:transparent;border:0;border-radius:var(--ldw-r);padding:6px 8px;font:inherit;font-size:13px;color:var(--hk-ink);cursor:pointer}
 .ldw-menu-item:hover:not(:disabled),.ldw-menu-item:focus-visible{background:var(--hk-hover);outline:none;box-shadow:inset 2px 0 0 var(--hk-accent)}
 .ldw-menu-item:disabled{cursor:default}
 .ldw-menu-item[data-danger]{color:var(--hk-bad)}
@@ -1305,7 +1291,7 @@ const CSS = `
 .ldw-pstep:hover:not(:disabled){border-bottom-color:var(--hk-stroke-strong)}
 .ldw-pstep[aria-current=step]{border-bottom-color:var(--hk-accent)}
 .ldw-pstep:disabled{cursor:default}
-.ldw-pnum{display:inline-grid;place-items:center;width:20px;height:20px;border-radius:50%;border:1px solid var(--hk-stroke-strong);font-size:11px;font-weight:700}
+.ldw-pnum{display:inline-grid;place-items:center;width:20px;height:20px;border-radius:50%;border:1px solid var(--hk-stroke-strong);font-size:12px;font-weight:700}
 .ldw-pstep[data-done] .ldw-pnum{border-color:var(--hk-good-fill);color:var(--hk-good)}
 .ldw-benchgrid{grid-template-columns:minmax(0,1fr) 360px;gap:28px}
 .ldw-case{background:transparent;border:0;padding:0;display:grid;gap:0;overflow:visible}
@@ -1315,7 +1301,7 @@ const CSS = `
 .ldw-sec-actions{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
 .ldw-chip[aria-expanded=true]{border-color:var(--hk-stroke-strong);background:var(--hk-hover)}
 .ldw-casehead{gap:10px}
-.ldw-switcher{display:inline-flex;align-items:center;gap:8px;background:transparent;border:1px solid transparent;border-radius:6px;padding:4px 8px 4px 2px;font:inherit;font-size:18px;font-weight:700;color:var(--hk-ink);cursor:pointer;max-width:520px}
+.ldw-switcher{display:inline-flex;align-items:center;gap:8px;background:transparent;border:1px solid transparent;border-radius:var(--ldw-r);padding:4px 8px 4px 2px;font:inherit;font-size:18px;font-weight:700;color:var(--hk-ink);cursor:pointer;max-width:520px}
 .ldw-switcher:hover,.ldw-switcher[aria-expanded=true]{border-color:var(--hk-stroke);background:var(--hk-hover)}
 .ldw-switcher-name{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .ldw-rename{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
@@ -1328,7 +1314,7 @@ const CSS = `
 .ldw-brief-body{max-width:78ch}
 .ldw-md-h{margin:20px 0 6px;font-size:16px;font-weight:700;font-family:inherit;line-height:1.3}
 .ldw-md-h:first-child{margin-top:2px}
-.ldw-md-h4{margin:12px 0 4px;font-family:var(--hk-mono);font-size:11px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:color-mix(in srgb,var(--hk-accent) 82%,var(--hk-ink))}
+.ldw-md-h4{margin:12px 0 4px;font-family:var(--hk-mono);font-size:12px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:color-mix(in srgb,var(--hk-accent) 82%,var(--hk-ink))}
 .ldw-prose .ldw-md-h{font-family:var(--ldw-serif)}
 .ldw-print .ldw-md-h{font-family:var(--hk-mono);font-size:15px;text-transform:uppercase;letter-spacing:.08em;margin:22px 0 6px}
 @container (max-width:1060px){.ldw-benchgrid{grid-template-columns:1fr}.ldw-benchgrid>.ldw-coach{position:static;max-height:none}}

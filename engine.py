@@ -607,6 +607,25 @@ def check_lines(text, lines):
     return lines
 
 
+def check_ld_lines(transcript, lines):
+    """Mark each line an LD judge quoted as checked when it is really in the speech it names (or, when the
+    speech is not named or not found, anywhere in the round). Judges elide with "..." so each piece of at
+    least three words has to be found; a line with no such piece is left unchecked (None)."""
+    R = _mod("rhetoric_method")
+    speeches = [t for t in (transcript or []) if isinstance(t, dict) and t.get("text")]
+    every = "\n\n".join(t["text"] for t in speeches)
+    for d in lines:
+        named = next((t["text"] for t in speeches if str(t.get("id", "")).lower() == str(d.get("speech", "")).strip().lower()), None)
+        pieces = [p.strip(" \"'\u201c\u201d,;") for p in re.split(r"\.\.\.|\u2026", str(d.get("line") or ""))]
+        pieces = [p for p in pieces if len(p.split()) >= 3]
+        if not pieces:
+            d["checked"] = None
+            continue
+        d["checked"] = all(R.find_span(named or every, p) is not None for p in pieces) or (
+            named is not None and all(R.find_span(every, p) is not None for p in pieces))
+    return lines
+
+
 async def run_extemp_judge(take, question, outline, sources_cited, model, event="extemp"):
     E, B = _mod("extemp"), _mod("ballots")
     system = E.JUDGE_PROMPT.format(tags=", ".join(B.JUDGE_TAGS["extemp"]))
