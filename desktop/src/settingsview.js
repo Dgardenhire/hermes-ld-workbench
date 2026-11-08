@@ -67,6 +67,7 @@ const LEAVES = [
   ['Transcripts', 'Made on this computer. The one exception is the first download of the speech model.'],
   ['Your words', 'The words of your speeches go to the model you chose in Hermes, for the opponent, the judge and the coach.'],
   ['Headlines', 'A pull asks Google News, or the outlet’s own feed, for headlines on your topic. Only titles, dates and links come back.'],
+  ['Hear it', 'When you press it, the opponent’s speech goes to the voice you set up in Hermes to be read aloud.'],
   ['Saved links', 'When you save a link to your file, the page is read once to keep its text.'],
 ]
 
