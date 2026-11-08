@@ -1,12 +1,16 @@
 # Debate Workbench for Hermes
 
-Practice Lincoln-Douglas debate inside the Hermes desktop app.
+Practice speech and debate out loud, inside the Hermes desktop app: Lincoln-Douglas, extemp and rhetoric.
+
+Every speech is recorded and timed with a real clock and the timekeeper's cards. A transcript, words a minute, pauses and fillers are worked out on your own computer. A judge's ballot follows every round, and every ballot is kept, so the things judges keep writing show up as patterns.
+
+**New in 0.2 (in progress).** Extemp: a 60-second answer that opens ready to speak, and the full round: headlines on your topic from outlets on the left, the center and the right, side by side and labeled by lean; your extemp file; three questions drawn from your own news; 30 minutes of prep with an outline; a 7-minute speech; a ballot. Rhetoric: great public-domain speeches with their figures marked (every mark checked against the text), the figures by the effect they make, a spot-the-figure drill, your own line, said out loud. Ballots: every ballot, with patterns counted across rounds. Lincoln-Douglas speeches can now be spoken.
 
 You write your own case. A coach reads it, finds the weak spot, and asks the question that makes it stronger. Then you debate a full practice round against an AI opponent, with real NSDA speech times, and a judge writes you a ballot with the lines that decided the round and three drills to practice.
 
 It uses the AI model you already set up in Hermes. It never writes your case for you.
 
-![The Tournament Room](docs/shots/after/room-speech-dark.png)
+![A 60-second answer, while speaking](docs/shots/v02/extemp-speaking-dark.png)
 
 ## What you can do
 
@@ -43,11 +47,12 @@ Your cases, coach notes, rounds, ballots and topic briefings are saved by Hermes
 
 ## What leaves your computer
 
-- **Your AI model.** When you use the coach, a helper, the briefing, a round or a ballot, the text it needs (your case, your speeches, the resolution) goes to the AI model you chose in Hermes, through Hermes. Debate Workbench has no keys of its own.
-- **A topic source link.** If you add a link to the topic source, Debate Workbench opens that one public web page to read its text. It only opens public addresses, and it keeps the first 30,000 characters.
-- **Dictation.** The **Speak instead of type** button uses the speech recognition built into the Hermes app, where the app provides it. Depending on your computer, that service may send your audio to its maker (for example Google) to turn it into text. If you never press it, nothing is recorded.
+- **Your AI model.** When you use the coach, a helper, the briefing, a round, a ballot, the question draw or the figure finder, the text it needs (your case, your speeches, the resolution, your saved headlines) goes to the AI model you chose in Hermes, through Hermes. Debate Workbench has no keys of its own.
+- **Your voice stays on your computer.** The microphone is open only between Start speaking and Stop (or Cancel, an error, or leaving the page). Recordings are saved only in `plugin-data/ld-workbench/recordings/` inside your Hermes folder: the newest 20, never more than 100 MB, with a button to delete them all. Transcripts are made on the Hermes backend with faster-whisper, when Hermes's local speech-to-text is installed. The first transcript downloads faster-whisper's speech model from huggingface.co (no audio is sent). If your Hermes app talks to Hermes on another computer, the recording goes to that computer to be transcribed.
+- **Headlines, only when you press Pull headlines.** For your topic, a Google News search for each outlet on your list (`news.google.com`), and that outlet's own news feed if Google does not answer. Headlines, dates and links only; no article is downloaded. Https only, public addresses only, 8 seconds and 250 KB per outlet. Links open in your own browser.
+- **A link you save or add as a topic source.** Debate Workbench opens that one public web page to read its text. It only opens public addresses, and it keeps the first 30,000 characters.
 
-Nothing else is sent anywhere.
+Nothing else is sent anywhere. Lean labels are from the AllSides Media Bias Ratings, checked Nov 7, 2026, and you can change any of them. Debate Workbench is not made or endorsed by Nous Research, the National Speech & Debate Association, AllSides or any news outlet.
 
 ## The coaching rule
 
@@ -59,6 +64,7 @@ The coach helps and pushes. It explains ideas, lays out choices, and points to w
 - The backend is `dashboard/plugin_api.py`. All model calls go through Hermes's plugin model access (`PluginLlm`), so they use the user's own model and keys.
 - The page is built from `desktop/src/plugin.js` with the shared Hermes UI kit: `node <path-to>/hermes-ui-kit/scripts/build.mjs .`
 - Tests: `/usr/bin/python3 -m unittest discover -s tests`
-- Screenshots: serve the folder (`/usr/bin/python3 -m http.server 8793 --directory .`) and run `harness/shoot.sh`.
+- Screenshots: serve the folder (`/usr/bin/python3 -m http.server 8793 --directory .`) and run `harness/shoot.sh`. `harness/live.mjs` records from Chrome's fake microphone to check the recorder. `harness/make_fixtures.py` rebuilds the 0.2 fixtures from the plugin's own code.
+- Status, risks and what is left: `docs/STATUS.md`.
 
 License: MIT. By Damon Gardenhire.

@@ -1794,7 +1794,7 @@ function RhetoricView() {
       sub,
       minutes: 1,
       min: 110,
-      state: k === stage ? "now" : i < idx ? "done" : "later",
+      state: k === stage ? "now" : "later",
       onClick: () => $stage.set(k)
     })) }),
     stage === "read" ? jsx6(ReadStage, {}) : stage === "figures" ? jsx6(FiguresStage, {}) : stage === "spot" ? jsx6(SpotStage, {}) : stage === "write" ? jsx6(WriteStage, {}) : jsx6(SayStage, {})

@@ -214,7 +214,7 @@ export function RhetoricView() {
   const idx = STAGES.findIndex(s => s[0] === stage)
   return jsxs(Fragment, { children: [
     jsx(Strip, { label: 'Rhetoric practice', segments: STAGES.map(([k, code, sub], i) => ({ key: k, code, sub, minutes: 1, min: 110,
-      state: k === stage ? 'now' : i < idx ? 'done' : 'later', onClick: () => $stage.set(k) })) }),
+      state: k === stage ? 'now' : 'later', onClick: () => $stage.set(k) })) }),
     stage === 'read' ? jsx(ReadStage, {}) : stage === 'figures' ? jsx(FiguresStage, {}) : stage === 'spot' ? jsx(SpotStage, {})
       : stage === 'write' ? jsx(WriteStage, {}) : jsx(SayStage, {}),
   ] })
