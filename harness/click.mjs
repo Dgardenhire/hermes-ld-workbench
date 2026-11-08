@@ -24,6 +24,8 @@ try {
   ws.addEventListener('message', ev => { const m = JSON.parse(ev.data); if (m.id && waiting.has(m.id)) { waiting.get(m.id)(m); waiting.delete(m.id) } })
   const send = (method, params = {}) => new Promise(r => { const n = ++id; waiting.set(n, r); ws.send(JSON.stringify({ id: n, method, params })) })
   await send('Page.enable')
+  await send('Network.enable')
+  await send('Network.setCacheDisabled', { cacheDisabled: true }) // the profile folder persists; never test a stale bundle
   await send('Emulation.setDeviceMetricsOverride', { width: W, height: H, deviceScaleFactor: 1, mobile: false })
   await send('Page.navigate', { url: `http://127.0.0.1:${process.env.PORT || 8793}/harness/?${query}` })
   await pause(3500)
@@ -32,6 +34,11 @@ try {
       await send('Runtime.evaluate', { expression: `(() => { const t = [...document.querySelectorAll('textarea')].pop(); t && t.focus() })()` })
       await send('Input.insertText', { text: label.slice(5) })
       await pause(300)
+      continue
+    }
+    if (label.startsWith('eval:')) { // print the value of an expression (layout checks)
+      const v = await send('Runtime.evaluate', { expression: label.slice(5), returnByValue: true })
+      console.log(JSON.stringify(v.result.result.value))
       continue
     }
     const r = await send('Runtime.evaluate', { expression: `(() => { const b = [...document.querySelectorAll('button')].find(x => x.textContent.trim().startsWith(${JSON.stringify(label)})); if (!b) return false; b.click(); return true })()`, returnByValue: true })

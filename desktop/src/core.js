@@ -21,7 +21,7 @@ export const $loadError = atom(null)
 /* ------------------------------------------------------------------ backend -- */
 
 export function rest(path, options) {
-  if (!api) return Promise.reject(new Error('The workbench is not connected.'))
+  if (!api) return Promise.reject(new Error('The workbench is not connected. Close Debate and open it again.'))
   return api.rest(path, { timeoutMs: MODEL_TIMEOUT, ...(options || {}) })
 }
 export const post = (path, body) => rest(path, { method: 'POST', body: body || {} })

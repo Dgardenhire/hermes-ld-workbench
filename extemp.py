@@ -45,7 +45,7 @@ def _s(v, n):
 
 def clean_item(b):
     if not isinstance(b, dict):
-        raise ValueError("Bad item.")
+        raise ValueError("That item could not be read.")
     title = _s(b.get("title"), 300)
     url = str(b.get("url") or "").strip()[:1000]
     if not title:

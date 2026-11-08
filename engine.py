@@ -124,11 +124,11 @@ def _model_error(e):
 def parse_json(text):
     m = re.search(r"\{.*\}", text, re.S)
     if not m:
-        raise RuntimeError("The model did not return the expected format. Try again.")
+        raise RuntimeError("The model's answer could not be read. Try again.")
     try:
         return json.loads(m.group(0))
     except json.JSONDecodeError:
-        raise RuntimeError("The model did not return the expected format. Try again.")
+        raise RuntimeError("The model's answer could not be read. Try again.")
 
 
 def case_text(case):
@@ -178,7 +178,7 @@ def _pick(v, allowed, name, default=None):
 
 def clean(p):
     if not isinstance(p, dict):
-        raise ValueError("Bad request.")
+        raise ValueError("That request could not be read.")
     out = {"resolution": _s(p.get("resolution"), 400, "Resolution")}
     if p.get("tool") is not None:
         out["tool"] = _pick(p.get("tool"), M.TOOLS, "tool")
@@ -191,11 +191,11 @@ def clean(p):
     out["message"] = _s(p.get("message"), 13000 if p.get("tool") == "spot" else 4000, "Message")
     case = p.get("case") or {}
     if not isinstance(case, dict) or len(case) > 12:
-        raise ValueError("Bad case.")
+        raise ValueError("That case could not be read.")
     out["case"] = {_s(k, 40, "Section name"): _s(v, 12000, "A case section") for k, v in case.items()}
     thread = p.get("thread") or []
     if not isinstance(thread, list):
-        raise ValueError("Bad conversation.")
+        raise ValueError("That conversation could not be read.")
     out["thread"] = [{"role": _pick(t.get("role"), ("coach", "you"), "role"), "text": _s(t.get("text"), 4000, "A message")}
                      for t in thread[-40:] if isinstance(t, dict)]
     src = p.get("source")
@@ -204,7 +204,7 @@ def clean(p):
                          "text": _s(src.get("text"), 30000, "Source text")}
     transcript = p.get("transcript") or []
     if not isinstance(transcript, list) or len(transcript) > len(SPEECH_IDS):
-        raise ValueError("Bad transcript.")
+        raise ValueError("That round could not be read.")
     out["transcript"] = [{"id": _pick(t.get("id"), SPEECH_IDS, "speech"), "speaker": _pick(t.get("speaker"), ("student", "ai"), "speaker"),
                           "side": _pick(t.get("side"), ("aff", "neg"), "side"), "text": _s(t.get("text"), 12000, "A speech")}
                          for t in transcript if isinstance(t, dict)]

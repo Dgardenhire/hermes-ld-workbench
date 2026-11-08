@@ -41,7 +41,7 @@ function BallotRow({ b, onDone }) {
       (b.tags || []).length || (b.measured_tags || []).length ? jsx('p', { className: 'ldw-meta', children: [...(b.tags || []), ...(b.measured_tags || [])].map(t => b.tag_text && b.tag_text[t] || t).join(' · ') }) : null,
     ] }),
     drill ? jsxs('label', { className: cls('ldw-brow-drill', b.drill_done && 'ldw-done'), children: [
-      jsx('input', { type: 'checkbox', checked: !!b.drill_done, onChange: e => onDone(b.index, e.target.checked) }),
+      jsx('input', { type: 'checkbox', 'aria-label': `Drill done: ${drill.name}`, checked: !!b.drill_done, onChange: e => onDone(b.index, e.target.checked, b.at) }),
       jsxs('span', { children: [jsx('span', { className: 'ldw-stamp2 ldw-stamp-sm', children: 'Drill' }), ' ', drill.name] }),
     ] }) : null,
   ] })
@@ -52,8 +52,8 @@ export function BallotsView() {
   const [err, setErr] = useState(null)
   const load = () => rest('ballots').then(setData, e => setErr(errText(e)))
   useEffect(() => { load() }, [])
-  const done = async (index, v) => {
-    try { const out = await post(`ballots/${index}/drill`, { done: v }); setData({ ...data, ...out }) } catch (e) { setErr(errText(e)) }
+  const done = async (index, v, at) => {
+    try { const out = await post(`ballots/${index}/drill`, { done: v, at }); setData({ ...data, ...out }) } catch (e) { setErr(errText(e)) }
   }
   if (err && !data) return jsx(Notice, { tone: 'bad', children: err })
   if (!data) return jsx(Thinking, { label: 'Opening your ballots' })

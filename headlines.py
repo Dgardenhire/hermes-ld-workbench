@@ -74,7 +74,7 @@ DOMAIN_RE = re.compile(r"^(?=.{4,80}$)([a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[
 
 def clean_outlet(o, i=0):
     if not isinstance(o, dict):
-        raise ValueError("Bad outlet.")
+        raise ValueError("That outlet could not be read.")
     name = " ".join(str(o.get("name") or "").split())[:60]
     domain = str(o.get("domain") or "").strip().lower().removeprefix("https://").removeprefix("http://").removeprefix("www.").rstrip("/")
     if not name:

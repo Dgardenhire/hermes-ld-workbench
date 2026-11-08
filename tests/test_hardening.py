@@ -184,3 +184,37 @@ class VoiceStaysInOurFolder(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class DrillCheckboxPinnedToBallot(unittest.TestCase):
+    """The Ballots view ticks a drill by list position; once the list is trimmed, the position can point
+    at another ballot. The ballot's time pins it."""
+
+    def setUp(self):
+        import tempfile, os
+        self._old = os.environ.get("LDW_DATA_DIR")
+        os.environ["LDW_DATA_DIR"] = tempfile.mkdtemp(prefix="ldw-drill-")
+        import ballots
+        self.B = ballots
+        for n in range(3):
+            ballots.add({"event": "ld", "round_no": n + 1, "at": 1000 + n, "drills": [{"name": "d"}]})
+
+    def tearDown(self):
+        import os
+        if self._old is None:
+            os.environ.pop("LDW_DATA_DIR", None)
+        else:
+            os.environ["LDW_DATA_DIR"] = self._old
+
+    def test_stale_index_finds_the_right_ballot(self):
+        self.B.set_drill_done(0, True, at=1002)  # the page thought 1002 was first
+        h = self.B.history()
+        self.assertEqual([b["drill_done"] for b in h], [False, False, True])
+
+    def test_index_alone_still_works(self):
+        self.B.set_drill_done(1, True)
+        self.assertTrue(self.B.history()[1]["drill_done"])
+
+    def test_gone_ballot_says_so(self):
+        with self.assertRaises(ValueError):
+            self.B.set_drill_done(0, True, at=9999)

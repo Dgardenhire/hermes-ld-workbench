@@ -71,7 +71,7 @@ def _resolution(text):
 
 def _sections(secs):
     if not isinstance(secs, dict):
-        raise ValueError("Bad case.")
+        raise ValueError("That case could not be read.")
     out = {}
     for k, v in secs.items():
         if k not in SECTIONS:

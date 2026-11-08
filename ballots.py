@@ -130,12 +130,18 @@ def add(ballot):
     return ballot
 
 
-def set_drill_done(index, done):
+def set_drill_done(index, done, at=None):
+    """Tick a ballot's drill. ``at`` (the ballot's time) pins the ballot: the list is trimmed to the newest
+    40, so a page left open can hold an index that now points at a different ballot."""
     def edit(x):
         h = x.get("history") or []
-        if not isinstance(index, int) or not 0 <= index < len(h):
+        i = index
+        if at is not None:
+            if not (isinstance(i, int) and 0 <= i < len(h) and h[i].get("at") == at):
+                i = next((k for k, b in enumerate(h) if b.get("at") == at), None)
+        if not isinstance(i, int) or not 0 <= i < len(h):
             raise ValueError("That ballot is no longer kept.")
-        h[index]["drill_done"] = bool(done)
+        h[i]["drill_done"] = bool(done)
         return x
     store.update("ballots.json", edit)
     return history()

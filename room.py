@@ -138,7 +138,7 @@ def cx_log(r):
 def set_prep(r, seconds_left):
     """Prep only goes down."""
     if not isinstance(seconds_left, (int, float)):
-        raise ValueError("Bad prep time.")
+        raise ValueError("That prep time could not be read.")
     r["prep"] = max(0, min(int(r["prep"]), int(seconds_left)))
     return r
 

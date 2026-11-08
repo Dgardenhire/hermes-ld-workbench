@@ -55,16 +55,16 @@ def _fail(e):
     if isinstance(e, HTTPException):
         raise e
     if isinstance(e, ValueError):
-        raise HTTPException(status_code=400, detail=str(e) or "Bad request.")
+        raise HTTPException(status_code=400, detail=str(e) or "That request could not be read.")
     if isinstance(e, RuntimeError):  # our own plain-English failures
         raise HTTPException(status_code=502, detail=str(e))
     _log.exception("ld-workbench: unexpected error")
-    raise HTTPException(status_code=500, detail="Something went wrong on our end. Try again.")
+    raise HTTPException(status_code=500, detail="Something went wrong. Try again. If it keeps happening, restart Hermes.")
 
 
 def _body(body):
     if not isinstance(body, dict):
-        raise ValueError("Bad request.")
+        raise ValueError("That request could not be read.")
     return body
 
 
@@ -244,7 +244,7 @@ async def post_workbench(body: dict):
                 w["source"] = None
             else:
                 if not isinstance(src, dict):
-                    raise ValueError("Bad source.")
+                    raise ValueError("That source could not be read.")
                 text = engine._s(src.get("text"), 30000, "Source text").strip()
                 if len(text.split()) < 20:
                     raise ValueError("Paste a bit more text than that.")
@@ -313,7 +313,7 @@ async def post_import_apply(body: dict):
         side = engine._pick(b.get("side"), SIDES, "side")
         sections = library._sections(b.get("sections") or {})
         if not sections:
-            raise ValueError("Bad case.")
+            raise ValueError("That case could not be read.")
         if b.get("as_new"):
             c = library.create(name=b.get("name") or "", resolution=_active().get("resolution") or "", side=side, sections=sections)
             _open(c["id"])
@@ -1075,7 +1075,7 @@ async def post_extemp_round(body: dict):
             if "prep_left" in b:
                 left = b["prep_left"]
                 if not isinstance(left, (int, float)):
-                    raise ValueError("Bad prep time.")
+                    raise ValueError("That prep time could not be read.")
                 r["prep_left"] = max(0, min(int(r["prep_left"]), int(left)))
             if "phase" in b:
                 r["phase"] = engine._pick(b["phase"], ("prep", "speak", "ballot"), "phase")
@@ -1144,7 +1144,10 @@ async def post_rhetoric_critique(body: dict):
 @router.post("/ballots/{index}/drill")
 async def post_ballot_drill(index: int, body: dict):
     try:
-        ballots.set_drill_done(int(index), bool(_body(body).get("done")))
+        b = _body(body)
+        at = b.get("at")
+        at = at if isinstance(at, (int, float)) and not isinstance(at, bool) else None
+        ballots.set_drill_done(int(index), bool(b.get("done")), at)
         return {"history": ballots.history(), "patterns": ballots.patterns()}
     except Exception as e:
         _fail(e)

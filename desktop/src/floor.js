@@ -193,7 +193,7 @@ export function LiveWave({ rec, limit }) {
   const open = pauses.length && pauses[pauses.length - 1].open
   return jsxs('section', { className: 'ldw-live', 'aria-label': 'Your take so far', children: [
     jsxs('div', { className: 'ldw-last-head', children: [jsx('h3', { className: 'ldw-h3', children: 'Recording' }),
-      jsx('span', { className: 'ldw-prov', children: open ? 'Pausing' : `${pauses.length} pause${pauses.length === 1 ? '' : 's'} over 2 seconds` })] }),
+      jsx('span', { className: 'ldw-prov', children: open ? 'Pausing' : pauses.length ? `${pauses.length} pause${pauses.length === 1 ? '' : 's'} over 2 seconds` : 'No pauses over 2 seconds' })] }),
     jsx(Wave, { levels, duration: levels.length / 10, pauses, limit }),
   ] })
 }

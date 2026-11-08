@@ -24,10 +24,24 @@ function dateOf(t) {
   return new Date(t * 1000).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
 }
 // Web links only, and only in the user's own browser.
+// When Hermes cannot open a browser (openExternal answers false or is missing), the link is shown to copy.
+const $linkMiss = atom(null)
 export function openLink(url) {
   if (!/^https?:\/\//i.test(String(url || ''))) return false
-  if (api && api.os && typeof api.os.openExternal === 'function') { api.os.openExternal(url); return true }
+  const miss = () => $linkMiss.set(String(url))
+  $linkMiss.set(null)
+  if (api && api.os && typeof api.os.openExternal === 'function') {
+    Promise.resolve(api.os.openExternal(url)).then(ok => { if (ok === false) miss() }, miss)
+    return true
+  }
+  miss()
   return false
+}
+function LinkMiss() {
+  const url = useValue($linkMiss)
+  if (!url) return null
+  return jsx(Notice, { tone: 'warn', children: jsxs(Fragment, { children: ['Hermes could not open your browser. Copy the link instead: ', jsx('span', { className: 'ldw-linkmiss', children: url })] }),
+    action: jsx(Button, { size: 'sm', variant: 'secondary', onClick: () => $linkMiss.set(null), children: 'Close' }) })
 }
 
 /* ------------------------------------------------------------------ the take, judged -- */
@@ -205,6 +219,7 @@ function HeadlineColumns({ pull, saved, onSave }) {
   const outlets = Object.fromEntries((pull.outlets || []).map(o => [o.id, o]))
   return jsxs('section', { className: 'ldw-heads', 'aria-label': `Headlines on ${pull.topic}`, children: [
     pull.notice ? jsx(Notice, { tone: 'warn', children: pull.notice }) : null,
+    jsx(LinkMiss, {}),
     jsx('div', { className: 'ldw-heads-grid', children: ['left', 'center', 'right'].map(side => jsxs('div', { className: 'ldw-heads-side', children: [
       jsx('h3', { className: 'ldw-heads-title', children: SIDE_TITLES[side] }),
       ...pull.columns.filter(c => (outlets[c.id] || {}).side === side).map(c => {
@@ -380,6 +395,7 @@ function WebSearch({ question, onSaved }) {
     ] }),
     busy === 'search' ? jsx(Thinking, { label: 'Searching with your Hermes web search' }) : null,
     err ? jsx(Notice, { tone: 'bad', children: err }) : null,
+    jsx(LinkMiss, {}),
     res && !res.results.length ? jsx('p', { className: 'ldw-meta', children: `Nothing came back for "${res.query}". Try fewer words.` }) : null,
     res && res.results.length ? jsx('ol', { className: 'ldw-webres', children: res.results.map(r => jsxs('li', { children: [
       jsxs('div', { className: 'ldw-webres-text', children: [

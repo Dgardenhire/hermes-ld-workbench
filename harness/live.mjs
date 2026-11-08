@@ -34,7 +34,8 @@ try {
   const send = (method, params = {}) => new Promise(r => { const i = ++id; waiting.set(i, r); ws.send(JSON.stringify({ id: i, method, params })) })
   const evalJs = async expr => ((await send('Runtime.evaluate', { expression: expr, awaitPromise: true, returnByValue: true })).result || {}).result?.value
   const shot = async name => { const r = await send('Page.captureScreenshot', { format: 'png' }); writeFileSync(join(OUT, `${name}.png`), Buffer.from(r.result.data, 'base64')); console.log(join(OUT, `${name}.png`)) }
-  await send('Runtime.enable'); await send('Page.enable')
+  await send('Runtime.enable'); await send('Page.enable'); await send('Network.enable')
+  await send('Network.setCacheDisabled', { cacheDisabled: true }) // the profile folder persists; never test a stale bundle
   await send('Emulation.setDeviceMetricsOverride', { width: 1440, height: 900, deviceScaleFactor: 1, mobile: false })
   await send('Page.navigate', { url: `http://127.0.0.1:8793/harness/?view=extemp${process.env.THEME ? `&theme=${process.env.THEME}` : ''}` })
   for (let i = 0; i < 60 && (await evalJs('document.documentElement.dataset.ready')) !== '1'; i++) await pause(250)

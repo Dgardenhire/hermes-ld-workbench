@@ -383,7 +383,7 @@ var $state = atom(null);
 var $view = atom("room");
 var $loadError = atom(null);
 function rest(path, options) {
-  if (!api) return Promise.reject(new Error("The workbench is not connected."));
+  if (!api) return Promise.reject(new Error("The workbench is not connected. Close Debate and open it again."));
   return api.rest(path, { timeoutMs: MODEL_TIMEOUT, ...options || {} });
 }
 var post = (path, body) => rest(path, { method: "POST", body: body || {} });
@@ -812,7 +812,7 @@ function LiveWave({ rec, limit }) {
   return jsxs4("section", { className: "ldw-live", "aria-label": "Your take so far", children: [
     jsxs4("div", { className: "ldw-last-head", children: [
       jsx4("h3", { className: "ldw-h3", children: "Recording" }),
-      jsx4("span", { className: "ldw-prov", children: open ? "Pausing" : `${pauses.length} pause${pauses.length === 1 ? "" : "s"} over 2 seconds` })
+      jsx4("span", { className: "ldw-prov", children: open ? "Pausing" : pauses.length ? `${pauses.length} pause${pauses.length === 1 ? "" : "s"} over 2 seconds` : "No pauses over 2 seconds" })
     ] }),
     jsx4(Wave, { levels, duration: levels.length / 10, pauses, limit })
   ] });
@@ -1146,13 +1146,28 @@ function dateOf(t) {
   if (!t) return "";
   return new Date(t * 1e3).toLocaleDateString(void 0, { month: "short", day: "numeric" });
 }
+var $linkMiss = atom2(null);
 function openLink(url) {
   if (!/^https?:\/\//i.test(String(url || ""))) return false;
+  const miss = () => $linkMiss.set(String(url));
+  $linkMiss.set(null);
   if (api && api.os && typeof api.os.openExternal === "function") {
-    api.os.openExternal(url);
+    Promise.resolve(api.os.openExternal(url)).then((ok) => {
+      if (ok === false) miss();
+    }, miss);
     return true;
   }
+  miss();
   return false;
+}
+function LinkMiss() {
+  const url = useValue($linkMiss);
+  if (!url) return null;
+  return jsx5(Notice, {
+    tone: "warn",
+    children: jsxs5(Fragment3, { children: ["Hermes could not open your browser. Copy the link instead: ", jsx5("span", { className: "ldw-linkmiss", children: url })] }),
+    action: jsx5(Button4, { size: "sm", variant: "secondary", onClick: () => $linkMiss.set(null), children: "Close" })
+  });
 }
 function useJudgedTake({ event, limit, question, outline, initial, onBallot }) {
   const [take, setTake] = useState5(initial || null);
@@ -1382,6 +1397,7 @@ function HeadlineColumns({ pull, saved, onSave }) {
   const outlets = Object.fromEntries((pull.outlets || []).map((o) => [o.id, o]));
   return jsxs5("section", { className: "ldw-heads", "aria-label": `Headlines on ${pull.topic}`, children: [
     pull.notice ? jsx5(Notice, { tone: "warn", children: pull.notice }) : null,
+    jsx5(LinkMiss, {}),
     jsx5("div", { className: "ldw-heads-grid", children: ["left", "center", "right"].map((side) => jsxs5("div", { className: "ldw-heads-side", children: [
       jsx5("h3", { className: "ldw-heads-title", children: SIDE_TITLES[side] }),
       ...pull.columns.filter((c) => (outlets[c.id] || {}).side === side).map((c) => {
@@ -1637,6 +1653,7 @@ function WebSearch({ question, onSaved }) {
     ] }),
     busy === "search" ? jsx5(Thinking, { label: "Searching with your Hermes web search" }) : null,
     err ? jsx5(Notice, { tone: "bad", children: err }) : null,
+    jsx5(LinkMiss, {}),
     res && !res.results.length ? jsx5("p", { className: "ldw-meta", children: `Nothing came back for "${res.query}". Try fewer words.` }) : null,
     res && res.results.length ? jsx5("ol", { className: "ldw-webres", children: res.results.map((r) => jsxs5("li", { children: [
       jsxs5("div", { className: "ldw-webres-text", children: [
@@ -2124,7 +2141,7 @@ function BallotRow({ b, onDone }) {
       (b.tags || []).length || (b.measured_tags || []).length ? jsx7("p", { className: "ldw-meta", children: [...b.tags || [], ...b.measured_tags || []].map((t) => b.tag_text && b.tag_text[t] || t).join(" · ") }) : null
     ] }),
     drill ? jsxs7("label", { className: cls("ldw-brow-drill", b.drill_done && "ldw-done"), children: [
-      jsx7("input", { type: "checkbox", checked: !!b.drill_done, onChange: (e) => onDone(b.index, e.target.checked) }),
+      jsx7("input", { type: "checkbox", "aria-label": `Drill done: ${drill.name}`, checked: !!b.drill_done, onChange: (e) => onDone(b.index, e.target.checked, b.at) }),
       jsxs7("span", { children: [jsx7("span", { className: "ldw-stamp2 ldw-stamp-sm", children: "Drill" }), " ", drill.name] })
     ] }) : null
   ] });
@@ -2136,9 +2153,9 @@ function BallotsView() {
   useEffect6(() => {
     load2();
   }, []);
-  const done = async (index, v) => {
+  const done = async (index, v, at) => {
     try {
-      const out = await post(`ballots/${index}/drill`, { done: v });
+      const out = await post(`ballots/${index}/drill`, { done: v, at });
       setData({ ...data, ...out });
     } catch (e) {
       setErr(errText(e));
@@ -2182,7 +2199,7 @@ function Transcripts({ t }) {
   };
   const cached = (t.cached || {})[t.model];
   return jsxs8(Section2, { title: "Transcripts", children: [
-    jsx8("p", { className: "ldw-set-status", "data-ok": t.available ? "" : void 0, children: t.available ? "Made on this computer with faster-whisper. Your recordings never leave it." : "Not set up yet. Every take still gets real timing and pauses." }),
+    jsx8("p", { className: "ldw-set-status", "data-ok": t.available ? "" : void 0, children: t.available ? "Made on this computer with faster-whisper. Your recordings stay on it." : "Not set up yet. Every take still gets real timing and pauses." }),
     !t.available ? jsx8(Notice, { tone: "info", children: TRANSCRIPTS_OFF }) : null,
     jsx8(SegmentedControl2, { value: t.model, onChange: pick, disabled: busy, options: (t.models || []).map((m) => ({ id: m, label: `${m}: ${MODEL_TEXT[m] || ""}` })) }),
     t.available ? jsx8("p", { className: "ldw-set-line", children: cached ? `${t.model} is already on this computer.` : `The first transcript downloads ${t.model} (about ${(t.mb || {})[t.model] || 150} MB) from huggingface.co, once. After that it works offline.` }) : null,
@@ -2229,12 +2246,13 @@ function Outlets() {
   ] });
 }
 var LEAVES = [
-  ["Your voice", "Recorded in this window only while you speak, kept on this computer, never sent anywhere."],
-  ["Transcripts", "Made on this computer. The one exception is the first download of the speech model."],
+  ["Your voice", "Recorded only while you speak and kept on the computer that runs Hermes. It never goes to a model or a website."],
+  ["Transcripts", "Made on the computer that runs Hermes. The only download is the speech model, once."],
   ["Your words", "The words of your speeches go to the model you chose in Hermes, for the opponent, the judge and the coach."],
   ["Headlines", "A pull asks Google News, or the outlet’s own feed, for headlines on your topic. Only titles, dates and links come back."],
   ["Hear it", "When you press it, the opponent’s speech goes to the voice you set up in Hermes to be read aloud."],
-  ["Saved links", "When you save a link to your file, the page is read once to keep its text."]
+  ["Web search", "Only in a round you set to internet allowed, when you press Search. Your search words go to the web search you set up in Hermes."],
+  ["Saved links", "When you save a link to your file or add one as a topic source, the page is read once to keep its text."]
 ];
 function SettingsView() {
   const home = useValue3($home);
@@ -2256,7 +2274,7 @@ var FRAME_CSS = `
 :root.dark .ldw{--ldw-paper:color-mix(in srgb,var(--ui-base,#e6edf3) 90%,var(--ui-bg-chrome,#0d1015));--ldw-paper-ink:var(--ui-bg-chrome,#0d1015);
   --ldw-paper-rule:color-mix(in srgb,var(--ui-bg-chrome,#0d1015) 30%,transparent)}
 .ldw-frame{display:grid;grid-template-columns:184px minmax(0,1fr);min-height:100%;align-items:stretch}
-.ldw-frame>.ldw-inner{padding:20px 28px 44px;gap:18px}
+.ldw-frame>.ldw-inner{padding:20px 28px 44px;gap:18px;max-width:1240px;box-sizing:border-box;width:100%}
 .ldw-rail{border-right:1px solid var(--hk-stroke);padding:20px 0;display:flex;flex-direction:column;gap:2px;position:sticky;top:0;align-self:start;min-height:100%}
 .ldw-ev{display:grid;gap:3px;text-align:left;background:transparent;border:0;padding:11px 18px;color:var(--hk-ink);font:inherit;cursor:pointer}
 .ldw-ev b{font-family:var(--ldw-cond);font-weight:700;font-size:21px;line-height:1;text-transform:uppercase;letter-spacing:.02em}
@@ -2325,7 +2343,7 @@ var FRAME_CSS = `
 .ldw-spoken{font-family:var(--ldw-serif);font-size:16px;line-height:1.6;max-width:74ch;white-space:pre-wrap}
 
 .ldw-upnext{display:flex;gap:14px;align-items:center;border-top:1px solid var(--hk-stroke);padding-top:14px;margin-top:auto}
-.ldw-upnext p{margin:0;flex:1;font-size:14px;max-width:80ch}
+.ldw-upnext p{margin:0;flex:1;font-size:14px;max-width:80ch}.ldw-upnext p+*{margin-left:auto}
 /* the ballot sheet: white paper in light mode, a lit page in dark; the accent is the judge's pen */
 .ldw-sheet{background:var(--ldw-paper);color:var(--ldw-paper-ink);border:1px solid var(--hk-stroke);border-radius:var(--ldw-r);padding:18px 24px 18px;max-width:760px;
   box-shadow:0 8px 24px -14px color-mix(in srgb,#000 55%,transparent);display:grid;gap:0}
@@ -2380,6 +2398,7 @@ var FRAME_CSS = `
 .ldw-head{display:grid;gap:2px}
 .ldw-head-link{all:unset;cursor:pointer;font-family:var(--ldw-serif);font-size:15px;line-height:1.35}
 .ldw-head-link:hover{text-decoration:underline}
+.ldw-linkmiss{font-family:var(--hk-mono);font-size:12.5px;word-break:break-all;user-select:all}
 .ldw-head-link:focus-visible{outline:2px solid var(--hk-accent);outline-offset:2px}
 .ldw-head-meta{display:flex;gap:12px;font-size:12.5px}
 .ldw-saved{font-weight:600}
@@ -2436,7 +2455,7 @@ var FRAME_CSS = `
 .ldw-fig-ex q{font-family:var(--ldw-serif);font-size:14.5px}
 .ldw-fig-ex cite{font-style:normal;font-size:12.5px;margin-left:6px}
 .ldw-spot,.ldw-write{display:grid;gap:12px;max-width:760px}
-.ldw-spot-q{margin:0;font-family:var(--ldw-serif);font-size:24px;line-height:1.4;border-left:3px solid var(--hk-accent);padding:4px 0 4px 16px}
+.ldw-spot-q{margin:0;font-family:var(--ldw-serif);font-size:24px;line-height:1.4;border-left:3px solid var(--hk-stroke-strong);padding:4px 0 4px 16px}
 .ldw-small{font-size:16px}
 
 /* ballots */
@@ -2467,7 +2486,9 @@ var FRAME_CSS = `
 .ldw-paper-top{letter-spacing:.1em}
 
 @container (max-width:1060px){.ldw-read{grid-template-columns:200px minmax(0,1fr)}.ldw-counts{grid-column:1/-1;position:static}.ldw-brow{grid-template-columns:1fr}}
-@container (max-width:900px){.ldw-frame{grid-template-columns:1fr}.ldw-rail{flex-direction:row;overflow-x:auto;border-right:0;border-bottom:1px solid var(--hk-stroke);padding:0;position:static;min-height:0}
+@container (max-width:900px){.ldw-frame{grid-template-columns:1fr;grid-template-rows:auto 1fr}.ldw-rail{flex-direction:row;flex-wrap:wrap;border-right:0;border-bottom:1px solid var(--hk-stroke);padding:0;position:static;min-height:0}
+  .ldw-ev{padding:12px 14px}.ldw-ev b,.ldw-ev-ballots b,.ldw-ev-settings b{font-size:17px;white-space:nowrap}.ldw-ev span{display:none}.ldw-ev-settings{margin-top:0}.ldw-ev[aria-current=page]{box-shadow:inset 0 -3px 0 var(--hk-accent)}
+  .ldw-sheet-fields>div:nth-child(odd){padding-left:0;border-left:0}.ldw-sheet-fields>div:nth-child(n+3){border-top:1px solid var(--ldw-paper-rule)}
   .ldw-ev-ballots{margin-top:0}.ldw-stage2,.ldw-prep,.ldw-heads-grid,.ldw-drawn,.ldw-read,.ldw-patgrid,.ldw-slip{grid-template-columns:1fr}.ldw-sheet-dec,.ldw-sheet-fields{grid-template-columns:1fr 1fr}
   .ldw-outline-side{text-align:left}.ldw-strip{flex-wrap:wrap}.ldw-seg{min-width:96px !important}}
 /* Lincoln-Douglas in the frame: the big clock and its actions on one row, the speech and last ballot under it */
@@ -2490,11 +2511,11 @@ var FRAME_CSS = `
 .ldw-sheet-why{margin:0;padding:10px 0;border-bottom:1px solid var(--ldw-paper-rule);font-size:15px;line-height:1.45;max-width:70ch}
 .ldw-sheet-rfd h4{margin-top:12px}
 .ldw-drill2{display:grid;gap:2px;padding:6px 0;border-bottom:1px dashed var(--ldw-paper-rule)}.ldw-drill2 p{margin:0}
-.ldw-live{background:var(--hk-surface);border:1px solid var(--hk-stroke);box-shadow:inset 3px 0 0 var(--hk-accent);border-radius:var(--ldw-r);padding:14px 16px 12px;display:grid;gap:10px}
+.ldw-live{background:var(--hk-surface);border:1px solid var(--hk-stroke);border-radius:var(--ldw-r);padding:14px 16px 12px;display:grid;gap:10px}
 .ldw-live .ldw-wave-bar{fill:var(--hk-accent)}
 .ldw-live-wait{font-size:14px}
 @container (max-width:900px){.ldw-floor{grid-template-columns:1fr}.ldw-floor .ldw-stage2{grid-template-columns:1fr}}
-.ldw-ev-settings{margin-top:28px}.ldw-ev-settings b{font-size:16px}
+.ldw-ev-settings{margin-top:auto}.ldw-ev-settings b{font-size:16px}
 .ldw-settings{display:grid;gap:4px;max-width:880px}
 .ldw-set-h1{margin:0 0 10px;font-family:var(--ldw-cond);font-size:34px;font-weight:700;text-transform:uppercase;letter-spacing:.01em}
 .ldw-set{display:grid;grid-template-columns:200px minmax(0,1fr);gap:24px;padding:20px 0;border-top:1px solid var(--hk-stroke)}

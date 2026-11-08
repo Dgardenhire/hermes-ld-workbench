@@ -23,7 +23,7 @@ function Transcripts({ t }) {
   const cached = (t.cached || {})[t.model]
   return jsxs(Section, { title: 'Transcripts', children: [
     jsx('p', { className: 'ldw-set-status', 'data-ok': t.available ? '' : undefined, children: t.available
-      ? 'Made on this computer with faster-whisper. Your recordings never leave it.'
+      ? 'Made on this computer with faster-whisper. Your recordings stay on it.'
       : 'Not set up yet. Every take still gets real timing and pauses.' }),
     !t.available ? jsx(Notice, { tone: 'info', children: TRANSCRIPTS_OFF }) : null,
     jsx(SegmentedControl, { value: t.model, onChange: pick, disabled: busy, options: (t.models || []).map(m => ({ id: m, label: `${m}: ${MODEL_TEXT[m] || ''}` })) }),
@@ -63,12 +63,13 @@ function Outlets() {
 }
 
 const LEAVES = [
-  ['Your voice', 'Recorded in this window only while you speak, kept on this computer, never sent anywhere.'],
-  ['Transcripts', 'Made on this computer. The one exception is the first download of the speech model.'],
+  ['Your voice', 'Recorded only while you speak and kept on the computer that runs Hermes. It never goes to a model or a website.'],
+  ['Transcripts', 'Made on the computer that runs Hermes. The only download is the speech model, once.'],
   ['Your words', 'The words of your speeches go to the model you chose in Hermes, for the opponent, the judge and the coach.'],
   ['Headlines', 'A pull asks Google News, or the outlet’s own feed, for headlines on your topic. Only titles, dates and links come back.'],
   ['Hear it', 'When you press it, the opponent’s speech goes to the voice you set up in Hermes to be read aloud.'],
-  ['Saved links', 'When you save a link to your file, the page is read once to keep its text.'],
+  ['Web search', 'Only in a round you set to internet allowed, when you press Search. Your search words go to the web search you set up in Hermes.'],
+  ['Saved links', 'When you save a link to your file or add one as a topic source, the page is read once to keep its text.'],
 ]
 
 export function SettingsView() {
