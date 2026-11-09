@@ -17,9 +17,11 @@ Files:
 - ``extemp_round.json`` the extemp round in progress (null when none)
 - ``outlets.json``    the student's outlet list and lean labels (null: the defaults in headlines.py)
 - ``headlines.json``  the last headline pull per topic, the 20 most recent
-- ``settings.json``   the transcript model and the event last chosen
+- ``settings.json``   the transcript model, the event last chosen, and whether the coach shows examples
 - ``questions.json``  the 60-second questions the student or coach added, built-in ones hidden, "only mine",
                       and where the floor opens next visit (extemp.py)
+- ``coach.json``      which of the student's rhetoric lines the coach has critiqued, so three versions follow
+                      only a critique (coach.py)
 
 Every write goes to a temporary file in the same folder, is flushed to disk, then renamed over the old
 file, so a crash mid-write leaves the previous version intact. One lock serializes read-modify-write.
@@ -48,8 +50,9 @@ DEFAULTS = {
     "extemp_round.json": None,
     "outlets.json": {"outlets": None},
     "headlines.json": {"topics": {}},
-    "settings.json": {"transcript_model": "base.en", "event": "extemp"},
+    "settings.json": {"transcript_model": "base.en", "event": "extemp", "coach_examples": True},
     "questions.json": {"custom": [], "hidden": [], "mine_only": False, "next": 0},
+    "coach.json": {"critiqued": []},
 }
 BRIEFING_CAP = 20
 HISTORY_CAP = 40

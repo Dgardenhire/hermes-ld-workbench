@@ -13,12 +13,14 @@
 //   spotmiss 1                                   (room scene opp: one fallacy quote paraphrased, so the not-found mark shows)
 //   q      n                                     (extemp: open on question n of the pool; default 0, the Federal Reserve one)
 //   own    1                                     (extemp: one question of the student's own on the list)
+//   coach  off                                   (Settings, Coach examples off: no example buttons; the chat explains only)
 // Hand-written, not captured: the drawn questions (DRAW) and the fallacies under the NR (SPOT_NR); see make_fixtures.py.
 // Only the Federal Reserve answer has a ballot here: any other question answers with a harness notice.
 import { createRoot } from 'react-dom/client'
 import { jsx, jsxs } from 'react/jsx-runtime'
 import { BRIEFING, CONFIG, DRILL, SPOT, SPOT_INPUT, STATE } from './fixtures.js'
 import { BALLOT, BALLOTS, DRAW, HOME, JUDGES, MARKS, OUTLETS, PULL, RHETORIC, SPEECHES, SPOT as FIGSPOT, SPOT_NR, SPOT_NR_MISS, TAKE } from './fixtures02.js'
+import { COACH } from './fixtures_coach.js'
 
 const params = new URLSearchParams(location.search)
 const dark = params.get('theme') !== 'light'
@@ -83,6 +85,7 @@ function home() {
         area1: 'Prices are still above the 2% goal', area2: 'The jobs market can take it', area3: 'Waiting costs more later', conclusion: '', sources: ['f1', 'f2'] } }
   }
   if (X === 'draw' || X === 'prep' || X === 'speak') h.extemp_round = X === 'draw' ? null : h.extemp_round
+  h.settings = { ...(h.settings || {}), coach_examples: params.get('coach') !== 'off' }
   return h
 }
 const FILE = { items: [
@@ -167,6 +170,22 @@ async function rest(path, options = {}) {
     return { text: BRIEFING, cached: false, resolution: body.resolution }
   }
   if (path === 'drill') return clone(DRILL)
+  // The coach (harness/make_coach_fixtures.py: hand-written answers put through the plugin's own checks).
+  if (path === 'coach/extemp/example') return clone(options.body.kind === 'opening' ? COACH.opening : COACH.answer)
+  if (path === 'coach/extemp/areas') return clone(COACH.areas)
+  if (path === 'coach/extemp/evidence') return clone(COACH.evidence)
+  if (path === 'coach/rhetoric/versions') return clone(COACH.versions)
+  if (path === 'rhetoric/critique') return clone(COACH.critique)
+  if (path === 'coach/ballot/show') return clone([1762400000, 1762480000, 1762571000].includes(options.body.at) ? COACH.show_drill : COACH.show_ld)
+  if (path === 'coach/ld/suggest') {
+    const s = sceneState()
+    s.workbench.case.suggestions = { [options.body.section]: clone(COACH.ld_block) }
+    return { ...clone(COACH.ld_block), ...s.workbench }
+  }
+  if (path === 'coach/chat') {
+    if (options.body.floor !== 'extemp') throw new Error('400: {"detail":"The harness has a coach answer only on the 60-second answer. Other floors need a live model."}')
+    return { ...clone(COACH.chat_extemp), examples: params.get('coach') !== 'off' }
+  }
   if (path === 'spot') return { text: options.body && options.body.speech_id ? SPOT_NR : SPOT }
   if (params.get('scene') === 'judging' && path === 'round/judge') return new Promise(() => {})
   throw new Error('400: {"detail":"The harness does not answer this request."}')

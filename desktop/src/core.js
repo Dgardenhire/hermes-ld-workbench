@@ -74,21 +74,31 @@ export function when(t) {
 // The coach writes light Markdown: paragraphs, - and 1. lists, **bold**, *italic*. Rendered as elements.
 // The backend marks a quoted line it could not find in the text with [[not-found]] (engine.check_quotes).
 export const NOT_FOUND = '[[not-found]]'
+// The coach's examples mark a citation or a news outlet that is not in the student's file (coach.check).
+export const NOT_IN_FILE = '[[not-in-file]]'
+const NOT_IN_FILE_LABEL = 'Not a source in your file. Do not cite it.'
 let notFoundLabel = 'Not found in the text. Check it before you use it.'
 export function renderChecked(text, label) {
   notFoundLabel = label
   try { return renderText(text) } finally { notFoundLabel = 'Not found in the text. Check it before you use it.' }
 }
 export const notFoundCount = text => String(text || '').split(NOT_FOUND).length - 1
+// One paragraph of the coach's own writing, with its marks, without the Markdown list and heading rules (a model
+// answer is a speech: a line that starts with "1." is still a sentence of it).
+export function inlineChecked(text, label) {
+  notFoundLabel = label
+  try { return inline(String(text || ''), 'c') } finally { notFoundLabel = 'Not found in the text. Check it before you use it.' }
+}
 export function inline(text, key) {
   const out = []
-  const re = /\*\*(.+?)\*\*|\*([^*\n]+)\*|\[\[not-found\]\]/g
+  const re = /\*\*(.+?)\*\*|\*([^*\n]+)\*|\[\[not-found\]\]|\[\[not-in-file\]\]/g
   let last = 0
   let m
   let i = 0
   while ((m = re.exec(text))) {
     if (m.index > last) out.push(text.slice(last, m.index))
     out.push(m[0] === NOT_FOUND ? jsx('span', { className: 'ldw-line-flag ldw-inline-flag', children: notFoundLabel }, `${key}-n${i++}`)
+      : m[0] === NOT_IN_FILE ? jsx('span', { className: 'ldw-line-flag ldw-inline-flag', children: NOT_IN_FILE_LABEL }, `${key}-f${i++}`)
       : m[1] ? jsx('strong', { children: m[1] }, `${key}-b${i++}`) : jsx('em', { children: m[2] }, `${key}-i${i++}`))
     last = re.lastIndex
   }

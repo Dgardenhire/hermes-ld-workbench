@@ -10,6 +10,7 @@ import { Fragment, jsx, jsxs } from 'react/jsx-runtime'
 import { Button, Codicon, Textarea } from '@hermes/plugin-sdk'
 import { Notice } from 'hermes-ui-kit'
 import { Thinking, cls, errText, mmss, post, rest, words } from './core.js'
+import { ShowMe } from './coach.js'
 
 /* ------------------------------------------------------------------ the strip -- */
 
@@ -403,7 +404,7 @@ export const FILE_EMPTY_NOTE = 'Your file is empty for now: in Full round, pull 
 
 // The extemp ballot: read in ten seconds, the full reason folded. fileEmpty: the student has no saved sources,
 // so a drill that sends them to "your file" says how to start one.
-export function ExtempSheet({ b, onDrill, drillLabel = 'Run the drill', defaultOpen = false, fileEmpty = false }) {
+export function ExtempSheet({ b, onDrill, drillLabel = 'Run the drill', defaultOpen = false, fileEmpty = false, showMe = true }) {
   const [open, setOpen] = useState(defaultOpen)
   const m = b.measured || {}
   const verdictWord = { yes: 'You answered the question', partly: 'You partly answered the question', no: 'You did not answer the question' }[b.answered]
@@ -440,6 +441,7 @@ export function ExtempSheet({ b, onDrill, drillLabel = 'Run the drill', defaultO
         fileEmpty && mentionsFile(b.drill) ? jsx('span', { className: 'ldw-drill-note', children: ` ${FILE_EMPTY_NOTE}` }) : null] }),
       onDrill ? jsx(Button, { size: 'sm', onClick: onDrill, children: drillLabel }) : null,
     ] }) : null,
+    showMe ? jsx('div', { className: 'ldw-noprint', children: jsx(ShowMe, { b }) }) : null,
     jsxs('button', { type: 'button', className: 'ldw-fold', 'aria-expanded': open, onClick: () => setOpen(v => !v), children: [
       jsx('span', { children: open ? 'Hide the full reason for decision' : 'Read the full reason for decision' }), jsx('span', { children: `${words(b.reason)} words` })] }),
     open ? jsxs('div', { className: 'ldw-sheet-rfd', children: [
@@ -494,6 +496,7 @@ export function LdSheet({ b, onLine, onDrill, defaultOpen = false }) {
       jsxs('p', { children: [jsx('strong', { children: drill.name }), '. ', drill.how] }),
       onDrill ? jsx(Button, { size: 'sm', onClick: onDrill, children: 'Redo a speech' }) : null,
     ] }) : null,
+    jsx('div', { className: 'ldw-noprint', children: jsx(ShowMe, { b }) }),
     jsxs('button', { type: 'button', className: 'ldw-fold', 'aria-expanded': open, onClick: () => setOpen(v => !v), children: [
       jsx('span', { children: open ? 'Hide the full reason for decision' : 'Read the full reason for decision' }),
       jsx('span', { children: `${words(b.reason)} words${drills.length ? ` · ${drills.length} more drill${drills.length === 1 ? '' : 's'}` : ''}` })] }),

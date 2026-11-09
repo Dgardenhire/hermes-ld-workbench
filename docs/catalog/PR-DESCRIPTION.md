@@ -16,6 +16,7 @@ SHA bump for `ld-workbench` (Debate Workbench), 0.1.0 to 0.2.0, submitted by the
 - **Transcripts that follow the user's Hermes voice settings.** Each take goes first to Hermes's own speech-to-text (the one Hermes's voice input uses: local or the cloud provider the user chose), then, when Hermes cannot without a download of its own, to faster-whisper with a model in the plugin's own data folder. No dependency is declared; without either every take is "timing only".
 - **Extemp:** a 60-second answer, three-openings practice, and a full round: this week's headlines on the student's topic from twelve outlets on the left, center and right, five to five by lean label (user-editable, labeled by lean), a draw from the student's own saved news, 30 minutes of prep, a 7-minute speech, a ballot.
 - **Rhetoric:** figures of speech marked in six public-domain speeches, every quote checked as an exact substring; spot, write and say drills.
+- **The coach, after the student tries:** examples (a strong answer, opening, three versions of a line, a redo from a ballot) and suggestions (extemp areas and evidence from the student's own file; contentions, a framework, a block, a stronger card), each marked as the coach's, every citation, quote, figure and date checked in code; a coach chat on every screen; Settings, Coach examples, turns examples off.
 - **Ballots:** every ballot kept; patterns counted in code from a fixed tag list over the last six rounds.
 
 Full list: `CHANGELOG.md`. Manual: `docs/MANUAL.md`.

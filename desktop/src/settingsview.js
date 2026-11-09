@@ -9,6 +9,7 @@ import { Notice } from 'hermes-ui-kit'
 import { Choices, Thinking, errText, post } from './core.js'
 import { $home, OutletEditor, loadHome } from './extemp.js'
 import { TRANSCRIPTS_OFF } from './floor.js'
+import { $coachOn } from './coach.js'
 
 const MODEL_TEXT = { 'base.en': 'Faster', 'small.en': 'More accurate, slower' }
 const mb = bytes => `${Math.max(0.1, bytes / 1048576).toFixed(bytes < 10485760 ? 1 : 0)} MB`
@@ -93,6 +94,23 @@ function Recordings({ r, kept }) {
   ] })
 }
 
+// Coach examples: on by default. A teacher turns them off for a room where students write every word.
+function CoachExamples({ on }) {
+  const [busy, setBusy] = useState(false)
+  const [err, setErr] = useState(null)
+  const pick = async v => {
+    setBusy(true); setErr(null)
+    try { await post('settings', { coach_examples: v === 'on' }); $coachOn.set(v === 'on'); await loadHome() } catch (e) { setErr(errText(e)) } finally { setBusy(false) }
+  }
+  return jsxs(Section, { title: 'Coach examples', children: [
+    jsx(Choices, { label: 'Coach examples', value: on ? 'on' : 'off', onChange: pick, disabled: busy, options: [{ id: 'on', label: 'On' }, { id: 'off', label: 'Off' }] }),
+    jsx('p', { className: 'ldw-set-line', children: on
+      ? "After you try something yourself, the coach can show a strong version and make suggestions: a model answer or opening, areas and evidence from your own file, contentions, a value and criterion, a block, a stronger card, three versions of your line, and a redo of the weakest moment on a ballot. Each one is marked as the coach's, and every citation, quote and number in it is checked against your file and your words."
+      : 'The coach asks questions, explains and critiques, and writes nothing for you to say. For a room where students write every word. The coach chat still works.' }),
+    err ? jsx(Notice, { tone: 'bad', children: err }) : null,
+  ] })
+}
+
 function Outlets() {
   const [saved, setSaved] = useState(null)
   const [n, setN] = useState(0)
@@ -120,7 +138,7 @@ function voiceLines(t) {
 }
 
 const LEAVES = [
-  ['Your words', 'The words of your speeches go to the model you chose in Hermes, for the opponent, the judge and the coach.'],
+  ['Your words', 'The words of your speeches go to the model you chose in Hermes, for the opponent, the judge and the coach. When you ask the coach, the headlines and notes in your extemp file go with them, so it can cite them.'],
   ['Headlines', 'A pull asks Google News, or the outlet’s own feed, for headlines on your topic. Only titles, dates and links come back.'],
   ['Hear it', 'When you press it, the opponent’s speech goes to the voice you set up in Hermes to be read aloud.'],
   ['Web search', 'Only in a round you set to internet allowed, when you press Search. Your search words go to the web search you set up in Hermes.'],
@@ -132,6 +150,7 @@ export function SettingsView() {
   if (!home) return jsx(Thinking, { label: 'Opening Settings' })
   return jsxs('div', { className: 'ldw-settings', children: [
     jsx('h1', { className: 'ldw-set-h1', children: 'Settings' }),
+    jsx(CoachExamples, { on: !home.settings || home.settings.coach_examples !== false }),
     jsx(Transcripts, { t: home.transcripts || {} }),
     jsx(Recordings, { r: home.recordings || { count: 0, bytes: 0, keep: 20 }, kept: { transcripts: home.transcripts_kept || 0, ballots: home.ballots || 0 } }),
     jsx(Outlets, {}),

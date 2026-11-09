@@ -7,6 +7,7 @@ import { Button, Codicon, Input, Textarea, atom, useValue } from '@hermes/plugin
 import { Notice } from 'hermes-ui-kit'
 import { Choices, Thinking, api, cls, errText, mmss, post, rest } from './core.js'
 import { Clock, ExtempSheet, FILE_EMPTY_NOTE, LastTake, LiveWave, SpeakControls, Strip, mentionsFile, sendTake, takeSettled, useRecorder, useTakePoll } from './floor.js'
+import { $coachOn, PrepCoach, StrongExample, useCoachContext } from './coach.js'
 
 export const $home = atom(null)
 export const $extempMode = atom(null) // drill | openings | round (null: decide from the saved round)
@@ -24,6 +25,7 @@ export async function loadHome() {
   try {
     const home = await rest('home')
     if (!$question.get()) startQuestion(home) // set with the home, so no floor ever renders on a placeholder
+    $coachOn.set(!home.settings || home.settings.coach_examples !== false)
     $home.set(home)
   } catch (e) { /* the frame shows its own load error */ }
 }
@@ -222,6 +224,8 @@ function DrillFloor({ home, modeSwitch }) {
   useEffect(() => { if (shown.current !== q.text) { shown.current = q.text; jt.reset() } }, [q.text]) // a new question, a clean floor
   const fileEmpty = !home.file_count
   const phase = jt.ballot ? 'ballot' : live ? 'live' : jt.take ? 'taken' : 'ready'
+  useCoachContext({ floor: 'extemp', question: q.text, take_id: jt.take ? jt.take.id : null, ballot_at: jt.ballot ? jt.ballot.at : null,
+    sees: ['the question', jt.take && 'your answer', jt.ballot && 'the ballot', !fileEmpty && 'your file'] }, [q.text, jt.take && jt.take.id, jt.ballot && jt.ballot.at, fileEmpty])
   return jsxs(Fragment, { children: [
     jsx(Strip, { segments: [
       { key: 'answer', code: 'Answer 1:00', sub: phase === 'live' ? 'Now' : phase === 'ready' ? 'Lead with your answer' : 'Done', minutes: 1, min: 220,
@@ -229,7 +233,8 @@ function DrillFloor({ home, modeSwitch }) {
       { key: 'ballot', code: 'Ballot', sub: jt.busy === 'judging' ? 'Writing' : jt.ballot ? `${jt.ballot.points ?? ''} points` : '', minutes: 0.45, min: 120, state: phase === 'ballot' ? 'now' : 'later' },
     ] }),
     jsx(Slip, { kicker: [`60-second answer · ${AREAS[q.area] || 'United States'}`, modeSwitch], question: q.text, tools: jsx(QuestionTools, { home, disabled: live }) }),
-    jt.ballot ? jsx(ExtempSheet, { b: jt.ballot, drillLabel: 'Try it again', onDrill: () => jt.reset(), fileEmpty }) : null,
+    jt.ballot ? jsx(ExtempSheet, { b: jt.ballot, drillLabel: 'Try it again', onDrill: () => jt.reset(), fileEmpty, showMe: false }) : null,
+    jt.ballot && jt.take ? jsx(StrongExample, { kind: 'answer', question: q.text, takeIds: [jt.take.id], onAgain: () => jt.reset() }) : null,
     jsx(Floor, { limit: DRILL, label: null, jt, startLabel: 'Start speaking' }),
     !jt.take && !live && home.next_drill ? jsxs('div', { className: 'ldw-upnext', children: [
       jsx('span', { className: 'ldw-stamp2 ldw-stamp-sm', children: 'Drill' }),
@@ -268,7 +273,7 @@ function OpeningCard({ n, take, setTake, best, note, active, onRedo }) {
 }
 
 // Three attention-getters for one question, 45 seconds each, out loud. The coach picks the strongest
-// and says why; it never writes an opening.
+// and says why; then, on the student's press, the coach shows one of its own (coach.js StrongExample).
 function OpeningsFloor({ home, modeSwitch }) {
   const q = useQuestion()
   const [takes, setTakes] = useState([null, null, null])
@@ -299,6 +304,9 @@ function OpeningsFloor({ home, modeSwitch }) {
     shown.current = q.text; setTakes([null, null, null]); setSlot(0); setCoach(null); setErr(null)
   }, [q.text])
   const notes = Object.fromEntries(((coach && coach.notes) || []).map(x => [x.n, x]))
+  const given = takes.filter(Boolean)
+  useCoachContext({ floor: 'extemp', question: q.text, take_ids: given.map(t => t.id),
+    sees: ['the question', given.length && `your ${given.length === 1 ? 'opening' : `${given.length} openings`}`] }, [q.text, given.map(t => t.id).join(',')])
   return jsxs(Fragment, { children: [
     jsx(Strip, { segments: [
       ...[0, 1, 2].map(k => ({ key: `o${k}`, code: `Opening ${k + 1} 0:45`, sub: takes[k] ? 'Done' : k === slot ? (live ? 'Now' : 'Next') : '', minutes: 0.75, min: 150,
@@ -319,6 +327,7 @@ function OpeningsFloor({ home, modeSwitch }) {
       coach.why ? jsx('p', { children: coach.why }) : null,
       coach.next ? jsxs('div', { className: 'ldw-drillrow', children: [jsx('span', { className: 'ldw-stamp2', children: 'Next' }), jsx('p', { children: coach.next })] }) : null,
     ] }) : null,
+    coach ? jsx(StrongExample, { kind: 'opening', question: q.text, takeIds: takes.map(t => t.id), best: coach.best }) : null,
     !coach ? jsx('div', { children: jsx(Button, { loading: busy === 'coach', disabled: !ready || live, onClick: ask,
       children: ready ? 'Ask the coach which one is strongest' : `Give all three openings, then ask the coach (${takes.filter(Boolean).length} of 3)` }) }) : null,
     err ? jsx(Notice, { tone: 'bad', children: err }) : null,
@@ -410,6 +419,7 @@ function DrawStage({ home, modeSwitch, onStart }) {
   const [own, setOwn] = useState(held ? held.text : '')
   const [editing, setEditing] = useState(false)
   const [fileCount, setFileCount] = useState(home.file_count || 0)
+  useCoachContext({ floor: 'extemp', sees: [fileCount && 'your file', 'the draw'] }, [fileCount])
   const doPull = async () => {
     setBusy('pull'); setErr(null)
     try { setPull(await post('headlines/pull', { topic })) } catch (e) { setErr(errText(e)) } finally { setBusy(null) }
@@ -551,6 +561,8 @@ function PrepStage({ round, setRound, modeSwitch }) {
     setRound(await post('extemp/round', { outline, phase: 'speak', prep_left: prep.left }))
   }
   const chosen = file.filter(i => outline.sources.includes(i.id))
+  useCoachContext({ floor: 'extemp', round: true, sees: ['the question', 'your outline', file.length && 'your file'] }, [round.id, file.length])
+  const useArea = (i, title) => { const k = `area${i + 1}`; change(k, outline[k] && outline[k].trim() ? `${outline[k].trim()}\n${title}` : title) }
   const [removing, setRemoving] = useState(null)
   const [fileErr, setFileErr] = useState(null)
   const remove = async item => {
@@ -570,10 +582,13 @@ function PrepStage({ round, setRound, modeSwitch }) {
     ] }),
     jsx(Slip, { kicker: [`Prep · ${AREAS[round.area]} · ${round.mode === 'internet' ? 'internet allowed' : 'files only'}`, modeSwitch], question: round.question }),
     jsxs('div', { className: 'ldw-prep', children: [
-      jsx('div', { className: 'ldw-outline', children: OUTLINE.map(([k, label]) => jsxs('label', { className: 'ldw-ofield', children: [
-        jsx('span', { children: label }),
-        jsx(Textarea, { value: outline[k], 'aria-label': label, onChange: e => change(k, e.target.value), rows: k.startsWith('area') ? 3 : 2 }),
-      ] }, k)) }),
+      jsxs('div', { className: 'ldw-prep-main', children: [
+        jsx('div', { className: 'ldw-outline', children: OUTLINE.map(([k, label]) => jsxs('label', { className: 'ldw-ofield', children: [
+          jsx('span', { children: label }),
+          jsx(Textarea, { value: outline[k], 'aria-label': label, onChange: e => change(k, e.target.value), rows: k.startsWith('area') ? 3 : 2 }),
+        ] }, k)) }),
+        jsx(PrepCoach, { outline, file, picked: outline.sources, onUseArea: useArea, onPick: id => { if (!outline.sources.includes(id)) toggleSource(id) } }),
+      ] }),
       jsxs('aside', { className: 'ldw-prep-side', children: [
         jsxs('div', { className: 'ldw-prepclock', children: [jsx('span', { className: 'ldw-num', children: mmss(prep.left) }),
           jsx('button', { type: 'button', className: 'hk-link', onClick: prep.toggle, children: prep.running ? 'Pause prep' : 'Resume prep' })] }),
@@ -606,6 +621,8 @@ function SpeakStage({ round, setRound, modeSwitch, home }) {
     onBallot: b => setRound({ ...round, ballot: b, phase: 'ballot' }) })
   useEffect(() => { if (jt.take && round.take !== jt.take.id) post('extemp/round', { take: jt.take.id }).then(setRound, () => {}) }, [jt.take && jt.take.id])
   const live = jt.recorder.state === 'live' || jt.recorder.state === 'armed'
+  useCoachContext({ floor: 'extemp', round: true, take_id: jt.take ? jt.take.id : null, ballot_at: jt.ballot ? jt.ballot.at : null,
+    sees: ['the question', 'your outline', jt.take && 'your speech', jt.ballot && 'the ballot'] }, [round.id, jt.take && jt.take.id, jt.ballot && jt.ballot.at])
   const o = round.outline
   const side = o.answer || o.area1 ? jsxs(Fragment, { children: [
     o.answer ? jsxs('div', { children: ['Answer: ', jsx('b', { children: o.answer })] }) : null,

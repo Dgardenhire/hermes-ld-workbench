@@ -36,10 +36,10 @@ def _load_package():
         spec.loader.exec_module(package)
     from importlib import import_module
     return tuple(import_module(f"{package_name}.{m}") for m in
-                 ("engine", "store", "room", "ld_method", "library", "speech", "headlines", "extemp", "ballots", "rhetoric_method"))
+                 ("engine", "store", "room", "ld_method", "library", "speech", "headlines", "extemp", "ballots", "rhetoric_method", "coach"))
 
 
-engine, store, room, M, library, speech, headlines, extemp, ballots, R = _load_package()
+engine, store, room, M, library, speech, headlines, extemp, ballots, R, coach = _load_package()
 _log = logging.getLogger("hermes.plugins.ld-workbench")
 
 MODEL = engine.Model()  # PluginLlm is created on first use, inside Hermes
@@ -188,6 +188,8 @@ async def post_case_edit(case_id: str, body: dict):
                 c["sections"][engine._pick(sec.get("key"), SECTIONS, "section")] = engine._s(sec.get("text"), 12000, "A case section")
             if "hide_helper" in b:
                 c["helpers"].pop(engine._pick(b["hide_helper"], SECTIONS, "section"), None)
+            if "hide_suggestion" in b:
+                (c.get("suggestions") or {}).pop(engine._pick(b["hide_suggestion"], SECTIONS, "section"), None)
             if b.get("clear_thread"):
                 c["thread"] = []
         library.change(case_id, edit)
@@ -747,6 +749,10 @@ async def post_settings(body: dict):
                 st["event"] = engine._pick(b["event"], ("ld", "extemp", "rhetoric", "ballots"), "event")
             if "transcript_model" in b:
                 st["transcript_model"] = engine._pick(b["transcript_model"], speech.MODELS, "model")
+            if coach.SETTING in b:
+                if not isinstance(b[coach.SETTING], bool):
+                    raise ValueError("Coach examples are on or off.")
+                st[coach.SETTING] = b[coach.SETTING]
             return st
         return store.update("settings.json", change)
     except Exception as e:
@@ -1155,7 +1161,10 @@ async def post_rhetoric_spot():
 async def post_rhetoric_critique(body: dict):
     try:
         b = _body(body)
-        return await engine.run_critique(engine._pick(b.get("figure"), R.FIGURE_IDS, "figure"), b.get("line"), MODEL)
+        figure = engine._pick(b.get("figure"), R.FIGURE_IDS, "figure")
+        out = await engine.run_critique(figure, b.get("line"), MODEL)
+        coach.remember_critique(figure, b.get("line"))  # three versions follow only a critique
+        return out
     except Exception as e:
         _fail(e)
 
@@ -1242,5 +1251,230 @@ async def post_take_text(take_id: str, body: dict):
         if t["transcript"]["status"] in ("waiting", "working"):
             speech.TRANSCRIBER.cancel(take_id)
         return speech.public(speech.set_text(take_id, _body(body).get("text")))
+    except Exception as e:
+        _fail(e)
+
+
+# ================================================================== the coach ==
+# Examples and suggestions after the student's own attempt, and the chat on every floor (coach.py). Every
+# route here reads the student's work from the backend; the page sends only ids, choices and its own words.
+
+def _said(take):
+    return ((take or {}).get("transcript") or {}).get("text") or ""
+
+
+def _ballot_at(at):
+    if not isinstance(at, (int, float)) or isinstance(at, bool):
+        raise ValueError("That ballot could not be found.")
+    b = next((x for x in reversed(ballots.history()) if x.get("at") == at), None)
+    if b is None:
+        raise ValueError("That ballot is no longer kept.")
+    return b
+
+
+def _ballot_said(b):
+    """The student's own words behind a ballot: the take's transcript, or their speeches in the round while it is
+    still the one kept. Empty when neither is kept (the round was replaced, or transcripts were deleted)."""
+    if b.get("take_id"):
+        try:
+            return _said(speech.get_take(b["take_id"]))
+        except ValueError:
+            return ""
+    if b.get("event", "ld") == "ld":
+        r = store.read("round.json")
+        if r and r.get("round_no") == b.get("round_no"):
+            return "\n\n".join(f"{t['id']}: {t['text']}" for t in r.get("transcript") or [] if t.get("speaker") == "student")
+    return ""
+
+
+ATTEMPT_LABEL = {"drill": "THE STUDENT'S 60-SECOND ANSWER", "extemp": "THE STUDENT'S 7-MINUTE SPEECH", "opening": "THE STUDENT'S OPENING"}
+
+
+def _screen(floor, b):
+    """What is on the student's screen, read here from their own saved work (never a prompt from the page)."""
+    s = {}
+    if floor in ("extemp", "ballots"):
+        ids = b.get("take_ids") if isinstance(b.get("take_ids"), list) else [b.get("take_id")] if b.get("take_id") else []
+        attempts = []
+        for k, tid in enumerate(ids[:3], 1):
+            try:
+                t = speech.get_take(str(tid))
+            except ValueError:
+                continue
+            if t.get("event") in ATTEMPT_LABEL and _said(t).strip():
+                attempts.append((ATTEMPT_LABEL[t["event"]] + (f" {k}" if t["event"] == "opening" else ""), _said(t)))
+        s["attempts"] = attempts
+        s["question"] = _q(b.get("question"), 240)
+    if floor == "extemp":
+        r = store.read("extemp_round.json")
+        if r and b.get("round"):
+            s["question"] = r.get("question") or s["question"]
+            s["outline"] = "\n".join(f"{k}: {v}" for k, v in (r.get("outline") or {}).items() if k != "sources" and v)
+        if b.get("ballot_at") is not None:
+            s["ballot"] = coach.ballot_text(_ballot_at(b.get("ballot_at")))
+        s["items"] = coach.numbered(s["question"])
+    elif floor == "ballots":
+        if b.get("ballot_at") is not None:
+            bb = _ballot_at(b.get("ballot_at"))
+            s["ballot"] = coach.ballot_text(bb)
+            s["question"] = bb.get("question") or ""
+            said = _ballot_said(bb)
+            if said:
+                s["attempts"] = [("WHAT THE STUDENT SAID", said)]
+            if bb.get("event") in ("extemp", "drill"):
+                s["items"] = coach.numbered(s["question"])
+        else:
+            pats = ballots.patterns()
+            s["ballot"] = "PATTERNS ACROSS THE LAST BALLOTS:\n" + "\n".join(
+                f"{ballots.EVENT_NAMES.get(ev, ev)}: {p['text']}, {p['count']} of {p['of']}" for ev, g in pats.items() for p in g["patterns"]) \
+                if any(g["patterns"] for g in pats.values()) else "No pattern has come up twice yet."
+    elif floor == "ld":
+        c = _active()
+        s.update(resolution=c.get("resolution"), side=c.get("side"), case=engine.case_text(c.get("sections")))
+        r = store.read("round.json")
+        if r and b.get("view") == "room":
+            s.update(resolution=r["resolution"], side=r["side"])
+            s["round"] = engine.transcript_text(r.get("transcript")) + ("\n\nCROSS-EXAMINATION:\n" + room.cx_log(r) if room.cx_log(r) else "")
+            if r.get("ballots"):
+                s["ballot"] = coach.ballot_text(dict(r["ballots"][-1], side=r["side"], resolution=r["resolution"]))
+    elif floor == "rhetoric":
+        f = next((x for x in R.FIGURES if x["id"] == b.get("figure")), None)
+        if f:
+            s["figure"] = f"{f['name']}. {f['definition']}"
+        s["line"] = _q(b.get("line"), 600)
+        s["critique"] = engine._s(b.get("critique"), 1500, "Critique")
+    return s
+
+
+@router.post("/coach/chat")
+async def post_coach_chat(body: dict):
+    """Ask the coach anything about what is on screen. With coach examples off, it explains and asks, never writes."""
+    try:
+        b = _body(body)
+        floor = engine._pick(b.get("floor"), coach.FLOORS, "floor")
+        raw = b.get("thread") if isinstance(b.get("thread"), list) else []
+        thread = [{"role": t.get("role"), "text": engine._s(t.get("text"), 4000, "A message")}
+                  for t in raw[-12:] if isinstance(t, dict) and t.get("role") in ("you", "coach")]
+        message = engine._s(b.get("message"), 2000, "Message")
+        return await coach.chat(floor, _screen(floor, b), thread, message, MODEL)
+    except Exception as e:
+        _fail(e)
+
+
+@router.post("/coach/extemp/example")
+async def post_coach_extemp_example(body: dict):
+    """After a 60-second answer or the openings: a strong one on the same question, with why it works."""
+    try:
+        b = _body(body)
+        kind = engine._pick(b.get("kind"), ("answer", "opening"), "example")
+        ids = b.get("take_ids") if kind == "opening" else [b.get("take_id")]
+        if not isinstance(ids, list) or not ids or len(ids) > 3 or not all(isinstance(i, str) and i for i in ids):
+            raise ValueError("Give your answer first. Then the coach shows a strong one.")
+        want = "drill" if kind == "answer" else "opening"
+        takes = []
+        for t in (speech.settle(speech.get_take(i)) for i in ids):
+            if t.get("event") != want:
+                raise ValueError("That take is not from this floor.")
+            if t["transcript"]["status"] in ("waiting", "working"):
+                raise ValueError("Your take is still being transcribed. The coach reads it when it is done.")
+            takes.append(t)
+        best = b.get("best") if isinstance(b.get("best"), int) and not isinstance(b.get("best"), bool) else None
+        question = b.get("question") or takes[0].get("prompt") or ""
+        return await _once(("coach-example", kind, best) + tuple(ids),
+                           lambda: coach.extemp_example(kind, question, takes, best, MODEL))
+    except Exception as e:
+        _fail(e)
+
+
+@router.post("/coach/extemp/areas")
+async def post_coach_extemp_areas(body: dict):
+    """During prep, after the student writes their answer: three areas, each with a source from their file."""
+    try:
+        b = _body(body)
+        r = store.read("extemp_round.json")
+        if not r or r.get("phase") != "prep":
+            raise ValueError("Suggest areas is for prep. Draw a question first.")
+        if isinstance(b.get("outline"), dict):  # the page's latest words win, and are kept
+            outline = extemp.clean_outline(b["outline"])
+            store.update("extemp_round.json", lambda x: (x.__setitem__("outline", outline), x)[1] if x else x)
+        else:
+            outline = r.get("outline") or {}
+        return await coach.suggest_areas(r["question"], outline, MODEL)
+    except Exception as e:
+        _fail(e)
+
+
+@router.post("/coach/extemp/evidence")
+async def post_coach_extemp_evidence(body: dict):
+    """Which saved sources bear on one point: picked from the student's own file, never from anywhere else."""
+    try:
+        b = _body(body)
+        r = store.read("extemp_round.json")
+        question = (r or {}).get("question") or _q(b.get("question"), 240)
+        return await coach.find_evidence(question, engine._s(b.get("point"), 400, "Point"), MODEL)
+    except Exception as e:
+        _fail(e)
+
+
+SUGGESTION_LABEL = {"contentions": "Suggested contentions", "framework": "Suggested value and criterion", "block": "Suggested block",
+                    "card": "A stronger card"}
+
+
+@router.post("/coach/ld/suggest")
+async def post_coach_ld_suggest(body: dict):
+    """A draft for the student to edit: contentions, a value and criterion pair, a block to an attack, or a
+    stronger card. Kept under its section and in the coach thread, marked as the coach's suggestion."""
+    try:
+        b = _body(body)
+        kind = engine._pick(b.get("kind"), coach.LD_KINDS, "suggestion")
+        section = b.get("section")
+        if section is not None:
+            engine._pick(section, SECTIONS, "section")
+        case_id = b.get("case_id") or _active()["id"]
+        if isinstance(b.get("sections"), dict):  # the page's latest words win, then the run reads them back
+            secs = library._sections(b["sections"])
+            library.change(case_id, lambda c: c.__setitem__("sections", secs))
+        c = library.get(case_id)
+        if kind == "card" and not section:
+            raise ValueError("Select a card in one of your sections first.")
+        out = await coach.ld_suggest(kind, c["sections"], c["side"], c["resolution"], store.read("workbench.json").get("source"), MODEL,
+                                     attack=engine._s(b.get("attack"), 3000, "Attack"), card=engine._s(b.get("card"), 4000, "Card"), section=section)
+        where = section or out["target"]
+        label = SUGGESTION_LABEL[kind]
+
+        def record(c):
+            c.setdefault("suggestions", {})[where] = out | {"label": label}
+            th = c["thread"]
+            th.append({"role": "coach", "label": f"{label} · {where}", "section": where, "tool": "suggest",
+                       "text": "\n\n".join(f"**{d['label']}**\n{d['text']}" for d in out["drafts"])})
+            del th[:-store.THREAD_CAP]
+        library.change(case_id, record)
+        return out | {"label": label, "section": where} | _workbench()
+    except Exception as e:
+        _fail(e)
+
+
+@router.post("/coach/rhetoric/versions")
+async def post_coach_rhetoric_versions(body: dict):
+    """After the coach's critique of the student's line: three versions of that line using the figure."""
+    try:
+        b = _body(body)
+        return await coach.three_versions(engine._pick(b.get("figure"), R.FIGURE_IDS, "figure"), engine._s(b.get("line"), 600, "Line"), MODEL)
+    except Exception as e:
+        _fail(e)
+
+
+@router.post("/coach/ballot/show")
+async def post_coach_ballot_show(body: dict):
+    """Show me: a modeled redo of the weakest moment on one ballot. Kept with the ballot once written."""
+    try:
+        b = _body(body)
+        coach.require_on()
+        ballot = _ballot_at(b.get("at"))
+        if ballot.get("show_me") and not b.get("again"):
+            return ballot["show_me"]
+        out = await _once(("show-me", ballot["at"]), lambda: coach.show_me(ballot, _ballot_said(ballot), MODEL))
+        ballots.set_show_me(ballot["at"], out)
+        return out
     except Exception as e:
         _fail(e)

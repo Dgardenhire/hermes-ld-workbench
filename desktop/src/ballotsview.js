@@ -8,6 +8,7 @@ import { Button, Codicon } from '@hermes/plugin-sdk'
 import { Empty, Notice } from 'hermes-ui-kit'
 import { Thinking, api, cls, errText, mmss, post, rest } from './core.js'
 import { ExtempSheet, LdSheet } from './floor.js'
+import { useCoachContext } from './coach.js'
 
 const EVENTS = { ld: 'Lincoln-Douglas', extemp: 'Extemp', drill: '60-second answer', rhetoric: 'Rhetoric' }
 
@@ -111,6 +112,9 @@ export function BallotsView() {
   const [msg, setMsg] = useState(null)
   const load = () => rest('ballots').then(setData, e => setErr(errText(e)))
   useEffect(() => { load() }, [])
+  const opened = data && open !== null ? data.history.find(b => b.index === open) : null
+  useCoachContext({ floor: 'ballots', ballot_at: opened ? opened.at : null,
+    sees: opened ? ['the ballot you opened', opened.take_id || opened.event === 'ld' ? 'your words behind it' : null] : ['the patterns across your ballots'] }, [opened && opened.at])
   const done = async (index, v, at) => {
     try { const out = await post(`ballots/${index}/drill`, { done: v, at }); setData({ ...data, ...out }) } catch (e) { setErr(errText(e)) }
   }

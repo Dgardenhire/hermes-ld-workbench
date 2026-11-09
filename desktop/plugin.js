@@ -3,9 +3,9 @@
 
 
 // desktop/src/plugin.js
-import { useEffect as useEffect7, useRef as useRef5, useState as useState9 } from "react";
-import { Fragment as Fragment7, jsx as jsx9, jsxs as jsxs9 } from "react/jsx-runtime";
-import { Button as Button8, Codicon as Codicon7, Input as Input2, Textarea as Textarea4, atom as atom4, host as host2, useValue as useValue4 } from "@hermes/plugin-sdk";
+import { useEffect as useEffect8, useRef as useRef6, useState as useState10 } from "react";
+import { Fragment as Fragment8, jsx as jsx10, jsxs as jsxs10 } from "react/jsx-runtime";
+import { Button as Button9, Codicon as Codicon8, Input as Input3, Textarea as Textarea5, atom as atom5, host as host2, useValue as useValue5 } from "@hermes/plugin-sdk";
 
 // ../../../products/hermes-ui-kit/src/tokens.js
 var KIT_VERSION = "0.1.0";
@@ -362,9 +362,9 @@ function registerPage(ctx, opts) {
 }
 
 // desktop/src/floor.js
-import { useEffect as useEffect3, useRef as useRef3, useState as useState4 } from "react";
-import { Fragment as Fragment2, jsx as jsx4, jsxs as jsxs4 } from "react/jsx-runtime";
-import { Button as Button3, Codicon as Codicon4, Textarea } from "@hermes/plugin-sdk";
+import { useEffect as useEffect4, useRef as useRef4, useState as useState5 } from "react";
+import { Fragment as Fragment3, jsx as jsx5, jsxs as jsxs5 } from "react/jsx-runtime";
+import { Button as Button4, Codicon as Codicon5, Textarea as Textarea2 } from "@hermes/plugin-sdk";
 
 // desktop/src/core.js
 import { useEffect as useEffect2, useRef as useRef2, useState as useState3 } from "react";
@@ -434,6 +434,8 @@ function when(t) {
   return "Edited " + d.toLocaleDateString(void 0, { month: "short", day: "numeric" });
 }
 var NOT_FOUND = "[[not-found]]";
+var NOT_IN_FILE = "[[not-in-file]]";
+var NOT_IN_FILE_LABEL = "Not a source in your file. Do not cite it.";
 var notFoundLabel = "Not found in the text. Check it before you use it.";
 function renderChecked(text, label) {
   notFoundLabel = label;
@@ -444,15 +446,23 @@ function renderChecked(text, label) {
   }
 }
 var notFoundCount = (text) => String(text || "").split(NOT_FOUND).length - 1;
+function inlineChecked(text, label) {
+  notFoundLabel = label;
+  try {
+    return inline(String(text || ""), "c");
+  } finally {
+    notFoundLabel = "Not found in the text. Check it before you use it.";
+  }
+}
 function inline(text, key) {
   const out = [];
-  const re = /\*\*(.+?)\*\*|\*([^*\n]+)\*|\[\[not-found\]\]/g;
+  const re = /\*\*(.+?)\*\*|\*([^*\n]+)\*|\[\[not-found\]\]|\[\[not-in-file\]\]/g;
   let last = 0;
   let m;
   let i = 0;
   while (m = re.exec(text)) {
     if (m.index > last) out.push(text.slice(last, m.index));
-    out.push(m[0] === NOT_FOUND ? jsx3("span", { className: "ldw-line-flag ldw-inline-flag", children: notFoundLabel }, `${key}-n${i++}`) : m[1] ? jsx3("strong", { children: m[1] }, `${key}-b${i++}`) : jsx3("em", { children: m[2] }, `${key}-i${i++}`));
+    out.push(m[0] === NOT_FOUND ? jsx3("span", { className: "ldw-line-flag ldw-inline-flag", children: notFoundLabel }, `${key}-n${i++}`) : m[0] === NOT_IN_FILE ? jsx3("span", { className: "ldw-line-flag ldw-inline-flag", children: NOT_IN_FILE_LABEL }, `${key}-f${i++}`) : m[1] ? jsx3("strong", { children: m[1] }, `${key}-b${i++}`) : jsx3("em", { children: m[2] }, `${key}-i${i++}`));
     last = re.lastIndex;
   }
   if (last < text.length) out.push(text.slice(last));
@@ -621,13 +631,347 @@ function Menu({ label, icon, items, align = "start", trigger, variant = "seconda
   ] });
 }
 
+// desktop/src/coach.js
+import { useEffect as useEffect3, useRef as useRef3, useState as useState4 } from "react";
+import { Fragment as Fragment2, jsx as jsx4, jsxs as jsxs4 } from "react/jsx-runtime";
+import { Button as Button3, Codicon as Codicon4, Input, Textarea, atom as atom2, useValue } from "@hermes/plugin-sdk";
+var $coachOn = atom2(true);
+var $coachCtx = atom2(null);
+var $chatOpen = atom2(false);
+var $threads = atom2({});
+var COACH_FLAG = "Not in your sources or your words. Check it before you use it.";
+var EMPTY = {
+  extemp: "Ask anything about the question, your answer, your file or the ballot.",
+  ld: "Ask anything about your case, the resolution, the round or the ballot.",
+  rhetoric: "Ask anything about a figure, a speech or your line.",
+  ballots: "Ask anything about a ballot, or the patterns across them."
+};
+function useCoachContext(ctx, deps) {
+  useEffect3(() => {
+    $coachCtx.set(ctx);
+  }, deps);
+}
+function checkSummary(c, against = "your file") {
+  if (!c) return null;
+  const n = c.citations || 0;
+  const q = c.quotes || 0;
+  const miss = (c.not_in_file || 0) + (c.quotes_missed || 0) + (c.numbers_missed || 0) + (c.outlets_missed || 0);
+  const parts = [];
+  if (n) parts.push(`${n} citation${n === 1 ? "" : "s"}`);
+  if (q) parts.push(`${q} quote${q === 1 ? "" : "s"}`);
+  const head = parts.length ? `Checked against ${against}: ${parts.join(" and ")}.` : `Checked against ${against}: no quotes, figures or sources to check.`;
+  return miss ? `${head} ${miss} marked. Check ${miss === 1 ? "it" : "them"} before you use ${miss === 1 ? "it" : "them"}.` : head;
+}
+function CoachBox({ label = "Coach's example", sub, checks, against, foot, onClose, children, className }) {
+  return jsxs4("section", { className: cls("ldw-coachbox", className), "aria-label": label, children: [
+    jsxs4("div", { className: "ldw-coachbox-head", children: [
+      jsx4("span", { className: "ldw-coachbox-label", children: label }),
+      sub ? jsx4("span", { className: "ldw-coachbox-sub", children: sub }) : null,
+      onClose ? jsx4("button", { type: "button", className: "hk-link ldw-coachbox-close", onClick: onClose, children: "Hide" }) : null
+    ] }),
+    children,
+    checks || foot ? jsx4("p", { className: "ldw-coachbox-check", children: [foot, checks ? checkSummary(checks, against) : null].filter(Boolean).join(" ") }) : null
+  ] });
+}
+function useCoachCall() {
+  const [busy, setBusy] = useState4(false);
+  const [err, setErr] = useState4(null);
+  const [out, setOut] = useState4(null);
+  const call = async (path, body) => {
+    setBusy(true);
+    setErr(null);
+    try {
+      const o = await post(path, body);
+      setOut(o);
+      return o;
+    } catch (e) {
+      setErr(errText(e));
+      return null;
+    } finally {
+      setBusy(false);
+    }
+  };
+  return { busy, err, out, setOut, call, reset: () => {
+    setOut(null);
+    setErr(null);
+  } };
+}
+function StrongExample({ kind, question, takeIds, best, onAgain }) {
+  const on = useValue($coachOn);
+  const c = useCoachCall();
+  const key = (takeIds || []).join(",");
+  useEffect3(() => {
+    c.reset();
+  }, [key, question]);
+  if (!on) return null;
+  const what = kind === "opening" ? "opening" : "answer";
+  const ask = () => c.call("coach/extemp/example", kind === "opening" ? { kind, question, take_ids: takeIds, best } : { kind, question, take_id: takeIds[0] });
+  if (!c.out) {
+    return jsxs4("div", { className: "ldw-coachask", children: [
+      jsx4(Button3, { variant: "secondary", loading: c.busy, onClick: ask, children: jsxs4(Fragment2, { children: [jsx4(Codicon4, { name: "lightbulb" }), `Show me a strong ${what}`] }) }),
+      jsx4("span", { className: "ldw-meta", children: `The coach gives a ${kind === "opening" ? "45-second opening" : "60-second answer"} on your question, built on yours, and says why it works.` }),
+      c.busy ? jsx4(Thinking, { label: `Writing a strong ${what}` }) : null,
+      c.err ? jsx4(Notice, { tone: "bad", children: c.err }) : null
+    ] });
+  }
+  const o = c.out;
+  return jsxs4(CoachBox, { label: "Coach's example", sub: `A strong ${what} on your question. Learn the moves, then say it your own way.`, checks: o.checks, onClose: c.reset, children: [
+    jsx4("p", { className: "ldw-spoken ldw-coachbox-said", children: inlineChecked(o.example, COACH_FLAG) }),
+    o.notes && o.notes.length ? jsxs4(Fragment2, { children: [
+      jsx4("h4", { className: "ldw-coachbox-h", children: "Why it works" }),
+      jsx4("ul", { className: "ldw-coachbox-notes", children: o.notes.map((n, i) => jsx4("li", { children: inlineChecked(n, COACH_FLAG) }, i)) })
+    ] }) : null,
+    o.kept ? jsxs4("p", { className: "ldw-coachbox-kept", children: [jsx4("b", { children: "Kept from yours: " }), o.kept] }) : null,
+    !o.sources ? jsx4("p", { className: "ldw-meta", children: "Your file is empty, so the example names no source. Save headlines in Full round and the coach can cite them." }) : null,
+    onAgain ? jsx4("div", { children: jsx4(Button3, { size: "sm", variant: "secondary", onClick: onAgain, children: `Now give your own ${what} again` }) }) : null
+  ] });
+}
+function ShowMe({ b }) {
+  const on = useValue($coachOn);
+  const c = useCoachCall();
+  useEffect3(() => {
+    c.reset();
+  }, [b && b.at]);
+  if (!on || !b || !b.at) return null;
+  const o = c.out;
+  if (!o) {
+    return jsxs4("div", { className: "ldw-coachask ldw-coachask-row", children: [
+      jsx4(Button3, {
+        size: "sm",
+        variant: "secondary",
+        loading: c.busy,
+        onClick: () => c.call("coach/ballot/show", { at: b.at }),
+        children: jsxs4(Fragment2, { children: [jsx4(Codicon4, { name: "lightbulb" }), "Show me"] })
+      }),
+      jsx4("span", { className: "ldw-meta", children: b.show_me ? "The coach redid the weakest moment. Open it again." : "The coach finds the weakest moment and redoes it." }),
+      c.err ? jsx4(Notice, { tone: "bad", children: c.err }) : null
+    ] });
+  }
+  return jsxs4(CoachBox, {
+    label: "Coach's redo",
+    sub: "The weakest moment, done again. Practice it, then do it your way.",
+    checks: o.checks,
+    against: b.answered ? "your file" : "your round",
+    onClose: c.reset,
+    children: [
+      jsxs4("div", { className: "ldw-redo-row", children: [
+        jsx4("span", { className: "ldw-redo-k", children: "You said" }),
+        jsxs4("div", { children: [
+          jsx4("p", { className: "ldw-spoken", children: `"${o.moment}"` }),
+          o.moment_checked === false ? jsx4("span", { className: "ldw-line-flag", children: "Not found in your words as kept. The coach may have misquoted you." }) : null
+        ] })
+      ] }),
+      o.why ? jsxs4("div", { className: "ldw-redo-row", children: [jsx4("span", { className: "ldw-redo-k", children: "Why it cost you" }), jsx4("p", { children: inlineChecked(o.why, COACH_FLAG) })] }) : null,
+      jsxs4("div", { className: "ldw-redo-row", children: [jsx4("span", { className: "ldw-redo-k", children: "Done again" }), jsx4("p", { className: "ldw-spoken", children: inlineChecked(o.redo, COACH_FLAG) })] }),
+      o.practice ? jsxs4("div", { className: "ldw-redo-row", children: [jsx4("span", { className: "ldw-redo-k", children: "Practice" }), jsx4("p", { children: inlineChecked(o.practice, COACH_FLAG) })] }) : null
+    ]
+  });
+}
+function seesLine(ctx) {
+  const sees = (ctx && ctx.sees || []).filter(Boolean);
+  if (!sees.length) return "The coach sees what is on this screen.";
+  return `The coach sees ${sees.length === 1 ? sees[0] : `${sees.slice(0, -1).join(", ")} and ${sees[sees.length - 1]}`}.`;
+}
+function CoachChat({ floor }) {
+  const open = useValue($chatOpen);
+  const raw = useValue($coachCtx);
+  const on = useValue($coachOn);
+  const threads = useValue($threads);
+  const [text, setText] = useState4("");
+  const [busy, setBusy] = useState4(false);
+  const [err, setErr] = useState4(null);
+  const box = useRef3(null);
+  const ctx = raw && raw.floor === floor ? raw : { floor };
+  const thread = threads[floor] || [];
+  useEffect3(() => {
+    if (box.current) box.current.scrollTop = box.current.scrollHeight;
+  }, [thread.length, busy, open]);
+  useEffect3(() => {
+    const el = open && document.getElementById("ldw-coach-ask");
+    if (el) el.focus();
+  }, [open, floor]);
+  if (!open) return null;
+  const send = async () => {
+    const t = text.trim();
+    if (!t || busy) return;
+    setText("");
+    setErr(null);
+    setBusy(true);
+    const before = thread;
+    $threads.set({ ...$threads.get(), [floor]: [...before, { role: "you", text: t }] });
+    try {
+      const { sees, ...ids } = ctx;
+      const out = await post("coach/chat", { ...ids, floor, message: t, thread: before.map((m) => ({ role: m.role, text: m.text })) });
+      $threads.set({ ...$threads.get(), [floor]: [...before, { role: "you", text: t }, { role: "coach", text: out.text, checks: out.checks }] });
+    } catch (e) {
+      setErr(errText(e));
+      $threads.set({ ...$threads.get(), [floor]: before });
+      setText(t);
+    } finally {
+      setBusy(false);
+    }
+  };
+  return jsxs4("aside", { className: "ldw-chat ldw-noprint", "aria-label": "Ask the coach", children: [
+    jsxs4("div", { className: "ldw-chat-head", children: [
+      jsx4("h2", { className: "ldw-h2", children: "Ask the coach" }),
+      jsx4("button", { type: "button", className: "ldw-iconbtn", "aria-label": "Close the coach", onClick: () => $chatOpen.set(false), children: jsx4(Codicon4, { name: "close" }) })
+    ] }),
+    jsx4("p", { className: "ldw-chat-sees", children: seesLine(ctx) }),
+    jsxs4("div", { className: "ldw-chat-thread", ref: box, "aria-live": "polite", children: [
+      !thread.length && !busy ? jsx4("p", { className: "ldw-meta", children: EMPTY[floor] || "Ask anything about this screen." }) : null,
+      ...thread.map((m, i) => jsxs4("div", { className: "ldw-msg", "data-role": m.role, children: [
+        jsx4("span", { className: "ldw-who", children: m.role === "coach" ? "Coach" : "You" }),
+        m.role === "coach" ? renderChecked(m.text, COACH_FLAG) : jsx4("p", { children: m.text })
+      ] }, i)),
+      busy ? jsx4(Thinking, { label: "The coach is reading your screen" }) : null,
+      err ? jsx4(Notice, { tone: "bad", children: err }) : null
+    ] }),
+    jsxs4("div", { className: "ldw-ask", children: [
+      jsx4(Textarea, {
+        id: "ldw-coach-ask",
+        "aria-label": "Question for the coach",
+        value: text,
+        placeholder: "Ask the coach",
+        onChange: (e) => setText(e.target.value),
+        onKeyDown: (e) => {
+          if (e.key === "Enter" && !e.shiftKey) {
+            e.preventDefault();
+            send();
+          }
+        }
+      }),
+      jsx4(Button3, { onClick: send, disabled: busy || !text.trim(), "aria-label": "Send", children: jsx4(Codicon4, { name: "send" }) })
+    ] }),
+    jsx4("p", { className: "ldw-chat-foot", children: on ? "After you try something yourself, the coach can show an example. It is marked as the coach's." : "Coach examples are off in Settings. The coach explains and asks; it writes nothing for you to say." })
+  ] });
+}
+function ChatButton({ onOpen }) {
+  const open = useValue($chatOpen);
+  return jsxs4("button", { type: "button", className: "ldw-ev ldw-ev-coach", "aria-expanded": open, onClick: () => onOpen ? onOpen() : $chatOpen.set(!open), children: [
+    jsxs4("b", { children: [jsx4(Codicon4, { name: "comment-discussion" }), "Coach"] }),
+    jsx4("span", { children: "Ask about this screen" })
+  ] });
+}
+var STANCE_WORD = { supports: "Supports your point", against: "Cuts against it", context: "Background" };
+function PrepCoach({ outline, file, onUseArea, onPick, picked }) {
+  const on = useValue($coachOn);
+  const areas = useCoachCall();
+  const ev = useCoachCall();
+  const [point, setPoint] = useState4("");
+  if (!on) return null;
+  const noAnswer = !String(outline.answer || "").trim();
+  const noFile = !file.length;
+  return jsxs4("section", { className: "ldw-prepcoach", "aria-label": "The coach in prep", children: [
+    jsxs4("div", { className: "ldw-prepcoach-row", children: [
+      jsx4(Button3, {
+        variant: "secondary",
+        size: "sm",
+        loading: areas.busy,
+        disabled: noAnswer || noFile,
+        "aria-describedby": noAnswer || noFile ? "ldw-areas-why" : void 0,
+        onClick: () => areas.call("coach/extemp/areas", { outline }),
+        children: jsxs4(Fragment2, { children: [jsx4(Codicon4, { name: "lightbulb" }), "Suggest areas"] })
+      }),
+      jsx4("span", { id: "ldw-areas-why", className: noAnswer || noFile ? "ldw-why-off" : "ldw-meta", children: noAnswer ? "Write your answer first, in Your answer. The coach suggests three areas that back it." : noFile ? "Save a few sources to your file first. Each area comes with one of them." : "Three areas that back your answer, each with a source from your file." })
+    ] }),
+    areas.err ? jsx4(Notice, { tone: "bad", children: areas.err }) : null,
+    areas.out ? jsxs4(CoachBox, {
+      label: "Coach's suggestion",
+      sub: "Areas for your outline. Keep, change or throw out each one.",
+      checks: areas.out.checks,
+      onClose: areas.reset,
+      foot: areas.out.areas.every((a) => a.source) ? "Every source named is in your file." : null,
+      children: [
+        areas.out.note ? jsx4("p", { className: "ldw-coachbox-kept", children: areas.out.note }) : null,
+        jsx4("ol", { className: "ldw-areas", children: areas.out.areas.map((a, i) => jsxs4("li", { children: [
+          jsx4("b", { children: a.title }),
+          a.why ? jsx4("p", { children: inlineChecked(a.why, COACH_FLAG) }) : null,
+          a.source ? jsxs4("p", { className: "ldw-areas-src", children: [jsx4("span", { className: "ldw-areas-cite", children: a.source.citation }), ` "${a.source.title}"`] }) : jsx4("span", { className: "ldw-line-flag", children: "No source in your file was cited for this one. Find one before you use it." }),
+          a.use ? jsx4("p", { children: inlineChecked(a.use, COACH_FLAG) }) : null,
+          jsxs4("div", { className: "hk-actions", children: [
+            jsx4("button", { type: "button", className: "hk-link", onClick: () => onUseArea(i, a.title), children: `Put it in Area ${i + 1}` }),
+            a.source && !picked.includes(a.source.id) ? jsx4("button", { type: "button", className: "hk-link", onClick: () => onPick(a.source.id), children: "Pick this source" }) : null
+          ] })
+        ] }, i)) })
+      ]
+    }) : null,
+    jsxs4("div", { className: "ldw-prepcoach-row", children: [
+      jsx4(Input, {
+        className: "ldw-topic",
+        "aria-label": "The point you need evidence for",
+        value: point,
+        placeholder: 'A point you need evidence for, like "hiring is still strong"',
+        onChange: (e) => setPoint(e.target.value),
+        onKeyDown: (e) => {
+          if (e.key === "Enter" && point.trim() && !noFile) ev.call("coach/extemp/evidence", { point });
+        }
+      }),
+      jsx4(Button3, {
+        variant: "secondary",
+        size: "sm",
+        loading: ev.busy,
+        disabled: !point.trim() || noFile,
+        onClick: () => ev.call("coach/extemp/evidence", { point }),
+        children: jsxs4(Fragment2, { children: [jsx4(Codicon4, { name: "search" }), "Find me evidence"] })
+      })
+    ] }),
+    ev.err ? jsx4(Notice, { tone: "bad", children: ev.err }) : null,
+    ev.out ? jsxs4(CoachBox, {
+      label: ev.out.fallback ? "From your file" : "Coach's picks",
+      sub: "From your saved headlines only.",
+      onClose: ev.reset,
+      foot: ev.out.picks.length ? `Every pick is a source in your file${ev.out.dropped ? `; ${ev.out.dropped} that ${ev.out.dropped === 1 ? "was" : "were"} not ${ev.out.dropped === 1 ? "was" : "were"} left out.` : "."}` : null,
+      checks: ev.out.fallback || !ev.out.checks || !((ev.out.checks.quotes || 0) + (ev.out.checks.not_in_file || 0) + (ev.out.checks.numbers_missed || 0) + (ev.out.checks.outlets_missed || 0)) ? null : ev.out.checks,
+      children: [
+        ev.out.notice ? jsx4(Notice, { tone: "warn", children: ev.out.notice }) : null,
+        ev.out.picks.length ? jsx4("ul", { className: "ldw-areas ldw-picks", children: ev.out.picks.map((p) => jsxs4("li", { children: [
+          jsxs4("p", { className: "ldw-areas-src", children: [jsx4("span", { className: "ldw-areas-cite", children: p.source.citation }), ` "${p.source.title}"`] }),
+          p.stance || p.how ? jsxs4("p", { children: [p.stance ? jsx4("b", { children: `${STANCE_WORD[p.stance]}. ` }) : null, inlineChecked(p.how, COACH_FLAG)] }) : null,
+          picked.includes(p.source.id) ? jsx4("span", { className: "ldw-meta", children: "Picked for this speech" }) : jsx4("button", { type: "button", className: "hk-link", onClick: () => onPick(p.source.id), children: "Pick this source" })
+        ] }, p.source.id)) }) : jsx4("p", { className: "ldw-meta", children: ev.out.missing || "Nothing in your file fits that point." })
+      ]
+    }) : null
+  ] });
+}
+function ThreeVersions({ figure, line, figureName }) {
+  const on = useValue($coachOn);
+  const c = useCoachCall();
+  useEffect3(() => {
+    c.reset();
+  }, [figure, line]);
+  if (!on) return null;
+  if (!c.out) {
+    return jsxs4("div", { className: "ldw-coachask", children: [
+      jsx4(Button3, {
+        variant: "secondary",
+        loading: c.busy,
+        onClick: () => c.call("coach/rhetoric/versions", { figure, line }),
+        children: jsxs4(Fragment2, { children: [jsx4(Codicon4, { name: "lightbulb" }), "Show me three versions"] })
+      }),
+      jsx4("span", { className: "ldw-meta", children: `Your line, three ways, each using ${figureName.toLowerCase()}. Then write a fourth of your own.` }),
+      c.err ? jsx4(Notice, { tone: "bad", children: c.err }) : null
+    ] });
+  }
+  return jsx4(CoachBox, {
+    label: "Coach's versions",
+    sub: `Your line with ${figureName.toLowerCase()}, three ways. Now write your own fourth.`,
+    checks: c.out.checks,
+    against: "your line",
+    onClose: c.reset,
+    children: jsx4("ol", { className: "ldw-versions", children: c.out.versions.map((v, i) => jsxs4("li", { children: [
+      jsx4("p", { className: "ldw-spoken", children: inlineChecked(v.line, COACH_FLAG) }),
+      v.note ? jsx4("p", { className: "ldw-meta", children: v.note }) : null
+    ] }, i)) })
+  });
+}
+
 // desktop/src/floor.js
 function Strip({ segments, label }) {
-  return jsx4("ol", { className: "ldw-strip", "aria-label": label || "This event, in time", children: segments.map((s) => {
-    const inner = [jsx4("b", { className: "ldw-seg-code", children: s.code }, "c"), s.sub ? jsx4("span", { className: "ldw-seg-sub", children: s.sub }, "s") : null];
-    const fill = s.state === "now" && s.fill ? jsx4("i", { className: "ldw-seg-fill", style: { width: `${Math.min(1, s.fill) * 100}%` }, "aria-hidden": "true" }, "f") : null;
-    const body = s.onClick ? jsxs4("button", { type: "button", className: "ldw-seg-btn", onClick: s.onClick, children: [fill, ...inner] }) : jsxs4(Fragment2, { children: [fill, ...inner] });
-    return jsx4("li", {
+  return jsx5("ol", { className: "ldw-strip", "aria-label": label || "This event, in time", children: segments.map((s) => {
+    const inner = [jsx5("b", { className: "ldw-seg-code", children: s.code }, "c"), s.sub ? jsx5("span", { className: "ldw-seg-sub", children: s.sub }, "s") : null];
+    const fill = s.state === "now" && s.fill ? jsx5("i", { className: "ldw-seg-fill", style: { width: `${Math.min(1, s.fill) * 100}%` }, "aria-hidden": "true" }, "f") : null;
+    const body = s.onClick ? jsxs5("button", { type: "button", className: "ldw-seg-btn", onClick: s.onClick, children: [fill, ...inner] }) : jsxs5(Fragment3, { children: [fill, ...inner] });
+    return jsx5("li", {
       className: "ldw-seg",
       "data-state": s.state || "later",
       "aria-current": s.state === "now" ? "step" : void 0,
@@ -654,9 +998,9 @@ function Clock({ limit, elapsed = 0, live = false, label }) {
   const over = remaining < 0;
   const up = cardUp(limit, remaining);
   const cards = cardsFor(limit);
-  return jsxs4("div", { className: "ldw-clockface", children: [
-    label ? jsx4("div", { className: "ldw-clock-label", children: label }) : null,
-    jsxs4("div", {
+  return jsxs5("div", { className: "ldw-clockface", children: [
+    label ? jsx5("div", { className: "ldw-clock-label", children: label }) : null,
+    jsxs5("div", {
       className: cls("ldw-bigclock", over && "ldw-over"),
       role: "timer",
       "aria-live": "off",
@@ -664,10 +1008,10 @@ function Clock({ limit, elapsed = 0, live = false, label }) {
       children: [
         over ? "+" : "",
         mmss(Math.abs(remaining)).replace(/^\+/, ""),
-        over ? jsx4("span", { className: "ldw-overword", children: "over" }) : null
+        over ? jsx5("span", { className: "ldw-overword", children: "over" }) : null
       ]
     }),
-    jsx4("div", { className: "ldw-cards", "aria-label": "Time cards", children: cards.map((c) => jsx4("span", {
+    jsx5("div", { className: "ldw-cards", "aria-label": "Time cards", children: cards.map((c) => jsx5("span", {
       className: cls("ldw-card", c.key === "time" && "ldw-card-time"),
       "data-up": c.key === up ? "" : void 0,
       "aria-current": c.key === up ? "true" : void 0,
@@ -694,12 +1038,12 @@ function micError(e) {
 var SOUND = 0.05;
 var MIMES = ["audio/webm;codecs=opus", "audio/webm", "audio/ogg;codecs=opus", "audio/mp4"];
 function useRecorder({ limit, onTake }) {
-  const [state, setState] = useState4("idle");
-  const [err, setErr] = useState4(null);
-  const [elapsed, setElapsed] = useState4(0);
-  const [level, setLevel] = useState4(0);
-  const R = useRef3({});
-  const done = useRef3(onTake);
+  const [state, setState] = useState5("idle");
+  const [err, setErr] = useState5(null);
+  const [elapsed, setElapsed] = useState5(0);
+  const [level, setLevel] = useState5(0);
+  const R = useRef4({});
+  const done = useRef4(onTake);
   done.current = onTake;
   const cleanup = () => {
     const x2 = R.current;
@@ -714,7 +1058,7 @@ function useRecorder({ limit, onTake }) {
     }
     R.current = { cancelled: x2.cancelled };
   };
-  useEffect3(() => () => {
+  useEffect4(() => () => {
     R.current.cancelled = true;
     R.current.gaveUp = true;
     try {
@@ -841,17 +1185,17 @@ function livePauses(levels, minSeconds = 2) {
 }
 function LiveWave({ rec, limit }) {
   if (rec.firstIdx === null || rec.firstIdx === void 0) {
-    return jsx4("div", { className: "ldw-live ldw-live-wait", children: jsx4("span", { children: "The clock starts when you do." }) });
+    return jsx5("div", { className: "ldw-live ldw-live-wait", children: jsx5("span", { children: "The clock starts when you do." }) });
   }
   const levels = rec.levels.slice(rec.firstIdx);
   const pauses = livePauses(levels);
   const open = pauses.length && pauses[pauses.length - 1].open;
-  return jsxs4("section", { className: "ldw-live", "aria-label": "Your take so far", children: [
-    jsxs4("div", { className: "ldw-last-head", children: [
-      jsx4("h3", { className: "ldw-h3", children: "Recording" }),
-      jsx4("span", { className: "ldw-prov", children: open ? "Pausing" : pauses.length ? `${pauses.length} pause${pauses.length === 1 ? "" : "s"} over 2 seconds` : "No pauses over 2 seconds" })
+  return jsxs5("section", { className: "ldw-live", "aria-label": "Your take so far", children: [
+    jsxs5("div", { className: "ldw-last-head", children: [
+      jsx5("h3", { className: "ldw-h3", children: "Recording" }),
+      jsx5("span", { className: "ldw-prov", children: open ? "Pausing" : pauses.length ? `${pauses.length} pause${pauses.length === 1 ? "" : "s"} over 2 seconds` : "No pauses over 2 seconds" })
     ] }),
-    jsx4(Wave, { levels, duration: levels.length / 10, pauses, limit })
+    jsx5(Wave, { levels, duration: levels.length / 10, pauses, limit })
   ] });
 }
 function toB64(buf) {
@@ -875,7 +1219,7 @@ async function sendTake(meta, rec) {
 }
 var WAITING = /* @__PURE__ */ new Set(["waiting", "working"]);
 function useTakePoll(take, setTake) {
-  useEffect3(() => {
+  useEffect4(() => {
     if (!take || !WAITING.has(take.transcript.status)) return void 0;
     let alive = true;
     const id = setInterval(async () => {
@@ -906,26 +1250,26 @@ function Wave({ levels = [], duration = 0, pauses = [], answerAt = null, startsA
     for (let k = a; k < b && k < levels.length; k++) m = Math.max(m, levels[k]);
     if (a >= levels.length) break;
     const h = Math.max(1.5, Math.min(1, m * 1.6) * (H - 6));
-    bars.push(jsx4("rect", { x: i * W / n + 0.6, y: (H - h) / 2, width: W / n - 1.6, height: h, rx: 0.8, className: "ldw-wave-bar" }, i));
+    bars.push(jsx5("rect", { x: i * W / n + 0.6, y: (H - h) / 2, width: W / n - 1.6, height: h, rx: 0.8, className: "ldw-wave-bar" }, i));
   }
   const step = total <= 90 ? 10 : 60;
   const ticks = [];
   for (let t = 0; t <= total + 0.01; t += step) ticks.push(t);
   const x = (t) => t / total * W;
-  return jsxs4("div", { className: "ldw-wave", children: [
-    jsxs4("svg", {
+  return jsxs5("div", { className: "ldw-wave", children: [
+    jsxs5("svg", {
       viewBox: `0 0 ${W} ${H}`,
       preserveAspectRatio: "none",
       role: "img",
       "aria-label": `Your take: ${mmss(duration)} long, ${pauses.length} pause${pauses.length === 1 ? "" : "s"} over 2 seconds`,
       children: [
-        ...pauses.map((p, i) => jsx4("rect", { x: x(p.at), y: 0, width: Math.max(3, x(p.length)), height: H, className: "ldw-wave-pause" }, `p${i}`)),
+        ...pauses.map((p, i) => jsx5("rect", { x: x(p.at), y: 0, width: Math.max(3, x(p.length)), height: H, className: "ldw-wave-pause" }, `p${i}`)),
         ...bars,
-        answerAt !== null && answerAt !== void 0 ? jsx4("line", { x1: x(answerAt + startsAt), x2: x(answerAt + startsAt), y1: 0, y2: H, className: "ldw-wave-answer" }, "a") : null
+        answerAt !== null && answerAt !== void 0 ? jsx5("line", { x1: x(answerAt + startsAt), x2: x(answerAt + startsAt), y1: 0, y2: H, className: "ldw-wave-answer" }, "a") : null
       ]
     }),
-    answerAt !== null && answerAt !== void 0 ? jsx4("span", { className: "ldw-wave-mark", style: { left: `${x(answerAt + startsAt) / W * 100}%` }, children: `Answer ${mmss(answerAt)}` }) : null,
-    jsx4("div", { className: "ldw-wave-ticks", "aria-hidden": "true", children: ticks.map((t) => jsx4("span", { style: { left: `${x(t) / W * 100}%` }, children: mmss(t) }, t)) })
+    answerAt !== null && answerAt !== void 0 ? jsx5("span", { className: "ldw-wave-mark", style: { left: `${x(answerAt + startsAt) / W * 100}%` }, children: `Answer ${mmss(answerAt)}` }) : null,
+    jsx5("div", { className: "ldw-wave-ticks", "aria-hidden": "true", children: ticks.map((t) => jsx5("span", { style: { left: `${x(t) / W * 100}%` }, children: mmss(t) }, t)) })
   ] });
 }
 function Stats({ take, limit, fastOk }) {
@@ -943,9 +1287,9 @@ function Stats({ take, limit, fastOk }) {
     const aim = limit <= 90 ? 20 : 60;
     items.push({ v: mmss(s.answer_at), k: s.answer_at > aim ? `to your answer (aim for ${mmss(aim)})` : "to your answer", bad: s.answer_at > aim });
   }
-  return jsx4("dl", { className: "ldw-stats", children: items.map((it, i) => jsxs4("div", { className: "ldw-stat", "data-bad": it.bad ? "" : void 0, children: [
-    jsx4("dt", { className: "hk-sr", children: it.k }),
-    jsxs4("dd", { children: [jsx4("b", { children: it.v }), " ", it.k] })
+  return jsx5("dl", { className: "ldw-stats", children: items.map((it, i) => jsxs5("div", { className: "ldw-stat", "data-bad": it.bad ? "" : void 0, children: [
+    jsx5("dt", { className: "hk-sr", children: it.k }),
+    jsxs5("dd", { children: [jsx5("b", { children: it.v }), " ", it.k] })
   ] }, i)) });
 }
 function transcriptLine(t) {
@@ -965,10 +1309,10 @@ function transcriptLine(t) {
 }
 var TRANSCRIPTS_OFF = "Transcripts need speech-to-text in Hermes. In Hermes Settings, Voice, choose a speech-to-text provider (local keeps your voice on this computer). Then press Transcribe now. Or type what you said.";
 function LastTake({ take, limit, title, onChange, children, fastOk }) {
-  const [typing, setTyping] = useState4(false);
-  const [text, setText] = useState4("");
-  const [busy, setBusy] = useState4(false);
-  const [err, setErr] = useState4(null);
+  const [typing, setTyping] = useState5(false);
+  const [text, setText] = useState5("");
+  const [busy, setBusy] = useState5(false);
+  const [err, setErr] = useState5(null);
   const st = take.transcript.status;
   const call = async (fn) => {
     setBusy(true);
@@ -982,65 +1326,65 @@ function LastTake({ take, limit, title, onChange, children, fastOk }) {
     }
   };
   const s = take.stats || {};
-  return jsxs4("section", { className: "ldw-last", "aria-label": title || "Your last take", children: [
-    jsxs4("div", { className: "ldw-last-head", children: [jsx4("h3", { className: "ldw-h3", children: title || "Your take" }), jsx4("span", { className: "ldw-prov", children: transcriptLine(take) })] }),
-    !take.typed ? jsx4(Wave, { levels: take.levels || [], duration: take.duration, pauses: s.pauses || [], answerAt: s.answer_at, startsAt: s.starts_at || 0, limit }) : null,
-    jsx4(Stats, { take, limit, fastOk }),
-    WAITING.has(st) ? jsxs4("div", { className: "hk-row", children: [
-      jsx4(Thinking, { label: "Making the transcript" }),
-      jsx4("button", { type: "button", className: "hk-link", onClick: () => call(() => post(`speech/${take.id}/cancel`)), children: "Stop" })
+  return jsxs5("section", { className: "ldw-last", "aria-label": title || "Your last take", children: [
+    jsxs5("div", { className: "ldw-last-head", children: [jsx5("h3", { className: "ldw-h3", children: title || "Your take" }), jsx5("span", { className: "ldw-prov", children: transcriptLine(take) })] }),
+    !take.typed ? jsx5(Wave, { levels: take.levels || [], duration: take.duration, pauses: s.pauses || [], answerAt: s.answer_at, startsAt: s.starts_at || 0, limit }) : null,
+    jsx5(Stats, { take, limit, fastOk }),
+    WAITING.has(st) ? jsxs5("div", { className: "hk-row", children: [
+      jsx5(Thinking, { label: "Making the transcript" }),
+      jsx5("button", { type: "button", className: "hk-link", onClick: () => call(() => post(`speech/${take.id}/cancel`)), children: "Stop" })
     ] }) : null,
     // A take that waits for the press says where it would go; nothing has left the computer, so it is not a warning.
-    st === "unavailable" || st === "failed" || st === "cancelled" ? jsx4(Notice, {
+    st === "unavailable" || st === "failed" || st === "cancelled" ? jsx5(Notice, {
       tone: st === "failed" && take.transcript.ask === "send" ? "info" : "warn",
       children: st === "failed" ? take.transcript.error : TRANSCRIPTS_OFF,
-      action: jsxs4("div", { className: "hk-actions", children: [
-        take.has_audio ? jsx4(Button3, { size: "sm", variant: "secondary", loading: busy, onClick: () => call(() => post(`speech/${take.id}/transcribe`)), children: "Transcribe now" }) : null,
-        jsx4(Button3, { size: "sm", variant: "secondary", onClick: () => setTyping(true), children: "Type what you said" })
+      action: jsxs5("div", { className: "hk-actions", children: [
+        take.has_audio ? jsx5(Button4, { size: "sm", variant: "secondary", loading: busy, onClick: () => call(() => post(`speech/${take.id}/transcribe`)), children: "Transcribe now" }) : null,
+        jsx5(Button4, { size: "sm", variant: "secondary", onClick: () => setTyping(true), children: "Type what you said" })
       ] })
     }) : null,
-    typing ? jsxs4("div", { className: "hk-stack", children: [
-      jsx4(Textarea, { className: "ldw-speechbox ldw-short", "aria-label": "What you said", value: text, onChange: (e) => setText(e.target.value) }),
-      jsxs4("div", { className: "hk-actions", children: [
-        jsx4(Button3, { size: "sm", loading: busy, disabled: !words(text), onClick: () => call(() => post(`speech/${take.id}/text`, { text })).then(() => setTyping(false)), children: "Use these words" }),
-        jsx4(Button3, { size: "sm", variant: "secondary", onClick: () => setTyping(false), children: "Cancel" })
+    typing ? jsxs5("div", { className: "hk-stack", children: [
+      jsx5(Textarea2, { className: "ldw-speechbox ldw-short", "aria-label": "What you said", value: text, onChange: (e) => setText(e.target.value) }),
+      jsxs5("div", { className: "hk-actions", children: [
+        jsx5(Button4, { size: "sm", loading: busy, disabled: !words(text), onClick: () => call(() => post(`speech/${take.id}/text`, { text })).then(() => setTyping(false)), children: "Use these words" }),
+        jsx5(Button4, { size: "sm", variant: "secondary", onClick: () => setTyping(false), children: "Cancel" })
       ] })
     ] }) : null,
-    (st === "done" || st === "typed") && take.transcript.text ? jsxs4("details", { className: "ldw-said", children: [
-      jsx4("summary", { children: `What you said · ${words(take.transcript.text)} words` }),
-      jsx4("p", { className: "ldw-spoken", children: take.transcript.text })
+    (st === "done" || st === "typed") && take.transcript.text ? jsxs5("details", { className: "ldw-said", children: [
+      jsx5("summary", { children: `What you said · ${words(take.transcript.text)} words` }),
+      jsx5("p", { className: "ldw-spoken", children: take.transcript.text })
     ] }) : null,
-    err ? jsx4(Notice, { tone: "bad", children: err }) : null,
+    err ? jsx5(Notice, { tone: "bad", children: err }) : null,
     children || null
   ] });
 }
 function SpeakControls({ rec, onTyped, startLabel = "Start speaking", extra }) {
-  const [typing, setTyping] = useState4(false);
-  const [text, setText] = useState4("");
+  const [typing, setTyping] = useState5(false);
+  const [text, setText] = useState5("");
   const live = rec.state === "live" || rec.state === "armed";
-  return jsxs4("div", { className: "ldw-go", children: [
-    !live ? jsxs4("button", { type: "button", className: "ldw-rec", disabled: rec.state === "asking", onClick: rec.start, children: [
-      jsx4(Codicon4, { name: "mic" }),
+  return jsxs5("div", { className: "ldw-go", children: [
+    !live ? jsxs5("button", { type: "button", className: "ldw-rec", disabled: rec.state === "asking", onClick: rec.start, children: [
+      jsx5(Codicon5, { name: "mic" }),
       rec.state === "asking" ? "Opening the microphone" : startLabel
     ] }) : null,
-    live ? jsxs4("button", { type: "button", className: "ldw-rec ldw-rec-stop", onClick: rec.stop, children: [
-      jsx4("span", { className: "ldw-level", style: { "--lv": rec.level }, "aria-hidden": "true" }),
+    live ? jsxs5("button", { type: "button", className: "ldw-rec ldw-rec-stop", onClick: rec.stop, children: [
+      jsx5("span", { className: "ldw-level", style: { "--lv": rec.level }, "aria-hidden": "true" }),
       rec.state === "armed" ? "Listening. Start when ready" : "Stop"
     ] }) : null,
-    live ? jsx4("button", { type: "button", className: "hk-link ldw-center", onClick: rec.cancel, children: "Cancel this take" }) : null,
-    !live && !typing ? jsx4("button", { type: "button", className: "hk-link ldw-center", onClick: () => setTyping(true), children: "Type instead" }) : null,
+    live ? jsx5("button", { type: "button", className: "hk-link ldw-center", onClick: rec.cancel, children: "Cancel this take" }) : null,
+    !live && !typing ? jsx5("button", { type: "button", className: "hk-link ldw-center", onClick: () => setTyping(true), children: "Type instead" }) : null,
     !live && extra ? extra : null,
-    rec.err ? jsx4(Notice, { tone: rec.err.kind === "broke" ? "warn" : "bad", children: rec.err.text }) : null,
-    typing && !live ? jsxs4("div", { className: "hk-stack", children: [
-      jsx4(Textarea, { className: "ldw-speechbox ldw-short", "aria-label": "Your speech, typed", value: text, onChange: (e) => setText(e.target.value) }),
-      jsx4("span", { className: "ldw-meta", children: `${words(text)} words · about ${mmss(words(text) / 140 * 60)} aloud, estimated at 140 words a minute` }),
-      jsxs4("div", { className: "hk-actions", children: [
-        jsx4(Button3, { size: "sm", disabled: !words(text), onClick: () => {
+    rec.err ? jsx5(Notice, { tone: rec.err.kind === "broke" ? "warn" : "bad", children: rec.err.text }) : null,
+    typing && !live ? jsxs5("div", { className: "hk-stack", children: [
+      jsx5(Textarea2, { className: "ldw-speechbox ldw-short", "aria-label": "Your speech, typed", value: text, onChange: (e) => setText(e.target.value) }),
+      jsx5("span", { className: "ldw-meta", children: `${words(text)} words · about ${mmss(words(text) / 140 * 60)} aloud, estimated at 140 words a minute` }),
+      jsxs5("div", { className: "hk-actions", children: [
+        jsx5(Button4, { size: "sm", disabled: !words(text), onClick: () => {
           onTyped(text);
           setTyping(false);
           setText("");
         }, children: "Use this" }),
-        jsx4(Button3, { size: "sm", variant: "secondary", onClick: () => setTyping(false), children: "Cancel" })
+        jsx5(Button4, { size: "sm", variant: "secondary", onClick: () => setTyping(false), children: "Cancel" })
       ] })
     ] }) : null
   ] });
@@ -1052,67 +1396,68 @@ var POINTS_KEY = {
 function PointsScale({ points }) {
   const marks = [20, 22, 24, 26, 28, 30];
   const pos = points === null || points === void 0 ? null : (points - 20) / 10 * 100;
-  return jsxs4("div", { className: "ldw-pts", children: [
-    jsxs4("div", { className: "ldw-pts-lbl", children: ["Points ", jsx4("b", { children: points === null || points === void 0 ? "none" : points.toFixed(1) })] }),
-    jsxs4("div", { className: "ldw-pts-scale", "aria-hidden": "true", children: [
-      ...marks.map((m) => jsx4("span", { style: { left: `${(m - 20) / 10 * 100}%` }, children: m }, m)),
-      pos !== null ? jsx4("i", { className: "ldw-pts-mark", style: { left: `${pos}%` } }) : null
+  return jsxs5("div", { className: "ldw-pts", children: [
+    jsxs5("div", { className: "ldw-pts-lbl", children: ["Points ", jsx5("b", { children: points === null || points === void 0 ? "none" : points.toFixed(1) })] }),
+    jsxs5("div", { className: "ldw-pts-scale", "aria-hidden": "true", children: [
+      ...marks.map((m) => jsx5("span", { style: { left: `${(m - 20) / 10 * 100}%` }, children: m }, m)),
+      pos !== null ? jsx5("i", { className: "ldw-pts-mark", style: { left: `${pos}%` } }) : null
     ] })
   ] });
 }
 var ANSWERED = { yes: "Yes", partly: "Partly", no: "No" };
 var mentionsFile = (d) => /\byour (extemp )?file\b/i.test(`${d && d.name || ""} ${d && d.how || ""}`);
 var FILE_EMPTY_NOTE = "Your file is empty for now: in Full round, pull headlines on a topic and save a few, or use sources you can name with an outlet and a date.";
-function ExtempSheet({ b, onDrill, drillLabel = "Run the drill", defaultOpen = false, fileEmpty = false }) {
-  const [open, setOpen] = useState4(defaultOpen);
+function ExtempSheet({ b, onDrill, drillLabel = "Run the drill", defaultOpen = false, fileEmpty = false, showMe = true }) {
+  const [open, setOpen] = useState5(defaultOpen);
   const m = b.measured || {};
   const verdictWord = { yes: "You answered the question", partly: "You partly answered the question", no: "You did not answer the question" }[b.answered];
-  return jsxs4("article", { className: "ldw-sheet", "aria-label": "Ballot", children: [
-    jsxs4("div", { className: "ldw-sheet-head", children: [jsx4("b", { children: b.event === "drill" ? "60-second answer" : "Extemporaneous speaking" }), jsx4("span", { children: "Practice ballot" })] }),
-    jsxs4("div", { className: "ldw-sheet-fields", children: [
-      jsxs4("div", { children: [jsx4("i", { children: "Judge" }), "Extemp judge"] }),
-      jsxs4("div", { children: [jsx4("i", { children: "Time" }), m.typed ? "typed" : `${mmss(m.speaking || 0)} of ${mmss(m.limit || 0)}`] }),
-      jsxs4("div", { children: [jsx4("i", { children: "Sources named" }), String((b.sources_cited || []).length)] }),
-      jsxs4("div", { children: [jsx4("i", { children: "Pace" }), m.wpm ? `${m.wpm} words a minute` : m.typed ? "typed" : "no transcript"] })
+  return jsxs5("article", { className: "ldw-sheet", "aria-label": "Ballot", children: [
+    jsxs5("div", { className: "ldw-sheet-head", children: [jsx5("b", { children: b.event === "drill" ? "60-second answer" : "Extemporaneous speaking" }), jsx5("span", { children: "Practice ballot" })] }),
+    jsxs5("div", { className: "ldw-sheet-fields", children: [
+      jsxs5("div", { children: [jsx5("i", { children: "Judge" }), "Extemp judge"] }),
+      jsxs5("div", { children: [jsx5("i", { children: "Time" }), m.typed ? "typed" : `${mmss(m.speaking || 0)} of ${mmss(m.limit || 0)}`] }),
+      jsxs5("div", { children: [jsx5("i", { children: "Sources named" }), String((b.sources_cited || []).length)] }),
+      jsxs5("div", { children: [jsx5("i", { children: "Pace" }), m.wpm ? `${m.wpm} words a minute` : m.typed ? "typed" : "no transcript"] })
     ] }),
-    jsx4("div", { className: "ldw-sheet-q", children: b.question }),
-    jsxs4("div", { className: "ldw-sheet-dec", children: [
-      jsxs4("div", { className: "ldw-boxwrap", children: [
-        jsx4("div", { className: "ldw-boxes-q", "aria-hidden": "true", children: "Answered the question?" }),
-        jsx4("div", { className: "ldw-boxes", role: "img", "aria-label": `Answered the question: ${ANSWERED[b.answered]}`, children: ["yes", "partly", "no"].map((k) => jsxs4("span", { children: [
-          jsx4("span", { className: "ldw-box", "data-x": b.answered === k ? "1" : "0" }),
+    jsx5("div", { className: "ldw-sheet-q", children: b.question }),
+    jsxs5("div", { className: "ldw-sheet-dec", children: [
+      jsxs5("div", { className: "ldw-boxwrap", children: [
+        jsx5("div", { className: "ldw-boxes-q", "aria-hidden": "true", children: "Answered the question?" }),
+        jsx5("div", { className: "ldw-boxes", role: "img", "aria-label": `Answered the question: ${ANSWERED[b.answered]}`, children: ["yes", "partly", "no"].map((k) => jsxs5("span", { children: [
+          jsx5("span", { className: "ldw-box", "data-x": b.answered === k ? "1" : "0" }),
           ANSWERED[k]
         ] }, k)) })
       ] }),
-      jsx4("div", { className: "ldw-verdict", children: b.summary || verdictWord }),
-      jsx4(PointsScale, { points: b.points }),
-      jsx4("p", { className: "ldw-pts-key", children: POINTS_KEY.extemp })
+      jsx5("div", { className: "ldw-verdict", children: b.summary || verdictWord }),
+      jsx5(PointsScale, { points: b.points }),
+      jsx5("p", { className: "ldw-pts-key", children: POINTS_KEY.extemp })
     ] }),
-    b.decisive && b.decisive.length ? jsxs4("div", { className: "ldw-declines", children: [
-      jsx4("h4", { children: "The lines that decided it" }),
-      ...b.decisive.map((d, i) => jsxs4("div", { className: "ldw-line", children: [
-        jsx4("span", { className: "ldw-line-said", children: `"${d.line}"` }),
-        jsx4("span", { className: "ldw-line-effect", children: d.effect }),
-        d.checked === false ? jsx4("span", { className: "ldw-line-flag", children: "Not found in your transcript. Check it." }) : null
+    b.decisive && b.decisive.length ? jsxs5("div", { className: "ldw-declines", children: [
+      jsx5("h4", { children: "The lines that decided it" }),
+      ...b.decisive.map((d, i) => jsxs5("div", { className: "ldw-line", children: [
+        jsx5("span", { className: "ldw-line-said", children: `"${d.line}"` }),
+        jsx5("span", { className: "ldw-line-effect", children: d.effect }),
+        d.checked === false ? jsx5("span", { className: "ldw-line-flag", children: "Not found in your transcript. Check it." }) : null
       ] }, i))
     ] }) : null,
-    b.drill ? jsxs4("div", { className: "ldw-drillrow", children: [
-      jsx4("span", { className: "ldw-stamp2", children: "Drill" }),
-      jsxs4("p", { children: [
-        jsx4("strong", { children: b.drill.name }),
+    b.drill ? jsxs5("div", { className: "ldw-drillrow", children: [
+      jsx5("span", { className: "ldw-stamp2", children: "Drill" }),
+      jsxs5("p", { children: [
+        jsx5("strong", { children: b.drill.name }),
         ". ",
         b.drill.how,
-        fileEmpty && mentionsFile(b.drill) ? jsx4("span", { className: "ldw-drill-note", children: ` ${FILE_EMPTY_NOTE}` }) : null
+        fileEmpty && mentionsFile(b.drill) ? jsx5("span", { className: "ldw-drill-note", children: ` ${FILE_EMPTY_NOTE}` }) : null
       ] }),
-      onDrill ? jsx4(Button3, { size: "sm", onClick: onDrill, children: drillLabel }) : null
+      onDrill ? jsx5(Button4, { size: "sm", onClick: onDrill, children: drillLabel }) : null
     ] }) : null,
-    jsxs4("button", { type: "button", className: "ldw-fold", "aria-expanded": open, onClick: () => setOpen((v) => !v), children: [
-      jsx4("span", { children: open ? "Hide the full reason for decision" : "Read the full reason for decision" }),
-      jsx4("span", { children: `${words(b.reason)} words` })
+    showMe ? jsx5("div", { className: "ldw-noprint", children: jsx5(ShowMe, { b }) }) : null,
+    jsxs5("button", { type: "button", className: "ldw-fold", "aria-expanded": open, onClick: () => setOpen((v) => !v), children: [
+      jsx5("span", { children: open ? "Hide the full reason for decision" : "Read the full reason for decision" }),
+      jsx5("span", { children: `${words(b.reason)} words` })
     ] }),
-    open ? jsxs4("div", { className: "ldw-sheet-rfd", children: [
-      jsx4("p", { children: b.reason }),
-      b.strengths && b.strengths.length ? jsxs4(Fragment2, { children: [jsx4("h4", { children: "What worked" }), jsx4("ul", { children: b.strengths.map((s, i) => jsx4("li", { children: s }, i)) })] }) : null
+    open ? jsxs5("div", { className: "ldw-sheet-rfd", children: [
+      jsx5("p", { children: b.reason }),
+      b.strengths && b.strengths.length ? jsxs5(Fragment3, { children: [jsx5("h4", { children: "What worked" }), jsx5("ul", { children: b.strengths.map((s, i) => jsx5("li", { children: s }, i)) })] }) : null
     ] }) : null
   ] });
 }
@@ -1126,7 +1471,7 @@ var clip2 = (t, n) => {
   return t.length > n ? `${t.slice(0, n - 1).trimEnd()}...` : t;
 };
 function LdSheet({ b, onLine, onDrill, defaultOpen = false }) {
-  const [open, setOpen] = useState4(defaultOpen);
+  const [open, setOpen] = useState5(defaultOpen);
   const pts = b.speaker_points || {};
   const won = b.decision === b.side;
   const spoken = b.measured ? Object.keys(b.measured) : [];
@@ -1134,65 +1479,66 @@ function LdSheet({ b, onLine, onDrill, defaultOpen = false }) {
   const more = (b.decisive || []).slice(3);
   const [drill, ...drills] = b.drills || [];
   const line = (d, i) => {
-    const said = jsxs4(Fragment2, { children: [jsx4("span", { className: "ldw-line-code", children: d.speech }), jsx4("span", { className: "ldw-line-said", children: `"${d.line}"` })] });
-    return jsxs4("div", { className: "ldw-line", children: [
-      onLine ? jsx4("button", { type: "button", className: "ldw-line-btn", onClick: () => onLine(d.speech), title: `Find the ${d.speech} on the flow`, children: said }) : jsx4("div", { children: said }),
-      jsx4("span", { className: "ldw-line-effect", children: d.effect }),
-      d.checked === false ? jsx4("span", { className: "ldw-line-flag", children: `Not found in the ${d.speech || "round"} as given. Check it on the flow.` }) : null
+    const said = jsxs5(Fragment3, { children: [jsx5("span", { className: "ldw-line-code", children: d.speech }), jsx5("span", { className: "ldw-line-said", children: `"${d.line}"` })] });
+    return jsxs5("div", { className: "ldw-line", children: [
+      onLine ? jsx5("button", { type: "button", className: "ldw-line-btn", onClick: () => onLine(d.speech), title: `Find the ${d.speech} on the flow`, children: said }) : jsx5("div", { children: said }),
+      jsx5("span", { className: "ldw-line-effect", children: d.effect }),
+      d.checked === false ? jsx5("span", { className: "ldw-line-flag", children: `Not found in the ${d.speech || "round"} as given. Check it on the flow.` }) : null
     ] }, i);
   };
-  return jsxs4("article", { className: "ldw-sheet", "aria-label": "Ballot", children: [
-    jsxs4("div", { className: "ldw-sheet-head", children: [jsx4("b", { children: "Lincoln-Douglas" }), jsx4("span", { children: `Practice ballot${b.round_no ? ` · round ${b.round_no}` : ""}` })] }),
-    jsxs4("div", { className: "ldw-sheet-fields", children: [
-      jsxs4("div", { children: [jsx4("i", { children: "Judge" }), b.judge || "Judge"] }),
-      jsxs4("div", { children: [jsx4("i", { children: "You" }), SIDE[b.side] || "Your side"] }),
-      jsxs4("div", { children: [jsx4("i", { children: "Speeches" }), spoken.length ? `${spoken.length} spoken, timed` : "typed"] }),
-      jsxs4("div", { children: [jsx4("i", { children: "Opponent" }), pts.opponent ? `${pts.opponent.toFixed(1)} points` : "no points"] })
+  return jsxs5("article", { className: "ldw-sheet", "aria-label": "Ballot", children: [
+    jsxs5("div", { className: "ldw-sheet-head", children: [jsx5("b", { children: "Lincoln-Douglas" }), jsx5("span", { children: `Practice ballot${b.round_no ? ` · round ${b.round_no}` : ""}` })] }),
+    jsxs5("div", { className: "ldw-sheet-fields", children: [
+      jsxs5("div", { children: [jsx5("i", { children: "Judge" }), b.judge || "Judge"] }),
+      jsxs5("div", { children: [jsx5("i", { children: "You" }), SIDE[b.side] || "Your side"] }),
+      jsxs5("div", { children: [jsx5("i", { children: "Speeches" }), spoken.length ? `${spoken.length} spoken, timed` : "typed"] }),
+      jsxs5("div", { children: [jsx5("i", { children: "Opponent" }), pts.opponent ? `${pts.opponent.toFixed(1)} points` : "no points"] })
     ] }),
-    b.resolution ? jsx4("div", { className: "ldw-sheet-q", children: b.resolution }) : null,
-    jsxs4("div", { className: "ldw-sheet-dec", children: [
-      jsxs4("div", { className: "ldw-boxes", role: "img", "aria-label": `Decision: ${SIDE[b.decision] || "none"}`, children: ["aff", "neg"].map((k) => jsxs4("span", { children: [
-        jsx4("span", { className: "ldw-box", "data-x": b.decision === k ? "1" : "0" }),
+    b.resolution ? jsx5("div", { className: "ldw-sheet-q", children: b.resolution }) : null,
+    jsxs5("div", { className: "ldw-sheet-dec", children: [
+      jsxs5("div", { className: "ldw-boxes", role: "img", "aria-label": `Decision: ${SIDE[b.decision] || "none"}`, children: ["aff", "neg"].map((k) => jsxs5("span", { children: [
+        jsx5("span", { className: "ldw-box", "data-x": b.decision === k ? "1" : "0" }),
         SIDE[k]
       ] }, k)) }),
-      jsx4("div", { className: "ldw-verdict ldw-ldverdict", children: won ? "You won" : "You lost" }),
-      jsx4(PointsScale, { points: pts.student }),
-      jsx4("p", { className: "ldw-pts-key", children: POINTS_KEY.ld })
+      jsx5("div", { className: "ldw-verdict ldw-ldverdict", children: won ? "You won" : "You lost" }),
+      jsx5(PointsScale, { points: pts.student }),
+      jsx5("p", { className: "ldw-pts-key", children: POINTS_KEY.ld })
     ] }),
-    b.reason ? jsx4("p", { className: "ldw-sheet-why", children: firstSentence(b.reason) }) : null,
-    lines.length ? jsxs4("div", { className: "ldw-declines", children: [jsx4("h4", { children: "The lines that decided it" }), ...lines.map(line)] }) : null,
-    drill ? jsxs4("div", { className: "ldw-drillrow", children: [
-      jsx4("span", { className: "ldw-stamp2", children: "Drill" }),
-      jsxs4("p", { children: [jsx4("strong", { children: drill.name }), ". ", drill.how] }),
-      onDrill ? jsx4(Button3, { size: "sm", onClick: onDrill, children: "Redo a speech" }) : null
+    b.reason ? jsx5("p", { className: "ldw-sheet-why", children: firstSentence(b.reason) }) : null,
+    lines.length ? jsxs5("div", { className: "ldw-declines", children: [jsx5("h4", { children: "The lines that decided it" }), ...lines.map(line)] }) : null,
+    drill ? jsxs5("div", { className: "ldw-drillrow", children: [
+      jsx5("span", { className: "ldw-stamp2", children: "Drill" }),
+      jsxs5("p", { children: [jsx5("strong", { children: drill.name }), ". ", drill.how] }),
+      onDrill ? jsx5(Button4, { size: "sm", onClick: onDrill, children: "Redo a speech" }) : null
     ] }) : null,
-    jsxs4("button", { type: "button", className: "ldw-fold", "aria-expanded": open, onClick: () => setOpen((v) => !v), children: [
-      jsx4("span", { children: open ? "Hide the full reason for decision" : "Read the full reason for decision" }),
-      jsx4("span", { children: `${words(b.reason)} words${drills.length ? ` · ${drills.length} more drill${drills.length === 1 ? "" : "s"}` : ""}` })
+    jsx5("div", { className: "ldw-noprint", children: jsx5(ShowMe, { b }) }),
+    jsxs5("button", { type: "button", className: "ldw-fold", "aria-expanded": open, onClick: () => setOpen((v) => !v), children: [
+      jsx5("span", { children: open ? "Hide the full reason for decision" : "Read the full reason for decision" }),
+      jsx5("span", { children: `${words(b.reason)} words${drills.length ? ` · ${drills.length} more drill${drills.length === 1 ? "" : "s"}` : ""}` })
     ] }),
-    open ? jsxs4("div", { className: "ldw-sheet-rfd", children: [
-      jsx4("p", { children: b.reason }),
-      b.framework ? jsxs4(Fragment2, { children: [jsx4("h4", { children: "Framework" }), jsx4("p", { children: b.framework })] }) : null,
-      b.ownership ? jsxs4(Fragment2, { children: [jsx4("h4", { children: "Did you own your case?" }), jsx4("p", { children: b.ownership })] }) : null,
-      more.length ? jsxs4(Fragment2, { children: [jsx4("h4", { children: "More lines the judge named" }), ...more.map((d, i) => line(d, `m${i}`))] }) : null,
-      b.strengths && b.strengths.length ? jsxs4(Fragment2, { children: [jsx4("h4", { children: "What worked" }), jsx4("ul", { children: b.strengths.map((s, i) => jsx4("li", { children: s }, i)) })] }) : null,
-      drills.length ? jsxs4(Fragment2, { children: [jsx4("h4", { children: "More drills" }), ...drills.map((d, i) => jsxs4("div", { className: "ldw-drill2", children: [
-        jsx4("strong", { children: d.name }),
-        jsx4("p", { children: d.why }),
-        jsx4("p", { children: d.how })
+    open ? jsxs5("div", { className: "ldw-sheet-rfd", children: [
+      jsx5("p", { children: b.reason }),
+      b.framework ? jsxs5(Fragment3, { children: [jsx5("h4", { children: "Framework" }), jsx5("p", { children: b.framework })] }) : null,
+      b.ownership ? jsxs5(Fragment3, { children: [jsx5("h4", { children: "Did you own your case?" }), jsx5("p", { children: b.ownership })] }) : null,
+      more.length ? jsxs5(Fragment3, { children: [jsx5("h4", { children: "More lines the judge named" }), ...more.map((d, i) => line(d, `m${i}`))] }) : null,
+      b.strengths && b.strengths.length ? jsxs5(Fragment3, { children: [jsx5("h4", { children: "What worked" }), jsx5("ul", { children: b.strengths.map((s, i) => jsx5("li", { children: s }, i)) })] }) : null,
+      drills.length ? jsxs5(Fragment3, { children: [jsx5("h4", { children: "More drills" }), ...drills.map((d, i) => jsxs5("div", { className: "ldw-drill2", children: [
+        jsx5("strong", { children: d.name }),
+        jsx5("p", { children: d.why }),
+        jsx5("p", { children: d.how })
       ] }, i))] }) : null
     ] }) : null
   ] });
 }
 
 // desktop/src/extemp.js
-import { useEffect as useEffect4, useRef as useRef4, useState as useState5 } from "react";
-import { Fragment as Fragment3, jsx as jsx5, jsxs as jsxs5 } from "react/jsx-runtime";
-import { Button as Button4, Codicon as Codicon5, Input, Textarea as Textarea2, atom as atom2, useValue } from "@hermes/plugin-sdk";
-var $home = atom2(null);
-var $extempMode = atom2(null);
-var $question = atom2(null);
-var $poolAt = atom2(0);
+import { useEffect as useEffect5, useRef as useRef5, useState as useState6 } from "react";
+import { Fragment as Fragment4, jsx as jsx6, jsxs as jsxs6 } from "react/jsx-runtime";
+import { Button as Button5, Codicon as Codicon6, Input as Input2, Textarea as Textarea3, atom as atom3, useValue as useValue2 } from "@hermes/plugin-sdk";
+var $home = atom3(null);
+var $extempMode = atom3(null);
+var $question = atom3(null);
+var $poolAt = atom3(0);
 var FALLBACK_Q = { area: "us", text: "Should your town spend more on roads or on parks?" };
 var AREAS = { us: "United States", international: "International" };
 var DRILL = 60;
@@ -1202,6 +1548,7 @@ async function loadHome() {
   try {
     const home = await rest("home");
     if (!$question.get()) startQuestion(home);
+    $coachOn.set(!home.settings || home.settings.coach_examples !== false);
     $home.set(home);
   } catch (e) {
   }
@@ -1218,7 +1565,7 @@ function dateOf(t) {
   if (!t) return "";
   return new Date(t * 1e3).toLocaleDateString(void 0, { month: "short", day: "numeric" });
 }
-var $linkMiss = atom2(null);
+var $linkMiss = atom3(null);
 function openLink(url) {
   if (!/^https?:\/\//i.test(String(url || ""))) return false;
   const miss = () => $linkMiss.set(String(url));
@@ -1233,19 +1580,19 @@ function openLink(url) {
   return false;
 }
 function LinkMiss() {
-  const url = useValue($linkMiss);
+  const url = useValue2($linkMiss);
   if (!url) return null;
-  return jsx5(Notice, {
+  return jsx6(Notice, {
     tone: "warn",
-    children: jsxs5(Fragment3, { children: ["Hermes could not open your browser. Copy the link instead: ", jsx5("span", { className: "ldw-linkmiss", children: url })] }),
-    action: jsx5(Button4, { size: "sm", variant: "secondary", onClick: () => $linkMiss.set(null), children: "Close" })
+    children: jsxs6(Fragment4, { children: ["Hermes could not open your browser. Copy the link instead: ", jsx6("span", { className: "ldw-linkmiss", children: url })] }),
+    action: jsx6(Button5, { size: "sm", variant: "secondary", onClick: () => $linkMiss.set(null), children: "Close" })
   });
 }
 function useJudgedTake({ event, limit, question, outline, initial, onBallot }) {
-  const [take, setTake] = useState5(initial || null);
-  const [ballot, setBallot] = useState5(null);
-  const [busy, setBusy] = useState5(null);
-  const [err, setErr] = useState5(null);
+  const [take, setTake] = useState6(initial || null);
+  const [ballot, setBallot] = useState6(null);
+  const [busy, setBusy] = useState6(null);
+  const [err, setErr] = useState6(null);
   useTakePoll(take, setTake);
   const judge = async (t) => {
     setBusy("judging");
@@ -1260,8 +1607,8 @@ function useJudgedTake({ event, limit, question, outline, initial, onBallot }) {
       setBusy(null);
     }
   };
-  const asked = useRef4(null);
-  useEffect4(() => {
+  const asked = useRef5(null);
+  useEffect5(() => {
     if (take && takeSettled(take) && !ballot && asked.current !== take.id && ["done", "typed"].includes(take.transcript.status) && take.transcript.text) {
       asked.current = take.id;
       judge(take);
@@ -1287,7 +1634,7 @@ function useJudgedTake({ event, limit, question, outline, initial, onBallot }) {
   } };
 }
 function useQuestion() {
-  return useValue($question) || FALLBACK_Q;
+  return useValue2($question) || FALLBACK_Q;
 }
 function anotherQuestion(home) {
   const pool = home && home.pool || [];
@@ -1302,12 +1649,12 @@ function anotherQuestion(home) {
   $question.set({ area: pool[at].area, text: pool[at].text });
 }
 function QuestionTools({ home, disabled }) {
-  const [open, setOpen] = useState5(null);
-  const [text, setText] = useState5("");
-  const [area, setArea] = useState5("us");
-  const [keep, setKeep] = useState5(true);
-  const [err, setErr] = useState5(null);
-  const [busy, setBusy] = useState5(false);
+  const [open, setOpen] = useState6(null);
+  const [text, setText] = useState6("");
+  const [area, setArea] = useState6("us");
+  const [keep, setKeep] = useState6(true);
+  const [err, setErr] = useState6(null);
+  const [busy, setBusy] = useState6(false);
   const use = async () => {
     const t = text.trim().replace(/\s+/g, " ");
     if (t.length < 12) {
@@ -1329,17 +1676,17 @@ function QuestionTools({ home, disabled }) {
       setBusy(false);
     }
   };
-  return jsxs5("div", { className: "ldw-qtools", children: [
-    jsxs5("div", { className: "ldw-qlinks", children: [
-      jsx5("button", { type: "button", className: "hk-link", disabled, onClick: () => {
+  return jsxs6("div", { className: "ldw-qtools", children: [
+    jsxs6("div", { className: "ldw-qlinks", children: [
+      jsx6("button", { type: "button", className: "hk-link", disabled, onClick: () => {
         setOpen(null);
         anotherQuestion(home);
       }, children: "Another question" }),
-      jsx5("button", { type: "button", className: "hk-link", disabled, "aria-expanded": open === "own", onClick: () => setOpen(open === "own" ? null : "own"), children: "Write your own" }),
-      jsx5("button", { type: "button", className: "hk-link", disabled, "aria-expanded": open === "list", onClick: () => setOpen(open === "list" ? null : "list"), children: "Question list" })
+      jsx6("button", { type: "button", className: "hk-link", disabled, "aria-expanded": open === "own", onClick: () => setOpen(open === "own" ? null : "own"), children: "Write your own" }),
+      jsx6("button", { type: "button", className: "hk-link", disabled, "aria-expanded": open === "list", onClick: () => setOpen(open === "list" ? null : "list"), children: "Question list" })
     ] }),
-    open === "own" ? jsxs5("div", { className: "ldw-qown", children: [
-      jsx5(Input, {
+    open === "own" ? jsxs6("div", { className: "ldw-qown", children: [
+      jsx6(Input2, {
         className: "ldw-qown-input",
         "aria-label": "Your question",
         value: text,
@@ -1349,24 +1696,24 @@ function QuestionTools({ home, disabled }) {
           if (e.key === "Enter") use();
         }
       }),
-      jsxs5("div", { className: "ldw-qown-row", children: [
-        jsx5(Choices, { label: "Area", value: area, onChange: setArea, options: [{ id: "us", label: "United States" }, { id: "international", label: "International" }] }),
-        jsxs5("label", { className: "ldw-check", children: [jsx5("input", { type: "checkbox", checked: keep, onChange: (e) => setKeep(e.target.checked) }), "Keep it on my question list"] }),
-        jsx5(Button4, { size: "sm", loading: busy, disabled: text.trim().length < 12, onClick: use, children: "Use this question" })
+      jsxs6("div", { className: "ldw-qown-row", children: [
+        jsx6(Choices, { label: "Area", value: area, onChange: setArea, options: [{ id: "us", label: "United States" }, { id: "international", label: "International" }] }),
+        jsxs6("label", { className: "ldw-check", children: [jsx6("input", { type: "checkbox", checked: keep, onChange: (e) => setKeep(e.target.checked) }), "Keep it on my question list"] }),
+        jsx6(Button5, { size: "sm", loading: busy, disabled: text.trim().length < 12, onClick: use, children: "Use this question" })
       ] }),
-      err ? jsx5(Notice, { tone: "bad", children: err }) : null
+      err ? jsx6(Notice, { tone: "bad", children: err }) : null
     ] }) : null,
-    open === "list" ? jsx5(QuestionList, { onPick: (q) => {
+    open === "list" ? jsx6(QuestionList, { onPick: (q) => {
       $question.set({ area: q.area, text: q.text, own: q.own });
       setOpen(null);
     } }) : null
   ] });
 }
 function QuestionList({ onPick }) {
-  const [data, setData] = useState5(null);
-  const [err, setErr] = useState5(null);
-  const [text, setText] = useState5("");
-  const [area, setArea] = useState5("us");
+  const [data, setData] = useState6(null);
+  const [err, setErr] = useState6(null);
+  const [text, setText] = useState6("");
+  const [area, setArea] = useState6("us");
   const act = async (fn) => {
     setErr(null);
     try {
@@ -1376,25 +1723,25 @@ function QuestionList({ onPick }) {
       setErr(errText(e));
     }
   };
-  useEffect4(() => {
+  useEffect5(() => {
     rest("extemp/questions").then(setData, (e) => setErr(errText(e)));
   }, []);
-  if (!data) return err ? jsx5(Notice, { tone: "bad", children: err }) : jsx5(Thinking, { label: "Opening the question list" });
+  if (!data) return err ? jsx6(Notice, { tone: "bad", children: err }) : jsx6(Thinking, { label: "Opening the question list" });
   const own = data.questions.filter((q) => q.own);
   const built = data.questions.filter((q) => !q.own);
   const hidden = built.filter((q) => q.hidden).length;
-  const row = (q) => jsxs5("li", { className: cls("ldw-qrow", q.hidden && "ldw-qrow-hidden"), children: [
-    jsxs5("div", { className: "ldw-qrow-text", children: [jsx5("span", { children: q.text }), jsx5("span", { className: "ldw-meta", children: `${AREAS[q.area] || "United States"} · ${q.own ? "yours" : q.topic}${q.hidden ? " · hidden" : ""}` })] }),
-    jsxs5("div", { className: "hk-actions", children: [
-      !q.hidden ? jsx5("button", { type: "button", className: "hk-link", onClick: () => onPick(q), children: "Ask this one" }) : null,
-      !q.hidden ? jsx5("button", { type: "button", className: "hk-link", "aria-label": `${q.own ? "Delete" : "Hide"}: ${q.text}`, onClick: () => act(() => post(`extemp/questions/${encodeURIComponent(q.id)}/delete`)), children: q.own ? "Delete" : "Hide" }) : null
+  const row = (q) => jsxs6("li", { className: cls("ldw-qrow", q.hidden && "ldw-qrow-hidden"), children: [
+    jsxs6("div", { className: "ldw-qrow-text", children: [jsx6("span", { children: q.text }), jsx6("span", { className: "ldw-meta", children: `${AREAS[q.area] || "United States"} · ${q.own ? "yours" : q.topic}${q.hidden ? " · hidden" : ""}` })] }),
+    jsxs6("div", { className: "hk-actions", children: [
+      !q.hidden ? jsx6("button", { type: "button", className: "hk-link", onClick: () => onPick(q), children: "Ask this one" }) : null,
+      !q.hidden ? jsx6("button", { type: "button", className: "hk-link", "aria-label": `${q.own ? "Delete" : "Hide"}: ${q.text}`, onClick: () => act(() => post(`extemp/questions/${encodeURIComponent(q.id)}/delete`)), children: q.own ? "Delete" : "Hide" }) : null
     ] })
   ] }, q.id);
-  return jsxs5("section", { className: "ldw-qlist", "aria-label": "Question list", children: [
-    jsx5("h3", { className: "ldw-h3", children: `Your questions · ${own.length}` }),
-    own.length ? jsx5("ul", { className: "ldw-qrows", children: own.map(row) }) : jsx5("p", { className: "ldw-meta", children: "None yet. Add the questions your coach hands out, or ones from your circuit." }),
-    jsxs5("div", { className: "ldw-qown-row", children: [
-      jsx5(Input, {
+  return jsxs6("section", { className: "ldw-qlist", "aria-label": "Question list", children: [
+    jsx6("h3", { className: "ldw-h3", children: `Your questions · ${own.length}` }),
+    own.length ? jsx6("ul", { className: "ldw-qrows", children: own.map(row) }) : jsx6("p", { className: "ldw-meta", children: "None yet. Add the questions your coach hands out, or ones from your circuit." }),
+    jsxs6("div", { className: "ldw-qown-row", children: [
+      jsx6(Input2, {
         className: "ldw-qown-input",
         "aria-label": "A question to add",
         value: text,
@@ -1404,43 +1751,43 @@ function QuestionList({ onPick }) {
           if (e.key === "Enter" && text.trim().length >= 12) act(() => post("extemp/questions", { text, area })).then(() => setText(""));
         }
       }),
-      jsx5(Choices, { label: "Area of the question to add", value: area, onChange: setArea, options: [{ id: "us", label: "United States" }, { id: "international", label: "International" }] }),
-      jsx5(Button4, { size: "sm", disabled: text.trim().length < 12, onClick: () => act(() => post("extemp/questions", { text, area })).then(() => setText("")), children: "Add" })
+      jsx6(Choices, { label: "Area of the question to add", value: area, onChange: setArea, options: [{ id: "us", label: "United States" }, { id: "international", label: "International" }] }),
+      jsx6(Button5, { size: "sm", disabled: text.trim().length < 12, onClick: () => act(() => post("extemp/questions", { text, area })).then(() => setText("")), children: "Add" })
     ] }),
-    own.length ? jsxs5("label", { className: "ldw-check", children: [
-      jsx5("input", { type: "checkbox", checked: data.mine_only, onChange: (e) => act(() => post("extemp/questions", { mine_only: e.target.checked })) }),
+    own.length ? jsxs6("label", { className: "ldw-check", children: [
+      jsx6("input", { type: "checkbox", checked: data.mine_only, onChange: (e) => act(() => post("extemp/questions", { mine_only: e.target.checked })) }),
       "Ask only my questions"
     ] }) : null,
-    err ? jsx5(Notice, { tone: "bad", children: err }) : null,
-    jsxs5("details", { className: "ldw-qbuilt", children: [
-      jsx5("summary", { children: `Built-in questions · ${built.length - hidden} of ${built.length}${data.mine_only ? ", not asked while only yours are" : ""}` }),
-      hidden ? jsx5("button", { type: "button", className: "hk-link", onClick: () => act(() => post("extemp/questions/restore")), children: `Show the ${hidden} hidden again` }) : null,
-      jsx5("ul", { className: "ldw-qrows", children: built.map(row) })
+    err ? jsx6(Notice, { tone: "bad", children: err }) : null,
+    jsxs6("details", { className: "ldw-qbuilt", children: [
+      jsx6("summary", { children: `Built-in questions · ${built.length - hidden} of ${built.length}${data.mine_only ? ", not asked while only yours are" : ""}` }),
+      hidden ? jsx6("button", { type: "button", className: "hk-link", onClick: () => act(() => post("extemp/questions/restore")), children: `Show the ${hidden} hidden again` }) : null,
+      jsx6("ul", { className: "ldw-qrows", children: built.map(row) })
     ] })
   ] });
 }
 function Floor({ limit, label, jt, startLabel, extra }) {
   const live = jt.recorder.state === "live" || jt.recorder.state === "armed";
-  return jsxs5(Fragment3, { children: [
-    !jt.ballot ? jsxs5("div", { className: "ldw-stage2", children: [
-      jsx5(Clock, { limit, elapsed: jt.recorder.elapsed, live, label }),
-      jsx5(SpeakControls, { rec: jt.recorder, onTyped: (text) => jt.got({ typed: text }), startLabel, extra })
+  return jsxs6(Fragment4, { children: [
+    !jt.ballot ? jsxs6("div", { className: "ldw-stage2", children: [
+      jsx6(Clock, { limit, elapsed: jt.recorder.elapsed, live, label }),
+      jsx6(SpeakControls, { rec: jt.recorder, onTyped: (text) => jt.got({ typed: text }), startLabel, extra })
     ] }) : null,
-    live ? jsx5(LiveWave, { rec: jt.recorder, limit }) : null,
-    jt.busy === "sending" ? jsx5(Thinking, { label: "Saving your take" }) : null,
-    jt.err ? jsx5(Notice, { tone: "bad", children: jt.err, action: jt.take && !jt.ballot ? jsx5(Button4, { size: "sm", variant: "secondary", onClick: () => jt.judge(jt.take), children: "Ask for the ballot again" }) : null }) : null,
-    jt.take && !live ? jsx5(LastTake, { take: jt.take, limit, title: jt.ballot ? "Your take" : "Your take, just now", onChange: jt.setTake }) : null,
-    jt.busy === "judging" ? jsx5(Thinking, { label: "The judge is writing the ballot" }) : null
+    live ? jsx6(LiveWave, { rec: jt.recorder, limit }) : null,
+    jt.busy === "sending" ? jsx6(Thinking, { label: "Saving your take" }) : null,
+    jt.err ? jsx6(Notice, { tone: "bad", children: jt.err, action: jt.take && !jt.ballot ? jsx6(Button5, { size: "sm", variant: "secondary", onClick: () => jt.judge(jt.take), children: "Ask for the ballot again" }) : null }) : null,
+    jt.take && !live ? jsx6(LastTake, { take: jt.take, limit, title: jt.ballot ? "Your take" : "Your take, just now", onChange: jt.setTake }) : null,
+    jt.busy === "judging" ? jsx6(Thinking, { label: "The judge is writing the ballot" }) : null
   ] });
 }
 function Slip({ kicker, question, side, tools }) {
-  return jsxs5("div", { className: "ldw-slip", children: [
-    jsxs5("div", { children: [
-      jsx5("div", { className: "ldw-kicker", children: kicker }),
-      jsx5("h2", { className: "ldw-question", children: question }),
+  return jsxs6("div", { className: "ldw-slip", children: [
+    jsxs6("div", { children: [
+      jsx6("div", { className: "ldw-kicker", children: kicker }),
+      jsx6("h2", { className: "ldw-question", children: question }),
       tools || null
     ] }),
-    side ? jsx5("div", { className: "ldw-outline-side", children: side }) : null
+    side ? jsx6("div", { className: "ldw-outline-side", children: side }) : null
   ] });
 }
 function DrillFloor({ home, modeSwitch }) {
@@ -1450,8 +1797,8 @@ function DrillFloor({ home, modeSwitch }) {
     loadHome();
   } });
   const live = jt.recorder.state === "live" || jt.recorder.state === "armed";
-  const shown = useRef4(q.text);
-  useEffect4(() => {
+  const shown = useRef5(q.text);
+  useEffect5(() => {
     if (shown.current !== q.text) {
       shown.current = q.text;
       jt.reset();
@@ -1459,8 +1806,15 @@ function DrillFloor({ home, modeSwitch }) {
   }, [q.text]);
   const fileEmpty = !home.file_count;
   const phase = jt.ballot ? "ballot" : live ? "live" : jt.take ? "taken" : "ready";
-  return jsxs5(Fragment3, { children: [
-    jsx5(Strip, { segments: [
+  useCoachContext({
+    floor: "extemp",
+    question: q.text,
+    take_id: jt.take ? jt.take.id : null,
+    ballot_at: jt.ballot ? jt.ballot.at : null,
+    sees: ["the question", jt.take && "your answer", jt.ballot && "the ballot", !fileEmpty && "your file"]
+  }, [q.text, jt.take && jt.take.id, jt.ballot && jt.ballot.at, fileEmpty]);
+  return jsxs6(Fragment4, { children: [
+    jsx6(Strip, { segments: [
       {
         key: "answer",
         code: "Answer 1:00",
@@ -1472,17 +1826,18 @@ function DrillFloor({ home, modeSwitch }) {
       },
       { key: "ballot", code: "Ballot", sub: jt.busy === "judging" ? "Writing" : jt.ballot ? `${jt.ballot.points ?? ""} points` : "", minutes: 0.45, min: 120, state: phase === "ballot" ? "now" : "later" }
     ] }),
-    jsx5(Slip, { kicker: [`60-second answer · ${AREAS[q.area] || "United States"}`, modeSwitch], question: q.text, tools: jsx5(QuestionTools, { home, disabled: live }) }),
-    jt.ballot ? jsx5(ExtempSheet, { b: jt.ballot, drillLabel: "Try it again", onDrill: () => jt.reset(), fileEmpty }) : null,
-    jsx5(Floor, { limit: DRILL, label: null, jt, startLabel: "Start speaking" }),
-    !jt.take && !live && home.next_drill ? jsxs5("div", { className: "ldw-upnext", children: [
-      jsx5("span", { className: "ldw-stamp2 ldw-stamp-sm", children: "Drill" }),
-      jsxs5("p", { children: [
-        jsx5("strong", { children: home.next_drill.name }),
+    jsx6(Slip, { kicker: [`60-second answer · ${AREAS[q.area] || "United States"}`, modeSwitch], question: q.text, tools: jsx6(QuestionTools, { home, disabled: live }) }),
+    jt.ballot ? jsx6(ExtempSheet, { b: jt.ballot, drillLabel: "Try it again", onDrill: () => jt.reset(), fileEmpty, showMe: false }) : null,
+    jt.ballot && jt.take ? jsx6(StrongExample, { kind: "answer", question: q.text, takeIds: [jt.take.id], onAgain: () => jt.reset() }) : null,
+    jsx6(Floor, { limit: DRILL, label: null, jt, startLabel: "Start speaking" }),
+    !jt.take && !live && home.next_drill ? jsxs6("div", { className: "ldw-upnext", children: [
+      jsx6("span", { className: "ldw-stamp2 ldw-stamp-sm", children: "Drill" }),
+      jsxs6("p", { children: [
+        jsx6("strong", { children: home.next_drill.name }),
         `. ${home.next_drill.how}`,
-        fileEmpty && mentionsFile(home.next_drill) ? jsx5("span", { className: "ldw-drill-note", children: ` ${FILE_EMPTY_NOTE}` }) : null
+        fileEmpty && mentionsFile(home.next_drill) ? jsx6("span", { className: "ldw-drill-note", children: ` ${FILE_EMPTY_NOTE}` }) : null
       ] }),
-      jsx5("span", { className: "ldw-meta", children: "From your last ballot" })
+      jsx6("span", { className: "ldw-meta", children: "From your last ballot" })
     ] }) : null
   ] });
 }
@@ -1492,29 +1847,29 @@ function OpeningCard({ n, take, setTake, best, note, active, onRedo }) {
   const st = take && take.transcript.status;
   const s = take && take.stats || {};
   const secs = s.estimated ? s.estimated_seconds : s.speaking;
-  return jsxs5("article", { className: cls("ldw-ocard", best && "ldw-ocard-best"), "data-active": active ? "" : void 0, "aria-label": `Opening ${n}`, children: [
-    jsxs5("div", { className: "ldw-ocard-head", children: [
-      jsx5("b", { children: `Opening ${n}` }),
-      best ? jsx5("span", { className: "ldw-stamp2 ldw-stamp-sm ldw-stamp-best", children: "Strongest" }) : null,
-      take ? jsx5("span", { className: cls("ldw-num", secs > OPENING + 5 && "ldw-bad"), children: `${mmss(secs || 0)}${s.estimated ? ", estimated" : ""}` }) : jsx5("span", { className: "ldw-meta", children: active ? "Next" : "" })
+  return jsxs6("article", { className: cls("ldw-ocard", best && "ldw-ocard-best"), "data-active": active ? "" : void 0, "aria-label": `Opening ${n}`, children: [
+    jsxs6("div", { className: "ldw-ocard-head", children: [
+      jsx6("b", { children: `Opening ${n}` }),
+      best ? jsx6("span", { className: "ldw-stamp2 ldw-stamp-sm ldw-stamp-best", children: "Strongest" }) : null,
+      take ? jsx6("span", { className: cls("ldw-num", secs > OPENING + 5 && "ldw-bad"), children: `${mmss(secs || 0)}${s.estimated ? ", estimated" : ""}` }) : jsx6("span", { className: "ldw-meta", children: active ? "Next" : "" })
     ] }),
-    take && (st === "done" || st === "typed") ? jsx5("p", { className: "ldw-spoken ldw-ocard-said", children: take.transcript.text || "No words were caught." }) : null,
-    take && (st === "waiting" || st === "working") ? jsx5(Thinking, { label: "Making the transcript" }) : null,
-    take && ["unavailable", "failed", "cancelled"].includes(st) ? jsx5(LastTake, { take, limit: OPENING, title: "Timing only", onChange: setTake }) : null,
-    note ? jsxs5("div", { className: "ldw-onote", children: [
-      note.worked ? jsxs5("p", { children: [jsx5("b", { children: "Worked: " }), note.worked] }) : null,
-      note.fix ? jsxs5("p", { children: [jsx5("b", { children: "Fix: " }), note.fix] }) : null
+    take && (st === "done" || st === "typed") ? jsx6("p", { className: "ldw-spoken ldw-ocard-said", children: take.transcript.text || "No words were caught." }) : null,
+    take && (st === "waiting" || st === "working") ? jsx6(Thinking, { label: "Making the transcript" }) : null,
+    take && ["unavailable", "failed", "cancelled"].includes(st) ? jsx6(LastTake, { take, limit: OPENING, title: "Timing only", onChange: setTake }) : null,
+    note ? jsxs6("div", { className: "ldw-onote", children: [
+      note.worked ? jsxs6("p", { children: [jsx6("b", { children: "Worked: " }), note.worked] }) : null,
+      note.fix ? jsxs6("p", { children: [jsx6("b", { children: "Fix: " }), note.fix] }) : null
     ] }) : null,
-    take ? jsx5("button", { type: "button", className: "hk-link", onClick: onRedo, children: "Give this one again" }) : null
+    take ? jsx6("button", { type: "button", className: "hk-link", onClick: onRedo, children: "Give this one again" }) : null
   ] });
 }
 function OpeningsFloor({ home, modeSwitch }) {
   const q = useQuestion();
-  const [takes, setTakes] = useState5([null, null, null]);
-  const [slot, setSlot] = useState5(0);
-  const [busy, setBusy] = useState5(null);
-  const [err, setErr] = useState5(null);
-  const [coach, setCoach] = useState5(null);
+  const [takes, setTakes] = useState6([null, null, null]);
+  const [slot, setSlot] = useState6(0);
+  const [busy, setBusy] = useState6(null);
+  const [err, setErr] = useState6(null);
+  const [coach, setCoach] = useState6(null);
   const setAt = (k) => (t) => setTakes((prev) => prev.map((x, j) => j === k ? t : x));
   const got = async (rec2) => {
     const k = slot;
@@ -1545,8 +1900,8 @@ function OpeningsFloor({ home, modeSwitch }) {
       setBusy(null);
     }
   };
-  const shown = useRef4(q.text);
-  useEffect4(() => {
+  const shown = useRef5(q.text);
+  useEffect5(() => {
     if (shown.current === q.text) return;
     shown.current = q.text;
     setTakes([null, null, null]);
@@ -1555,8 +1910,15 @@ function OpeningsFloor({ home, modeSwitch }) {
     setErr(null);
   }, [q.text]);
   const notes = Object.fromEntries((coach && coach.notes || []).map((x) => [x.n, x]));
-  return jsxs5(Fragment3, { children: [
-    jsx5(Strip, { segments: [
+  const given = takes.filter(Boolean);
+  useCoachContext({
+    floor: "extemp",
+    question: q.text,
+    take_ids: given.map((t) => t.id),
+    sees: ["the question", given.length && `your ${given.length === 1 ? "opening" : `${given.length} openings`}`]
+  }, [q.text, given.map((t) => t.id).join(",")]);
+  return jsxs6(Fragment4, { children: [
+    jsx6(Strip, { segments: [
       ...[0, 1, 2].map((k) => ({
         key: `o${k}`,
         code: `Opening ${k + 1} 0:45`,
@@ -1569,14 +1931,14 @@ function OpeningsFloor({ home, modeSwitch }) {
       })),
       { key: "coach", code: "Coach", sub: coach ? `Opening ${coach.best || "?"}` : "Picks one", minutes: 0.5, min: 110, state: coach ? "now" : "later" }
     ] }),
-    jsx5(Slip, { kicker: [`Openings · ${AREAS[q.area] || "United States"}`, modeSwitch], question: q.text, tools: jsx5(QuestionTools, { home, disabled: live }) }),
-    jsxs5("div", { className: "ldw-stage2", children: [
-      jsx5(Clock, { limit: OPENING, elapsed: rec.elapsed, live, label: `Opening ${slot + 1} of 3` }),
-      jsx5(SpeakControls, { rec, onTyped: (text) => got({ typed: text }), startLabel: `Give opening ${slot + 1}${takes[slot] ? " again" : ""}` })
+    jsx6(Slip, { kicker: [`Openings · ${AREAS[q.area] || "United States"}`, modeSwitch], question: q.text, tools: jsx6(QuestionTools, { home, disabled: live }) }),
+    jsxs6("div", { className: "ldw-stage2", children: [
+      jsx6(Clock, { limit: OPENING, elapsed: rec.elapsed, live, label: `Opening ${slot + 1} of 3` }),
+      jsx6(SpeakControls, { rec, onTyped: (text) => got({ typed: text }), startLabel: `Give opening ${slot + 1}${takes[slot] ? " again" : ""}` })
     ] }),
-    live ? jsx5(LiveWave, { rec, limit: OPENING }) : null,
-    busy === "sending" ? jsx5(Thinking, { label: "Saving your opening" }) : null,
-    jsx5("div", { className: "ldw-ocards", children: [0, 1, 2].map((k) => jsx5(OpeningCard, {
+    live ? jsx6(LiveWave, { rec, limit: OPENING }) : null,
+    busy === "sending" ? jsx6(Thinking, { label: "Saving your opening" }) : null,
+    jsx6("div", { className: "ldw-ocards", children: [0, 1, 2].map((k) => jsx6(OpeningCard, {
       n: k + 1,
       take: takes[k],
       setTake: setAt(k),
@@ -1588,58 +1950,59 @@ function OpeningsFloor({ home, modeSwitch }) {
         setCoach(null);
       }
     }, k)) }),
-    coach ? jsxs5("section", { className: "ldw-ocoach", "aria-label": "The coach", children: [
-      jsx5("h3", { className: "ldw-h3", children: coach.best ? `Opening ${coach.best} is the strongest` : "The coach" }),
-      coach.why ? jsx5("p", { children: coach.why }) : null,
-      coach.next ? jsxs5("div", { className: "ldw-drillrow", children: [jsx5("span", { className: "ldw-stamp2", children: "Next" }), jsx5("p", { children: coach.next })] }) : null
+    coach ? jsxs6("section", { className: "ldw-ocoach", "aria-label": "The coach", children: [
+      jsx6("h3", { className: "ldw-h3", children: coach.best ? `Opening ${coach.best} is the strongest` : "The coach" }),
+      coach.why ? jsx6("p", { children: coach.why }) : null,
+      coach.next ? jsxs6("div", { className: "ldw-drillrow", children: [jsx6("span", { className: "ldw-stamp2", children: "Next" }), jsx6("p", { children: coach.next })] }) : null
     ] }) : null,
-    !coach ? jsx5("div", { children: jsx5(Button4, {
+    coach ? jsx6(StrongExample, { kind: "opening", question: q.text, takeIds: takes.map((t) => t.id), best: coach.best }) : null,
+    !coach ? jsx6("div", { children: jsx6(Button5, {
       loading: busy === "coach",
       disabled: !ready || live,
       onClick: ask,
       children: ready ? "Ask the coach which one is strongest" : `Give all three openings, then ask the coach (${takes.filter(Boolean).length} of 3)`
     }) }) : null,
-    err ? jsx5(Notice, { tone: "bad", children: err }) : null
+    err ? jsx6(Notice, { tone: "bad", children: err }) : null
   ] });
 }
 var SIDE_TITLES = { left: "Left and lean left", center: "Center and wires", right: "Right and lean right" };
 function HeadlineColumns({ pull, saved, onSave }) {
   const outlets = Object.fromEntries((pull.outlets || []).map((o) => [o.id, o]));
-  return jsxs5("section", { className: "ldw-heads", "aria-label": `Headlines on ${pull.topic}`, children: [
-    pull.notice ? jsx5(Notice, { tone: "warn", children: pull.notice }) : null,
-    jsx5(LinkMiss, {}),
-    jsx5("div", { className: "ldw-heads-grid", children: ["left", "center", "right"].map((side) => jsxs5("div", { className: "ldw-heads-side", children: [
-      jsx5("h3", { className: "ldw-heads-title", children: SIDE_TITLES[side] }),
+  return jsxs6("section", { className: "ldw-heads", "aria-label": `Headlines on ${pull.topic}`, children: [
+    pull.notice ? jsx6(Notice, { tone: "warn", children: pull.notice }) : null,
+    jsx6(LinkMiss, {}),
+    jsx6("div", { className: "ldw-heads-grid", children: ["left", "center", "right"].map((side) => jsxs6("div", { className: "ldw-heads-side", children: [
+      jsx6("h3", { className: "ldw-heads-title", children: SIDE_TITLES[side] }),
       ...pull.columns.filter((c) => (outlets[c.id] || {}).side === side).map((c) => {
         const o = outlets[c.id];
-        return jsxs5("div", { className: "ldw-outlet", children: [
-          jsxs5("div", { className: "ldw-outlet-head", children: [jsx5("b", { children: o.name }), jsx5("span", { className: "ldw-lean", title: o.note || void 0, children: o.lean })] }),
-          !c.ok ? jsx5("p", { className: "ldw-outlet-err", children: c.error }) : !c.items.length ? jsx5("p", { className: "ldw-meta", children: "Nothing on this topic in the last 30 days." }) : null,
-          ...c.items.map((h, k) => jsxs5("div", { className: "ldw-head", children: [
-            jsx5("button", { type: "button", className: "ldw-head-link", onClick: () => openLink(h.url), title: "Open in your browser", children: h.title }),
-            jsxs5("div", { className: "ldw-head-meta", children: [
-              jsx5("span", { children: dateOf(h.at) }),
-              saved.has(h.url) ? jsx5("span", { className: "ldw-saved", children: "In your file" }) : jsx5("button", { type: "button", className: "hk-link", onClick: () => onSave(h, o), children: "Save to file" })
+        return jsxs6("div", { className: "ldw-outlet", children: [
+          jsxs6("div", { className: "ldw-outlet-head", children: [jsx6("b", { children: o.name }), jsx6("span", { className: "ldw-lean", title: o.note || void 0, children: o.lean })] }),
+          !c.ok ? jsx6("p", { className: "ldw-outlet-err", children: c.error }) : !c.items.length ? jsx6("p", { className: "ldw-meta", children: "Nothing on this topic in the last 30 days." }) : null,
+          ...c.items.map((h, k) => jsxs6("div", { className: "ldw-head", children: [
+            jsx6("button", { type: "button", className: "ldw-head-link", onClick: () => openLink(h.url), title: "Open in your browser", children: h.title }),
+            jsxs6("div", { className: "ldw-head-meta", children: [
+              jsx6("span", { children: dateOf(h.at) }),
+              saved.has(h.url) ? jsx6("span", { className: "ldw-saved", children: "In your file" }) : jsx6("button", { type: "button", className: "hk-link", onClick: () => onSave(h, o), children: "Save to file" })
             ] })
           ] }, k))
         ] }, c.id);
       })
     ] }, side)) }),
-    jsx5("p", { className: "ldw-meta", children: `Lean labels: AllSides, checked ${pull.labels_checked}. Headlines and links only; articles open in your browser.` })
+    jsx6("p", { className: "ldw-meta", children: `Lean labels: AllSides, checked ${pull.labels_checked}. Headlines and links only; articles open in your browser.` })
   ] });
 }
 function OutletEditor({ onClose, embedded }) {
-  const [data, setData] = useState5(null);
-  const [rows, setRows] = useState5([]);
-  const [err, setErr] = useState5(null);
-  const [busy, setBusy] = useState5(false);
-  useEffect4(() => {
+  const [data, setData] = useState6(null);
+  const [rows, setRows] = useState6([]);
+  const [err, setErr] = useState6(null);
+  const [busy, setBusy] = useState6(false);
+  useEffect5(() => {
     rest("outlets").then((d) => {
       setData(d);
       setRows(d.outlets);
     }, (e) => setErr(errText(e)));
   }, []);
-  if (!data) return err ? jsx5(Notice, { tone: "bad", children: err }) : jsx5(Thinking, { label: "Loading your outlets" });
+  if (!data) return err ? jsx6(Notice, { tone: "bad", children: err }) : jsx6(Thinking, { label: "Loading your outlets" });
   const set = (i, k, v) => setRows(rows.map((r, j) => j === i ? { ...r, [k]: v } : r));
   const save = async (body) => {
     setBusy(true);
@@ -1663,55 +2026,56 @@ function OutletEditor({ onClose, embedded }) {
     leans[leanSide(r.lean)] += 1;
   });
   const lopsided = (counts.left || counts.right) && (counts.left >= 2 * Math.max(1, counts.right) || counts.right >= 2 * Math.max(1, counts.left));
-  return jsxs5("section", { className: embedded ? "hk-stack ldw-outlets-embedded" : "ldw-panel", "aria-label": "Your outlets", children: [
-    embedded ? null : jsx5("h3", { className: "ldw-h2", children: "Your outlets" }),
-    jsx5("p", { className: "ldw-meta", children: `By column, ${counts.left} left, ${counts.center} center, ${counts.right} right. By label, ${leans.left} left or lean left, ${leans.center} center, ${leans.right} right or lean right. Lean labels: AllSides, checked ${data.labels_checked}. Change any label you disagree with.` }),
-    lopsided ? jsx5(Notice, { tone: "warn", children: `One side has twice the outlets of the other. Add from the ${counts.left < counts.right ? "left" : "right"} to read both sides.` }) : null,
-    jsx5("table", { className: "ldw-outlet-table", children: jsx5("tbody", { children: rows.map((r, i) => jsxs5("tr", { children: [
-      jsx5("td", { children: jsx5(Input, { "aria-label": "Outlet name", value: r.name, onChange: (e) => set(i, "name", e.target.value) }) }),
-      jsx5("td", { children: jsx5(Input, { "aria-label": "Web address", value: r.domain, onChange: (e) => set(i, "domain", e.target.value) }) }),
-      jsx5("td", { children: jsx5("select", {
+  return jsxs6("section", { className: embedded ? "hk-stack ldw-outlets-embedded" : "ldw-panel", "aria-label": "Your outlets", children: [
+    embedded ? null : jsx6("h3", { className: "ldw-h2", children: "Your outlets" }),
+    jsx6("p", { className: "ldw-meta", children: `By column, ${counts.left} left, ${counts.center} center, ${counts.right} right. By label, ${leans.left} left or lean left, ${leans.center} center, ${leans.right} right or lean right. Lean labels: AllSides, checked ${data.labels_checked}. Change any label you disagree with.` }),
+    lopsided ? jsx6(Notice, { tone: "warn", children: `One side has twice the outlets of the other. Add from the ${counts.left < counts.right ? "left" : "right"} to read both sides.` }) : null,
+    jsx6("table", { className: "ldw-outlet-table", children: jsx6("tbody", { children: rows.map((r, i) => jsxs6("tr", { children: [
+      jsx6("td", { children: jsx6(Input2, { "aria-label": "Outlet name", value: r.name, onChange: (e) => set(i, "name", e.target.value) }) }),
+      jsx6("td", { children: jsx6(Input2, { "aria-label": "Web address", value: r.domain, onChange: (e) => set(i, "domain", e.target.value) }) }),
+      jsx6("td", { children: jsx6("select", {
         className: "ldw-select",
         "aria-label": "Side",
         value: r.side,
         onChange: (e) => set(i, "side", e.target.value),
-        children: data.sides.map((s) => jsx5("option", { value: s, children: SIDE_TITLES[s] }, s))
+        children: data.sides.map((s) => jsx6("option", { value: s, children: SIDE_TITLES[s] }, s))
       }) }),
-      jsx5("td", { children: jsx5("select", {
+      jsx6("td", { children: jsx6("select", {
         className: "ldw-select",
         "aria-label": "Lean label",
         value: r.lean,
         onChange: (e) => set(i, "lean", e.target.value),
-        children: data.leans.map((s) => jsx5("option", { value: s, children: s }, s))
+        children: data.leans.map((s) => jsx6("option", { value: s, children: s }, s))
       }) }),
-      jsx5("td", { children: jsx5("button", { type: "button", className: "hk-link", "aria-label": `Remove ${r.name}`, onClick: () => setRows(rows.filter((_, j) => j !== i)), children: "Remove" }) })
+      jsx6("td", { children: jsx6("button", { type: "button", className: "hk-link", "aria-label": `Remove ${r.name}`, onClick: () => setRows(rows.filter((_, j) => j !== i)), children: "Remove" }) })
     ] }, i)) }) }),
-    jsxs5("div", { className: "hk-row", children: [
-      jsx5("span", { className: "ldw-meta", children: "Add:" }),
-      ...data.suggested.filter((s) => !rows.some((r) => r.domain === s.domain)).map((s) => jsx5("button", { type: "button", className: "ldw-chip", onClick: () => setRows([...rows, s]), children: `${s.name} (${s.lean})` }, s.domain)),
-      jsx5("button", { type: "button", className: "ldw-chip", onClick: () => setRows([...rows, { name: "", domain: "", side: "center", lean: "Center", feed: "" }]), children: "Another outlet" })
+    jsxs6("div", { className: "hk-row", children: [
+      jsx6("span", { className: "ldw-meta", children: "Add:" }),
+      ...data.suggested.filter((s) => !rows.some((r) => r.domain === s.domain)).map((s) => jsx6("button", { type: "button", className: "ldw-chip", onClick: () => setRows([...rows, s]), children: `${s.name} (${s.lean})` }, s.domain)),
+      jsx6("button", { type: "button", className: "ldw-chip", onClick: () => setRows([...rows, { name: "", domain: "", side: "center", lean: "Center", feed: "" }]), children: "Another outlet" })
     ] }),
-    err ? jsx5(Notice, { tone: "bad", children: err }) : null,
-    jsxs5("div", { className: "hk-actions", children: [
-      jsx5(Button4, { size: "sm", loading: busy, onClick: () => save({ outlets: rows }), children: "Save outlets" }),
-      jsx5(Button4, { size: "sm", variant: "secondary", onClick: () => save({ reset: true }), children: "Back to the defaults" }),
-      embedded ? null : jsx5(Button4, { size: "sm", variant: "secondary", onClick: () => onClose(null), children: "Cancel" })
+    err ? jsx6(Notice, { tone: "bad", children: err }) : null,
+    jsxs6("div", { className: "hk-actions", children: [
+      jsx6(Button5, { size: "sm", loading: busy, onClick: () => save({ outlets: rows }), children: "Save outlets" }),
+      jsx6(Button5, { size: "sm", variant: "secondary", onClick: () => save({ reset: true }), children: "Back to the defaults" }),
+      embedded ? null : jsx6(Button5, { size: "sm", variant: "secondary", onClick: () => onClose(null), children: "Cancel" })
     ] })
   ] });
 }
 function DrawStage({ home, modeSwitch, onStart }) {
-  const [topic, setTopic] = useState5("");
-  const [pull, setPull] = useState5(null);
-  const [busy, setBusy] = useState5(null);
-  const [err, setErr] = useState5(null);
-  const [saved, setSaved] = useState5(/* @__PURE__ */ new Set());
-  const held = useValue($question);
-  const [area, setArea] = useState5(held && held.area === "international" ? "international" : "us");
-  const [prepMode, setPrepMode] = useState5("files");
-  const [drawn, setDrawn] = useState5(null);
-  const [own, setOwn] = useState5(held ? held.text : "");
-  const [editing, setEditing] = useState5(false);
-  const [fileCount, setFileCount] = useState5(home.file_count || 0);
+  const [topic, setTopic] = useState6("");
+  const [pull, setPull] = useState6(null);
+  const [busy, setBusy] = useState6(null);
+  const [err, setErr] = useState6(null);
+  const [saved, setSaved] = useState6(/* @__PURE__ */ new Set());
+  const held = useValue2($question);
+  const [area, setArea] = useState6(held && held.area === "international" ? "international" : "us");
+  const [prepMode, setPrepMode] = useState6("files");
+  const [drawn, setDrawn] = useState6(null);
+  const [own, setOwn] = useState6(held ? held.text : "");
+  const [editing, setEditing] = useState6(false);
+  const [fileCount, setFileCount] = useState6(home.file_count || 0);
+  useCoachContext({ floor: "extemp", sees: [fileCount && "your file", "the draw"] }, [fileCount]);
   const doPull = async () => {
     setBusy("pull");
     setErr(null);
@@ -1754,19 +2118,19 @@ function DrawStage({ home, modeSwitch, onStart }) {
       setBusy(null);
     }
   };
-  return jsxs5(Fragment3, { children: [
-    jsx5(Strip, { segments: [
+  return jsxs6(Fragment4, { children: [
+    jsx6(Strip, { segments: [
       { key: "draw", code: "Draw", sub: drawn ? "Pick one" : "3 questions", minutes: 3, min: 120, state: "now" },
       { key: "prep", code: "Prep 30:00", sub: "Outline and sources", minutes: 30, state: "later" },
       { key: "speak", code: "Speak 7:00", minutes: 7, state: "later" },
       { key: "ballot", code: "Ballot", minutes: 2.4, min: 90, state: "later" }
     ] }),
-    jsxs5("div", { className: "ldw-slip", children: [jsxs5("div", { children: [
-      jsx5("div", { className: "ldw-kicker", children: ["Extemp · the draw", modeSwitch] }),
-      jsx5("h2", { className: "ldw-question", children: "What is in the news that you could speak on for seven minutes?" })
+    jsxs6("div", { className: "ldw-slip", children: [jsxs6("div", { children: [
+      jsx6("div", { className: "ldw-kicker", children: ["Extemp · the draw", modeSwitch] }),
+      jsx6("h2", { className: "ldw-question", children: "What is in the news that you could speak on for seven minutes?" })
     ] })] }),
-    jsxs5("div", { className: "ldw-pullrow", children: [
-      jsx5(Input, {
+    jsxs6("div", { className: "ldw-pullrow", children: [
+      jsx6(Input2, {
         className: "ldw-topic",
         "aria-label": "Topic",
         value: topic,
@@ -1776,33 +2140,33 @@ function DrawStage({ home, modeSwitch, onStart }) {
           if (e.key === "Enter" && topic.trim()) doPull();
         }
       }),
-      jsx5(Button4, { loading: busy === "pull", disabled: !topic.trim(), onClick: doPull, children: jsxs5(Fragment3, { children: [jsx5(Codicon5, { name: "globe" }), "Pull headlines"] }) }),
-      jsx5("button", { type: "button", className: "hk-link", onClick: () => setEditing((v) => !v), children: "Your outlets" })
+      jsx6(Button5, { loading: busy === "pull", disabled: !topic.trim(), onClick: doPull, children: jsxs6(Fragment4, { children: [jsx6(Codicon6, { name: "globe" }), "Pull headlines"] }) }),
+      jsx6("button", { type: "button", className: "hk-link", onClick: () => setEditing((v) => !v), children: "Your outlets" })
     ] }),
-    editing ? jsx5(OutletEditor, { onClose: () => setEditing(false) }) : null,
-    busy === "pull" ? jsx5(Thinking, { label: "Asking every outlet at once" }) : null,
-    pull ? jsx5(HeadlineColumns, { pull, saved, onSave: save }) : null,
-    jsxs5("div", { className: "ldw-drawrow", children: [
-      jsx5("span", { className: "ldw-meta", children: `${fileCount} saved in your file` }),
-      jsx5(Choices, { label: "Area", value: area, onChange: setArea, options: [{ id: "us", label: "United States" }, { id: "international", label: "International" }] }),
-      jsx5(Choices, { label: "Prep rules", value: prepMode, onChange: setPrepMode, options: [{ id: "files", label: "Prep: files only" }, { id: "internet", label: "Prep: internet allowed" }] }),
-      jsx5(Button4, { loading: busy === "draw", disabled: !fileCount && !pull, "aria-describedby": !fileCount && !pull ? "ldw-draw-why" : void 0, onClick: draw, children: "Draw three questions" })
+    editing ? jsx6(OutletEditor, { onClose: () => setEditing(false) }) : null,
+    busy === "pull" ? jsx6(Thinking, { label: "Asking every outlet at once" }) : null,
+    pull ? jsx6(HeadlineColumns, { pull, saved, onSave: save }) : null,
+    jsxs6("div", { className: "ldw-drawrow", children: [
+      jsx6("span", { className: "ldw-meta", children: `${fileCount} saved in your file` }),
+      jsx6(Choices, { label: "Area", value: area, onChange: setArea, options: [{ id: "us", label: "United States" }, { id: "international", label: "International" }] }),
+      jsx6(Choices, { label: "Prep rules", value: prepMode, onChange: setPrepMode, options: [{ id: "files", label: "Prep: files only" }, { id: "internet", label: "Prep: internet allowed" }] }),
+      jsx6(Button5, { loading: busy === "draw", disabled: !fileCount && !pull, "aria-describedby": !fileCount && !pull ? "ldw-draw-why" : void 0, onClick: draw, children: "Draw three questions" })
     ] }),
-    !fileCount && !pull ? jsx5("p", { id: "ldw-draw-why", className: "ldw-why-off", children: "The draw writes three questions from this week's news, so it needs some first. Pull headlines on a topic above, or save a source to your file. Or prep a question of your own, below." }) : null,
-    err ? jsx5(Notice, { tone: "bad", children: err }) : null,
-    drawn && drawn.questions.length ? jsx5("ol", { className: "ldw-drawn", children: drawn.questions.map((q, k) => jsx5("li", { children: jsxs5("button", { type: "button", className: "ldw-drawn-q", disabled: busy === "start", onClick: () => start(q.text), children: [
-      jsx5("span", { className: "ldw-kicker", children: `Question ${k + 1} of 3` }),
-      jsx5("span", { className: "ldw-question-sm", children: q.text })
+    !fileCount && !pull ? jsx6("p", { id: "ldw-draw-why", className: "ldw-why-off", children: "The draw writes three questions from this week's news, so it needs some first. Pull headlines on a topic above, or save a source to your file. Or prep a question of your own, below." }) : null,
+    err ? jsx6(Notice, { tone: "bad", children: err }) : null,
+    drawn && drawn.questions.length ? jsx6("ol", { className: "ldw-drawn", children: drawn.questions.map((q, k) => jsx6("li", { children: jsxs6("button", { type: "button", className: "ldw-drawn-q", disabled: busy === "start", onClick: () => start(q.text), children: [
+      jsx6("span", { className: "ldw-kicker", children: `Question ${k + 1} of 3` }),
+      jsx6("span", { className: "ldw-question-sm", children: q.text })
     ] }) }, k)) }) : null,
-    drawn && drawn.fallback ? jsxs5("section", { className: "ldw-panel", children: [
-      jsx5(Notice, { tone: "warn", children: `${drawn.notice} Write your own question from these headlines.` }),
-      jsx5("ul", { className: "ldw-list", children: drawn.headlines.map((h, k) => jsx5("li", { children: h }, k)) })
+    drawn && drawn.fallback ? jsxs6("section", { className: "ldw-panel", children: [
+      jsx6(Notice, { tone: "warn", children: `${drawn.notice} Write your own question from these headlines.` }),
+      jsx6("ul", { className: "ldw-list", children: drawn.headlines.map((h, k) => jsx6("li", { children: h }, k)) })
     ] }) : null,
-    jsxs5("section", { className: "ldw-ownq", "aria-label": "Your own question", children: [
-      jsx5("h3", { className: "ldw-h3", children: "Or prep a question of your own" }),
-      jsx5("p", { className: "ldw-meta", children: "One your coach handed out, one from your circuit, or the one you just practiced. It uses the area and prep rules above." }),
-      jsxs5("div", { className: "ldw-pullrow", children: [
-        jsx5(Input, {
+    jsxs6("section", { className: "ldw-ownq", "aria-label": "Your own question", children: [
+      jsx6("h3", { className: "ldw-h3", children: "Or prep a question of your own" }),
+      jsx6("p", { className: "ldw-meta", children: "One your coach handed out, one from your circuit, or the one you just practiced. It uses the area and prep rules above." }),
+      jsxs6("div", { className: "ldw-pullrow", children: [
+        jsx6(Input2, {
           className: "ldw-topic",
           "aria-label": "Your question",
           value: own,
@@ -1812,7 +2176,7 @@ function DrawStage({ home, modeSwitch, onStart }) {
             if (e.key === "Enter" && own.trim().length >= 12) start(own);
           }
         }),
-        jsx5(Button4, { loading: busy === "start", disabled: own.trim().length < 12 || busy === "start", onClick: () => start(own), children: "Prep this question" })
+        jsx6(Button5, { loading: busy === "start", disabled: own.trim().length < 12 || busy === "start", onClick: () => start(own), children: "Prep this question" })
       ] })
     ] })
   ] });
@@ -1827,11 +2191,11 @@ var OUTLINE = [
   ["conclusion", "Conclusion"]
 ];
 function usePrepClock(round, onSave) {
-  const [left, setLeft] = useState5(round.prep_left);
-  const [running, setRunning] = useState5(round.phase === "prep");
-  const ref = useRef4(left);
+  const [left, setLeft] = useState6(round.prep_left);
+  const [running, setRunning] = useState6(round.phase === "prep");
+  const ref = useRef5(left);
   ref.current = left;
-  useEffect4(() => {
+  useEffect5(() => {
     if (!running) return void 0;
     const id = setInterval(() => setLeft((v) => Math.max(0, v - 1)), 1e3);
     const save = setInterval(() => onSave(ref.current), 1e4);
@@ -1844,11 +2208,11 @@ function usePrepClock(round, onSave) {
   return { left, running, toggle: () => setRunning((v) => !v) };
 }
 function WebSearch({ question, onSaved }) {
-  const [q, setQ] = useState5("");
-  const [res, setRes] = useState5(null);
-  const [busy, setBusy] = useState5(null);
-  const [err, setErr] = useState5(null);
-  const [saved, setSaved] = useState5(/* @__PURE__ */ new Set());
+  const [q, setQ] = useState6("");
+  const [res, setRes] = useState6(null);
+  const [busy, setBusy] = useState6(null);
+  const [err, setErr] = useState6(null);
+  const [saved, setSaved] = useState6(/* @__PURE__ */ new Set());
   const go = async () => {
     setBusy("search");
     setErr(null);
@@ -1873,34 +2237,34 @@ function WebSearch({ question, onSaved }) {
       setBusy(null);
     }
   };
-  return jsxs5("section", { className: "ldw-web", "aria-label": "Search the web", children: [
-    jsx5("h3", { className: "ldw-h3", children: "Search the web" }),
-    jsxs5("div", { className: "ldw-pullrow", children: [
-      jsx5(Input, { className: "ldw-topic", "aria-label": "Search words", value: q, placeholder: "The question, or your own words", onChange: (e) => setQ(e.target.value), onKeyDown: (e) => {
+  return jsxs6("section", { className: "ldw-web", "aria-label": "Search the web", children: [
+    jsx6("h3", { className: "ldw-h3", children: "Search the web" }),
+    jsxs6("div", { className: "ldw-pullrow", children: [
+      jsx6(Input2, { className: "ldw-topic", "aria-label": "Search words", value: q, placeholder: "The question, or your own words", onChange: (e) => setQ(e.target.value), onKeyDown: (e) => {
         if (e.key === "Enter") go();
       } }),
-      jsx5(Button4, { loading: busy === "search", onClick: go, children: jsxs5(Fragment3, { children: [jsx5(Codicon5, { name: "search" }), "Search"] }) })
+      jsx6(Button5, { loading: busy === "search", onClick: go, children: jsxs6(Fragment4, { children: [jsx6(Codicon6, { name: "search" }), "Search"] }) })
     ] }),
-    busy === "search" ? jsx5(Thinking, { label: "Searching with your Hermes web search" }) : null,
-    err ? jsx5(Notice, { tone: "bad", children: err }) : null,
-    jsx5(LinkMiss, {}),
-    res && !res.results.length ? jsx5("p", { className: "ldw-meta", children: `Nothing came back for "${res.query}". Try fewer words.` }) : null,
-    res && res.results.length ? jsx5("ol", { className: "ldw-webres", children: res.results.map((r) => jsxs5("li", { children: [
-      jsxs5("div", { className: "ldw-webres-text", children: [
-        jsx5("button", { type: "button", className: "ldw-head-link", onClick: () => openLink(r.url), children: r.title }),
-        jsxs5("span", { className: "ldw-meta", children: [jsx5("b", { children: r.site }), r.snippet ? ` · ${r.snippet}` : ""] })
+    busy === "search" ? jsx6(Thinking, { label: "Searching with your Hermes web search" }) : null,
+    err ? jsx6(Notice, { tone: "bad", children: err }) : null,
+    jsx6(LinkMiss, {}),
+    res && !res.results.length ? jsx6("p", { className: "ldw-meta", children: `Nothing came back for "${res.query}". Try fewer words.` }) : null,
+    res && res.results.length ? jsx6("ol", { className: "ldw-webres", children: res.results.map((r) => jsxs6("li", { children: [
+      jsxs6("div", { className: "ldw-webres-text", children: [
+        jsx6("button", { type: "button", className: "ldw-head-link", onClick: () => openLink(r.url), children: r.title }),
+        jsxs6("span", { className: "ldw-meta", children: [jsx6("b", { children: r.site }), r.snippet ? ` · ${r.snippet}` : ""] })
       ] }),
-      saved.has(r.url) ? jsx5("span", { className: "ldw-meta", children: "In your file" }) : jsx5(Button4, { size: "sm", variant: "secondary", loading: busy === r.url, onClick: () => save(r), children: "Save as a source" })
+      saved.has(r.url) ? jsx6("span", { className: "ldw-meta", children: "In your file" }) : jsx6(Button5, { size: "sm", variant: "secondary", loading: busy === r.url, onClick: () => save(r), children: "Save as a source" })
     ] }, r.url)) }) : null
   ] });
 }
 function PrepStage({ round, setRound: setRound2, modeSwitch }) {
-  const [outline, setOutline] = useState5(round.outline);
-  const [file, setFile] = useState5([]);
-  const timer = useRef4(null);
+  const [outline, setOutline] = useState6(round.outline);
+  const [file, setFile] = useState6([]);
+  const timer = useRef5(null);
   const prep = usePrepClock(round, (left) => post("extemp/round", { prep_left: left }).catch(() => {
   }));
-  useEffect4(() => {
+  useEffect5(() => {
     rest("extemp/file").then((d) => setFile(d.items), () => {
     });
   }, []);
@@ -1917,8 +2281,14 @@ function PrepStage({ round, setRound: setRound2, modeSwitch }) {
     setRound2(await post("extemp/round", { outline, phase: "speak", prep_left: prep.left }));
   };
   const chosen = file.filter((i) => outline.sources.includes(i.id));
-  const [removing, setRemoving] = useState5(null);
-  const [fileErr, setFileErr] = useState5(null);
+  useCoachContext({ floor: "extemp", round: true, sees: ["the question", "your outline", file.length && "your file"] }, [round.id, file.length]);
+  const useArea = (i, title) => {
+    const k = `area${i + 1}`;
+    change(k, outline[k] && outline[k].trim() ? `${outline[k].trim()}
+${title}` : title);
+  };
+  const [removing, setRemoving] = useState6(null);
+  const [fileErr, setFileErr] = useState6(null);
   const remove = async (item) => {
     setFileErr(null);
     try {
@@ -1931,44 +2301,49 @@ function PrepStage({ round, setRound: setRound2, modeSwitch }) {
       setRemoving(null);
     }
   };
-  return jsxs5(Fragment3, { children: [
-    jsx5(Strip, { segments: [
+  return jsxs6(Fragment4, { children: [
+    jsx6(Strip, { segments: [
       { key: "draw", code: "Draw", sub: AREAS[round.area], minutes: 3, min: 120, state: "done" },
       { key: "prep", code: `Prep ${mmss(prep.left)}`, sub: "Now", minutes: 30, state: "now", fill: 1 - prep.left / PREP },
       { key: "speak", code: "Speak 7:00", minutes: 7, state: "later" },
       { key: "ballot", code: "Ballot", minutes: 2.4, min: 90, state: "later" }
     ] }),
-    jsx5(Slip, { kicker: [`Prep · ${AREAS[round.area]} · ${round.mode === "internet" ? "internet allowed" : "files only"}`, modeSwitch], question: round.question }),
-    jsxs5("div", { className: "ldw-prep", children: [
-      jsx5("div", { className: "ldw-outline", children: OUTLINE.map(([k, label]) => jsxs5("label", { className: "ldw-ofield", children: [
-        jsx5("span", { children: label }),
-        jsx5(Textarea2, { value: outline[k], "aria-label": label, onChange: (e) => change(k, e.target.value), rows: k.startsWith("area") ? 3 : 2 })
-      ] }, k)) }),
-      jsxs5("aside", { className: "ldw-prep-side", children: [
-        jsxs5("div", { className: "ldw-prepclock", children: [
-          jsx5("span", { className: "ldw-num", children: mmss(prep.left) }),
-          jsx5("button", { type: "button", className: "hk-link", onClick: prep.toggle, children: prep.running ? "Pause prep" : "Resume prep" })
+    jsx6(Slip, { kicker: [`Prep · ${AREAS[round.area]} · ${round.mode === "internet" ? "internet allowed" : "files only"}`, modeSwitch], question: round.question }),
+    jsxs6("div", { className: "ldw-prep", children: [
+      jsxs6("div", { className: "ldw-prep-main", children: [
+        jsx6("div", { className: "ldw-outline", children: OUTLINE.map(([k, label]) => jsxs6("label", { className: "ldw-ofield", children: [
+          jsx6("span", { children: label }),
+          jsx6(Textarea3, { value: outline[k], "aria-label": label, onChange: (e) => change(k, e.target.value), rows: k.startsWith("area") ? 3 : 2 })
+        ] }, k)) }),
+        jsx6(PrepCoach, { outline, file, picked: outline.sources, onUseArea: useArea, onPick: (id) => {
+          if (!outline.sources.includes(id)) toggleSource(id);
+        } })
+      ] }),
+      jsxs6("aside", { className: "ldw-prep-side", children: [
+        jsxs6("div", { className: "ldw-prepclock", children: [
+          jsx6("span", { className: "ldw-num", children: mmss(prep.left) }),
+          jsx6("button", { type: "button", className: "hk-link", onClick: prep.toggle, children: prep.running ? "Pause prep" : "Resume prep" })
         ] }),
-        jsx5("h3", { className: "ldw-h3", children: `Sources from your file · ${chosen.length} picked` }),
-        fileErr ? jsx5(Notice, { tone: "bad", children: fileErr }) : null,
-        file.length ? jsx5("ul", { className: "ldw-srcs", children: file.slice(0, 40).map((i) => jsxs5("li", { children: [
-          jsxs5("div", { className: "ldw-src-row", children: [
-            jsxs5("label", { children: [
-              jsx5("input", { type: "checkbox", checked: outline.sources.includes(i.id), onChange: () => toggleSource(i.id) }),
-              jsxs5("span", { children: [jsx5("b", { children: i.outlet || "Saved link" }), ` · ${dateOf(i.at) || "no date"} · ${i.title}`] })
+        jsx6("h3", { className: "ldw-h3", children: `Sources from your file · ${chosen.length} picked` }),
+        fileErr ? jsx6(Notice, { tone: "bad", children: fileErr }) : null,
+        file.length ? jsx6("ul", { className: "ldw-srcs", children: file.slice(0, 40).map((i) => jsxs6("li", { children: [
+          jsxs6("div", { className: "ldw-src-row", children: [
+            jsxs6("label", { children: [
+              jsx6("input", { type: "checkbox", checked: outline.sources.includes(i.id), onChange: () => toggleSource(i.id) }),
+              jsxs6("span", { children: [jsx6("b", { children: i.outlet || "Saved link" }), ` · ${dateOf(i.at) || "no date"} · ${i.title}`] })
             ] }),
-            removing === i.id ? null : jsx5("button", { type: "button", className: "hk-link ldw-src-remove", "aria-label": `Remove ${i.title} from your file`, onClick: () => setRemoving(i.id), children: "Remove" })
+            removing === i.id ? null : jsx6("button", { type: "button", className: "hk-link ldw-src-remove", "aria-label": `Remove ${i.title} from your file`, onClick: () => setRemoving(i.id), children: "Remove" })
           ] }),
-          removing === i.id ? jsx5(Notice, { tone: "warn", children: "Remove it from your file for good?", action: jsxs5("div", { className: "hk-actions", children: [
-            jsx5(Button4, { size: "sm", variant: "secondary", className: "ldw-danger", onClick: () => remove(i), children: "Remove" }),
-            jsx5(Button4, { size: "sm", variant: "secondary", onClick: () => setRemoving(null), children: "Keep it" })
+          removing === i.id ? jsx6(Notice, { tone: "warn", children: "Remove it from your file for good?", action: jsxs6("div", { className: "hk-actions", children: [
+            jsx6(Button5, { size: "sm", variant: "secondary", className: "ldw-danger", onClick: () => remove(i), children: "Remove" }),
+            jsx6(Button5, { size: "sm", variant: "secondary", onClick: () => setRemoving(null), children: "Keep it" })
           ] }) }) : null
-        ] }, i.id)) }) : jsx5("p", { className: "ldw-meta", children: "Your file is empty. Pull headlines and save a few before your next round." }),
-        round.mode === "internet" ? jsx5(WebSearch, { question: round.question, onSaved: (item) => {
+        ] }, i.id)) }) : jsx6("p", { className: "ldw-meta", children: "Your file is empty. Pull headlines and save a few before your next round." }),
+        round.mode === "internet" ? jsx6(WebSearch, { question: round.question, onSaved: (item) => {
           setFile([item, ...file]);
           change("sources", [...outline.sources, item.id]);
         } }) : null,
-        jsx5(Button4, { className: "ldw-big", onClick: toPodium, children: "Go to the podium" })
+        jsx6(Button5, { className: "ldw-big", onClick: toPodium, children: "Go to the podium" })
       ] })
     ] })
   ] });
@@ -1983,67 +2358,74 @@ function SpeakStage({ round, setRound: setRound2, modeSwitch, home }) {
     initial: last && round.take === last.id ? last : null,
     onBallot: (b) => setRound2({ ...round, ballot: b, phase: "ballot" })
   });
-  useEffect4(() => {
+  useEffect5(() => {
     if (jt.take && round.take !== jt.take.id) post("extemp/round", { take: jt.take.id }).then(setRound2, () => {
     });
   }, [jt.take && jt.take.id]);
   const live = jt.recorder.state === "live" || jt.recorder.state === "armed";
+  useCoachContext({
+    floor: "extemp",
+    round: true,
+    take_id: jt.take ? jt.take.id : null,
+    ballot_at: jt.ballot ? jt.ballot.at : null,
+    sees: ["the question", "your outline", jt.take && "your speech", jt.ballot && "the ballot"]
+  }, [round.id, jt.take && jt.take.id, jt.ballot && jt.ballot.at]);
   const o = round.outline;
-  const side = o.answer || o.area1 ? jsxs5(Fragment3, { children: [
-    o.answer ? jsxs5("div", { children: ["Answer: ", jsx5("b", { children: o.answer })] }) : null,
-    ...["area1", "area2", "area3"].filter((k) => o[k]).map((k, n) => jsx5("div", { children: `${n + 1} · ${o[k].split("\n")[0].slice(0, 60)}` }, k))
+  const side = o.answer || o.area1 ? jsxs6(Fragment4, { children: [
+    o.answer ? jsxs6("div", { children: ["Answer: ", jsx6("b", { children: o.answer })] }) : null,
+    ...["area1", "area2", "area3"].filter((k) => o[k]).map((k, n) => jsx6("div", { children: `${n + 1} · ${o[k].split("\n")[0].slice(0, 60)}` }, k))
   ] }) : null;
-  return jsxs5(Fragment3, { children: [
-    jsx5(Strip, { segments: [
+  return jsxs6(Fragment4, { children: [
+    jsx6(Strip, { segments: [
       { key: "draw", code: "Draw", sub: AREAS[round.area], minutes: 3, min: 120, state: "done" },
       { key: "prep", code: "Prep 30:00", sub: `${round.outline.sources.length} sources picked`, minutes: 30, state: "done" },
       { key: "speak", code: "Speak 7:00", sub: live ? "Now" : jt.take ? "Done" : "Now", minutes: 7, state: jt.ballot ? "done" : "now", fill: live ? jt.recorder.elapsed / SPEECH : 0 },
       { key: "ballot", code: "Ballot", minutes: 2.4, min: 90, state: jt.ballot ? "now" : "later" }
     ] }),
-    jsx5(Slip, { kicker: [`Extemp · ${AREAS[round.area]}`, modeSwitch], question: round.question, side }),
-    jt.ballot ? jsx5(ExtempSheet, { b: jt.ballot, drillLabel: "Speak it again", onDrill: () => jt.reset() }) : null,
-    jsx5(Floor, { limit: SPEECH, jt, startLabel: "Start speaking" })
+    jsx6(Slip, { kicker: [`Extemp · ${AREAS[round.area]}`, modeSwitch], question: round.question, side }),
+    jt.ballot ? jsx6(ExtempSheet, { b: jt.ballot, drillLabel: "Speak it again", onDrill: () => jt.reset() }) : null,
+    jsx6(Floor, { limit: SPEECH, jt, startLabel: "Start speaking" })
   ] });
 }
 function RoundFloor({ home, modeSwitch }) {
-  const [round, setRound2] = useState5(home.extemp_round);
+  const [round, setRound2] = useState6(home.extemp_round);
   const end = async () => {
     await post("extemp/round/end");
     setRound2(null);
   };
   let body;
-  if (!round) body = jsx5(DrawStage, { home, modeSwitch, onStart: setRound2 });
-  else if (round.phase === "prep") body = jsx5(PrepStage, { round, setRound: setRound2, modeSwitch });
-  else body = jsx5(SpeakStage, { round, setRound: setRound2, modeSwitch, home });
-  return jsxs5(Fragment3, { children: [
+  if (!round) body = jsx6(DrawStage, { home, modeSwitch, onStart: setRound2 });
+  else if (round.phase === "prep") body = jsx6(PrepStage, { round, setRound: setRound2, modeSwitch });
+  else body = jsx6(SpeakStage, { round, setRound: setRound2, modeSwitch, home });
+  return jsxs6(Fragment4, { children: [
     body,
-    round ? jsx5("div", { className: "ldw-row-end", children: jsx5("button", { type: "button", className: "hk-link", onClick: end, children: round.phase === "ballot" ? "New round" : "End this round" }) }) : null
+    round ? jsx6("div", { className: "ldw-row-end", children: jsx6("button", { type: "button", className: "hk-link", onClick: end, children: round.phase === "ballot" ? "New round" : "End this round" }) }) : null
   ] });
 }
 function ExtempView() {
-  const home = useValue($home);
-  const chosen = useValue($extempMode);
-  if (!home) return jsx5(Thinking, { label: "Opening extemp" });
+  const home = useValue2($home);
+  const chosen = useValue2($extempMode);
+  if (!home) return jsx6(Thinking, { label: "Opening extemp" });
   const mode = chosen || (home.extemp_round ? "round" : "drill");
-  const modeSwitch = jsx5(Choices, {
+  const modeSwitch = jsx6(Choices, {
     key: "mode",
     label: "Extemp practice",
     value: mode,
     onChange: (v) => $extempMode.set(v),
     options: [{ id: "drill", label: "60-second answer" }, { id: "openings", label: "Openings" }, { id: "round", label: "Full round" }]
   });
-  const sw = jsx5("span", { className: "ldw-modeswitch", children: modeSwitch }, "sw");
-  if (mode === "openings") return jsx5(OpeningsFloor, { home, modeSwitch: sw });
-  return mode === "drill" ? jsx5(DrillFloor, { home, modeSwitch: sw }) : jsx5(RoundFloor, { home, modeSwitch: sw });
+  const sw = jsx6("span", { className: "ldw-modeswitch", children: modeSwitch }, "sw");
+  if (mode === "openings") return jsx6(OpeningsFloor, { home, modeSwitch: sw });
+  return mode === "drill" ? jsx6(DrillFloor, { home, modeSwitch: sw }) : jsx6(RoundFloor, { home, modeSwitch: sw });
 }
 
 // desktop/src/rhetoric.js
-import { useEffect as useEffect5, useState as useState6 } from "react";
-import { Fragment as Fragment4, jsx as jsx6, jsxs as jsxs6 } from "react/jsx-runtime";
-import { Button as Button5, Textarea as Textarea3, atom as atom3, useValue as useValue2 } from "@hermes/plugin-sdk";
-var $rh = atom3(null);
-var $stage = atom3("read");
-var $picked = atom3(null);
+import { useEffect as useEffect6, useState as useState7 } from "react";
+import { Fragment as Fragment5, jsx as jsx7, jsxs as jsxs7 } from "react/jsx-runtime";
+import { Button as Button6, Textarea as Textarea4, atom as atom4, useValue as useValue3 } from "@hermes/plugin-sdk";
+var $rh = atom4(null);
+var $stage = atom4("read");
+var $picked = atom4(null);
 var SAY = 30;
 var STAGES = [
   ["read", "Read", "A great speech, marked"],
@@ -2075,26 +2457,26 @@ function Marked({ text, marks, hidden, focus }) {
       continue;
     }
     const title = on.map((m) => `${figureOf(m.figure).name}: ${m.why}`).join("\n");
-    out.push(jsx6("span", {
+    out.push(jsx7("span", {
       className: cls("ldw-mk", on.some((m) => m.kind === "appeal") && "ldw-mk-appeal", focus && on.some((m) => m.figure === focus) && "ldw-mk-focus"),
       title,
       "data-n": on.length > 1 ? on.length : void 0,
       children: piece
     }, a));
   }
-  return jsx6("div", { className: "ldw-marked", children: out });
+  return jsx7("div", { className: "ldw-marked", children: out });
 }
 function ReadStage() {
-  const rh = useValue2($rh);
-  const [sid, setSid] = useState6(rh.speeches[0].id);
-  const [paste, setPaste] = useState6(null);
-  const [doc, setDoc] = useState6(null);
-  const [found, setFound] = useState6(null);
-  const [busy, setBusy] = useState6(false);
-  const [err, setErr] = useState6(null);
-  const [hidden, setHidden] = useState6(/* @__PURE__ */ new Set());
-  const [focus, setFocus] = useState6(null);
-  useEffect5(() => {
+  const rh = useValue3($rh);
+  const [sid, setSid] = useState7(rh.speeches[0].id);
+  const [paste, setPaste] = useState7(null);
+  const [doc, setDoc] = useState7(null);
+  const [found, setFound] = useState7(null);
+  const [busy, setBusy] = useState7(false);
+  const [err, setErr] = useState7(null);
+  const [hidden, setHidden] = useState7(/* @__PURE__ */ new Set());
+  const [focus, setFocus] = useState7(null);
+  useEffect6(() => {
     if (paste === null) {
       setDoc(null);
       setFound(null);
@@ -2122,7 +2504,7 @@ function ReadStage() {
     h.has(k) ? h.delete(k) : h.add(k);
     setHidden(h);
   };
-  const countRow = ([k, n]) => jsx6("li", { children: jsxs6("button", {
+  const countRow = ([k, n]) => jsx7("li", { children: jsxs7("button", {
     type: "button",
     className: "ldw-count",
     "aria-pressed": !hidden.has(k),
@@ -2130,14 +2512,14 @@ function ReadStage() {
     onMouseEnter: () => setFocus(k),
     onMouseLeave: () => setFocus(null),
     children: [
-      jsx6("b", { children: n }),
-      jsx6("span", { children: figureOf(k).name })
+      jsx7("b", { children: n }),
+      jsx7("span", { children: figureOf(k).name })
     ]
   }) }, k);
-  return jsxs6("div", { className: "ldw-read", children: [
-    jsxs6("nav", { className: "ldw-library", "aria-label": "Speeches", children: [
-      jsx6("h3", { className: "ldw-h3", children: "Speeches" }),
-      jsx6("ul", { children: rh.speeches.map((s) => jsx6("li", { children: jsxs6("button", {
+  return jsxs7("div", { className: "ldw-read", children: [
+    jsxs7("nav", { className: "ldw-library", "aria-label": "Speeches", children: [
+      jsx7("h3", { className: "ldw-h3", children: "Speeches" }),
+      jsx7("ul", { children: rh.speeches.map((s) => jsx7("li", { children: jsxs7("button", {
         type: "button",
         className: "ldw-lib-item",
         "aria-current": paste === null && sid === s.id ? "true" : void 0,
@@ -2145,46 +2527,46 @@ function ReadStage() {
           setPaste(null);
           setSid(s.id);
         },
-        children: [jsx6("b", { children: s.title }), jsx6("span", { children: `${s.speaker}, ${s.year}${s.excerpt ? " · excerpt" : ""}` })]
+        children: [jsx7("b", { children: s.title }), jsx7("span", { children: `${s.speaker}, ${s.year}${s.excerpt ? " · excerpt" : ""}` })]
       }) }, s.id)) }),
-      jsx6("button", { type: "button", className: cls("ldw-lib-item", paste !== null && "ldw-lib-on"), onClick: () => {
+      jsx7("button", { type: "button", className: cls("ldw-lib-item", paste !== null && "ldw-lib-on"), onClick: () => {
         setPaste("");
         setFound(null);
-      }, children: jsx6("b", { children: "Paste your own" }) })
+      }, children: jsx7("b", { children: "Paste your own" }) })
     ] }),
-    jsxs6("section", { className: "ldw-readtext", "aria-label": "The text", children: [
-      paste !== null && !found ? jsx6(Textarea3, {
+    jsxs7("section", { className: "ldw-readtext", "aria-label": "The text", children: [
+      paste !== null && !found ? jsx7(Textarea4, {
         className: "ldw-speechbox",
         "aria-label": "Your text",
         value: paste,
         onChange: (e) => setPaste(e.target.value),
         placeholder: "Paste a speech, an essay or your own case"
       }) : null,
-      paste === null && doc ? jsxs6("div", { className: "ldw-docmeta", children: [
-        jsx6("h2", { className: "ldw-question", children: doc.title }),
-        jsx6("span", { className: "ldw-meta", children: `${doc.speaker} · ${doc.where} · ${doc.year}${doc.excerpt ? " · excerpt" : ""}` })
+      paste === null && doc ? jsxs7("div", { className: "ldw-docmeta", children: [
+        jsx7("h2", { className: "ldw-question", children: doc.title }),
+        jsx7("span", { className: "ldw-meta", children: `${doc.speaker} · ${doc.where} · ${doc.year}${doc.excerpt ? " · excerpt" : ""}` })
       ] }) : null,
-      (paste === null || found) && text ? jsx6(Marked, { text, marks: found ? found.marks : [], hidden, focus }) : null,
-      !doc && paste === null && !err ? jsx6(Thinking, { label: "Opening the speech" }) : null
+      (paste === null || found) && text ? jsx7(Marked, { text, marks: found ? found.marks : [], hidden, focus }) : null,
+      !doc && paste === null && !err ? jsx7(Thinking, { label: "Opening the speech" }) : null
     ] }),
-    jsxs6("aside", { className: "ldw-counts", "aria-label": "Figures found", children: [
-      !found ? jsxs6(Fragment4, { children: [
-        jsx6(Button5, { loading: busy, disabled: paste !== null && words(paste) < 12, onClick: mark, children: "Mark the figures" }),
-        busy ? jsx6(Thinking, { label: "Reading for figures" }) : null
-      ] }) : jsxs6(Fragment4, { children: [
-        jsx6("h3", { className: "ldw-h3", children: `${found.marks.length} marks, each checked against the text` }),
-        figs.length ? jsx6("ul", { className: "ldw-countlist", children: figs.map(countRow) }) : jsx6("p", { className: "ldw-meta", children: "No clear figures found." }),
-        appeals.length ? jsxs6(Fragment4, { children: [jsx6("h3", { className: "ldw-h3", children: "Appeals" }), jsx6("ul", { className: "ldw-countlist", children: appeals.map(countRow) })] }) : null,
-        jsx6("button", { type: "button", className: "hk-link", onClick: () => {
+    jsxs7("aside", { className: "ldw-counts", "aria-label": "Figures found", children: [
+      !found ? jsxs7(Fragment5, { children: [
+        jsx7(Button6, { loading: busy, disabled: paste !== null && words(paste) < 12, onClick: mark, children: "Mark the figures" }),
+        busy ? jsx7(Thinking, { label: "Reading for figures" }) : null
+      ] }) : jsxs7(Fragment5, { children: [
+        jsx7("h3", { className: "ldw-h3", children: `${found.marks.length} marks, each checked against the text` }),
+        figs.length ? jsx7("ul", { className: "ldw-countlist", children: figs.map(countRow) }) : jsx7("p", { className: "ldw-meta", children: "No clear figures found." }),
+        appeals.length ? jsxs7(Fragment5, { children: [jsx7("h3", { className: "ldw-h3", children: "Appeals" }), jsx7("ul", { className: "ldw-countlist", children: appeals.map(countRow) })] }) : null,
+        jsx7("button", { type: "button", className: "hk-link", onClick: () => {
           setFound(null);
         }, children: paste !== null ? "Edit the text" : "Clear the marks" })
       ] }),
-      err ? jsx6(Notice, { tone: "bad", children: err }) : null
+      err ? jsx7(Notice, { tone: "bad", children: err }) : null
     ] })
   ] });
 }
 function FiguresStage() {
-  const rh = useValue2($rh);
+  const rh = useValue3($rh);
   const speech = (id) => rh.speeches.find((s) => s.id === id) || {};
   const cite = (ex) => {
     if (ex.speech) return `${speech(ex.speech).speaker}, ${speech(ex.speech).year}`;
@@ -2195,89 +2577,89 @@ function FiguresStage() {
     $picked.set(id);
     $stage.set("write");
   };
-  return jsxs6("div", { className: "ldw-figs", children: [
-    ...rh.effects.map((e) => jsxs6("section", { className: "ldw-effect", "aria-label": e.title, children: [
-      jsx6("h3", { className: "ldw-effect-title", children: e.title }),
-      jsx6("p", { className: "ldw-effect-q", children: e.question }),
-      jsx6("dl", { className: "ldw-figlist", children: rh.figures.filter((f) => f.effect === e.id).map((f) => jsxs6("div", { className: "ldw-fig", children: [
-        jsxs6("dt", { children: [f.name, jsx6("button", { type: "button", className: "hk-link", onClick: () => practice(f.id), children: "Practice" })] }),
-        jsx6("dd", { children: f.definition }),
-        f.example ? jsxs6("dd", { className: "ldw-fig-ex", children: [jsx6("q", { children: f.example.quote }), jsx6("cite", { children: cite(f.example) })] }) : null
+  return jsxs7("div", { className: "ldw-figs", children: [
+    ...rh.effects.map((e) => jsxs7("section", { className: "ldw-effect", "aria-label": e.title, children: [
+      jsx7("h3", { className: "ldw-effect-title", children: e.title }),
+      jsx7("p", { className: "ldw-effect-q", children: e.question }),
+      jsx7("dl", { className: "ldw-figlist", children: rh.figures.filter((f) => f.effect === e.id).map((f) => jsxs7("div", { className: "ldw-fig", children: [
+        jsxs7("dt", { children: [f.name, jsx7("button", { type: "button", className: "hk-link", onClick: () => practice(f.id), children: "Practice" })] }),
+        jsx7("dd", { children: f.definition }),
+        f.example ? jsxs7("dd", { className: "ldw-fig-ex", children: [jsx7("q", { children: f.example.quote }), jsx7("cite", { children: cite(f.example) })] }) : null
       ] }, f.id)) })
     ] }, e.id)),
-    jsxs6("section", { className: "ldw-effect", "aria-label": "The appeals", children: [
-      jsx6("h3", { className: "ldw-effect-title", children: "The appeals" }),
-      jsx6("dl", { className: "ldw-figlist", children: [...rh.appeals, rh.kairos].map((a) => jsxs6("div", { className: "ldw-fig", children: [
-        jsx6("dt", { children: a.name }),
-        jsx6("dd", { children: a.definition }),
-        jsxs6("dd", { className: "ldw-fig-ex", children: [jsx6("q", { children: a.example.quote }), jsx6("cite", { children: cite(a.example) })] })
+    jsxs7("section", { className: "ldw-effect", "aria-label": "The appeals", children: [
+      jsx7("h3", { className: "ldw-effect-title", children: "The appeals" }),
+      jsx7("dl", { className: "ldw-figlist", children: [...rh.appeals, rh.kairos].map((a) => jsxs7("div", { className: "ldw-fig", children: [
+        jsx7("dt", { children: a.name }),
+        jsx7("dd", { children: a.definition }),
+        jsxs7("dd", { className: "ldw-fig-ex", children: [jsx7("q", { children: a.example.quote }), jsx7("cite", { children: cite(a.example) })] })
       ] }, a.id)) })
     ] }),
-    jsxs6("section", { className: "ldw-effect", "aria-label": "The five canons", children: [
-      jsx6("h3", { className: "ldw-effect-title", children: "The five canons" }),
-      jsx6("dl", { className: "ldw-figlist", children: rh.canons.map((c) => jsxs6("div", { className: "ldw-fig", children: [jsx6("dt", { children: c.name }), jsx6("dd", { children: c.definition })] }, c.name)) })
+    jsxs7("section", { className: "ldw-effect", "aria-label": "The five canons", children: [
+      jsx7("h3", { className: "ldw-effect-title", children: "The five canons" }),
+      jsx7("dl", { className: "ldw-figlist", children: rh.canons.map((c) => jsxs7("div", { className: "ldw-fig", children: [jsx7("dt", { children: c.name }), jsx7("dd", { children: c.definition })] }, c.name)) })
     ] }),
-    jsx6("p", { className: "ldw-meta", children: `Further reading: ${rh.further_reading}.` })
+    jsx7("p", { className: "ldw-meta", children: `Further reading: ${rh.further_reading}.` })
   ] });
 }
 function SpotStage() {
-  const [item, setItem] = useState6(null);
-  const [pick, setPick] = useState6(null);
-  const [score, setScore] = useState6({ n: 0, right: 0 });
-  const [err, setErr] = useState6(null);
+  const [item, setItem] = useState7(null);
+  const [pick, setPick] = useState7(null);
+  const [score, setScore] = useState7({ n: 0, right: 0 });
+  const [err, setErr] = useState7(null);
   const next = () => {
     setPick(null);
     setErr(null);
     post("rhetoric/spot").then(setItem, (e) => setErr(errText(e)));
   };
-  useEffect5(next, []);
-  if (err) return jsx6(Notice, { tone: "bad", children: err, action: jsx6(Button5, { size: "sm", variant: "secondary", onClick: next, children: "Try again" }) });
-  if (!item) return jsx6(Thinking, { label: "Finding a line" });
+  useEffect6(next, []);
+  if (err) return jsx7(Notice, { tone: "bad", children: err, action: jsx7(Button6, { size: "sm", variant: "secondary", onClick: next, children: "Try again" }) });
+  if (!item) return jsx7(Thinking, { label: "Finding a line" });
   const choose = (id) => {
     if (pick) return;
     setPick(id);
     setScore({ n: score.n + 1, right: score.right + (id === item.answer ? 1 : 0) });
   };
   const ans = figureOf(item.answer);
-  return jsxs6("section", { className: "ldw-spot", "aria-label": "Spot the figure", children: [
-    jsx6("blockquote", { className: "ldw-spot-q", children: item.quote }),
-    jsx6("p", { className: "ldw-meta", children: `${item.speech.speaker}, ${item.speech.title}, ${item.speech.year}` }),
-    jsx6("div", { className: "ldw-chips", role: "group", "aria-label": "Which figure is this?", children: item.options.map((o) => {
+  return jsxs7("section", { className: "ldw-spot", "aria-label": "Spot the figure", children: [
+    jsx7("blockquote", { className: "ldw-spot-q", children: item.quote }),
+    jsx7("p", { className: "ldw-meta", children: `${item.speech.speaker}, ${item.speech.title}, ${item.speech.year}` }),
+    jsx7("div", { className: "ldw-chips", role: "group", "aria-label": "Which figure is this?", children: item.options.map((o) => {
       const state = !pick ? void 0 : o === item.answer ? "right" : o === pick ? "wrong" : void 0;
-      return jsx6("button", { type: "button", className: "ldw-chip ldw-opt", "data-result": state, "aria-pressed": pick === o, disabled: !!pick && !state, onClick: () => choose(o), children: figureOf(o).name }, o);
+      return jsx7("button", { type: "button", className: "ldw-chip ldw-opt", "data-result": state, "aria-pressed": pick === o, disabled: !!pick && !state, onClick: () => choose(o), children: figureOf(o).name }, o);
     }) }),
-    pick ? jsxs6("div", { className: "hk-stack", children: [
-      jsxs6("p", { className: "ldw-goal", children: [jsx6("strong", { children: pick === item.answer ? "Right. " : `It is ${ans.name}. ` }), `${ans.name}: ${ans.definition}`] }),
-      jsxs6("div", { className: "hk-actions", children: [
-        jsx6(Button5, { onClick: next, children: "Next line" }),
-        jsx6(Button5, { variant: "secondary", onClick: () => {
+    pick ? jsxs7("div", { className: "hk-stack", children: [
+      jsxs7("p", { className: "ldw-goal", children: [jsx7("strong", { children: pick === item.answer ? "Right. " : `It is ${ans.name}. ` }), `${ans.name}: ${ans.definition}`] }),
+      jsxs7("div", { className: "hk-actions", children: [
+        jsx7(Button6, { onClick: next, children: "Next line" }),
+        jsx7(Button6, { variant: "secondary", onClick: () => {
           $picked.set(item.answer);
           $stage.set("write");
         }, children: `Write your own ${ans.name.toLowerCase()}` })
       ] })
     ] }) : null,
-    score.n ? jsx6("p", { className: "ldw-meta", role: "status", children: `This session: ${score.right} of ${score.n} right` }) : null
+    score.n ? jsx7("p", { className: "ldw-meta", role: "status", children: `This session: ${score.right} of ${score.n} right` }) : null
   ] });
 }
 function FigurePicker() {
-  const rh = useValue2($rh);
-  const picked = useValue2($picked) || rh.figures[0].id;
-  return jsx6("select", {
+  const rh = useValue3($rh);
+  const picked = useValue3($picked) || rh.figures[0].id;
+  return jsx7("select", {
     className: "ldw-select",
     "aria-label": "Figure",
     value: picked,
     onChange: (e) => $picked.set(e.target.value),
-    children: rh.effects.map((e) => jsx6("optgroup", { label: e.title, children: rh.figures.filter((f) => f.effect === e.id).map((f) => jsx6("option", { value: f.id, children: f.name }, f.id)) }, e.id))
+    children: rh.effects.map((e) => jsx7("optgroup", { label: e.title, children: rh.figures.filter((f) => f.effect === e.id).map((f) => jsx7("option", { value: f.id, children: f.name }, f.id)) }, e.id))
   });
 }
 function WriteStage() {
-  const rh = useValue2($rh);
-  const picked = useValue2($picked) || rh.figures[0].id;
+  const rh = useValue3($rh);
+  const picked = useValue3($picked) || rh.figures[0].id;
   const f = figureOf(picked);
-  const [line, setLine] = useState6("");
-  const [out, setOut] = useState6(null);
-  const [busy, setBusy] = useState6(false);
-  const [err, setErr] = useState6(null);
+  const [line, setLine] = useState7("");
+  const [out, setOut] = useState7(null);
+  const [busy, setBusy] = useState7(false);
+  const [err, setErr] = useState7(null);
   const go = async () => {
     setBusy(true);
     setErr(null);
@@ -2289,10 +2671,11 @@ function WriteStage() {
       setBusy(false);
     }
   };
-  return jsxs6("section", { className: "ldw-write", "aria-label": "Write your own line", children: [
-    jsxs6("div", { className: "hk-row", children: [jsx6(FigurePicker, {}), jsx6("span", { className: "ldw-goal", children: f.definition })] }),
-    f.example ? jsx6("blockquote", { className: "ldw-spot-q ldw-small", children: f.example.quote }) : null,
-    jsx6(Textarea3, {
+  useCoachContext({ floor: "rhetoric", figure: picked, line, critique: out || "", sees: [`${f.name}`, words(line) >= 4 && "your line", out && "the coach's critique"] }, [picked, line, out]);
+  return jsxs7("section", { className: "ldw-write", "aria-label": "Write your own line", children: [
+    jsxs7("div", { className: "hk-row", children: [jsx7(FigurePicker, {}), jsx7("span", { className: "ldw-goal", children: f.definition })] }),
+    f.example ? jsx7("blockquote", { className: "ldw-spot-q ldw-small", children: f.example.quote }) : null,
+    jsx7(Textarea4, {
       className: "ldw-speechbox ldw-short",
       "aria-label": `Your line using ${f.name}`,
       value: line,
@@ -2302,19 +2685,20 @@ function WriteStage() {
       },
       placeholder: `Your own line, on any topic you debate, using ${f.name.toLowerCase()}`
     }),
-    jsxs6("div", { className: "hk-actions", children: [
-      jsx6(Button5, { loading: busy, disabled: words(line) < 4, onClick: go, children: "Ask the coach" }),
-      jsx6(Button5, { variant: "secondary", disabled: words(line) < 4, onClick: () => $stage.set("say"), children: "Say it out loud" })
+    jsxs7("div", { className: "hk-actions", children: [
+      jsx7(Button6, { loading: busy, disabled: words(line) < 4, onClick: go, children: "Ask the coach" }),
+      jsx7(Button6, { variant: "secondary", disabled: words(line) < 4, onClick: () => $stage.set("say"), children: "Say it out loud" })
     ] }),
-    err ? jsx6(Notice, { tone: "bad", children: err }) : null,
-    out ? jsx6("div", { className: "ldw-helper", children: renderText(out) }) : null
+    err ? jsx7(Notice, { tone: "bad", children: err }) : null,
+    out ? jsx7("div", { className: "ldw-helper", children: renderText(out) }) : null,
+    out ? jsx7(ThreeVersions, { figure: picked, line, figureName: f.name }) : null
   ] });
 }
 function SayStage() {
-  const picked = useValue2($picked);
+  const picked = useValue3($picked);
   const f = picked ? figureOf(picked) : null;
-  const [take, setTake] = useState6(null);
-  const [err, setErr] = useState6(null);
+  const [take, setTake] = useState7(null);
+  const [err, setErr] = useState7(null);
   useTakePoll(take, setTake);
   const got = async (rec2) => {
     setErr(null);
@@ -2326,24 +2710,27 @@ function SayStage() {
   };
   const rec = useRecorder({ limit: SAY, onTake: got });
   const live = rec.state === "live" || rec.state === "armed";
-  return jsxs6(Fragment4, { children: [
-    jsxs6("div", { className: "ldw-stage2", children: [jsx6(Clock, { limit: SAY, elapsed: rec.elapsed, live }), jsx6(SpeakControls, { rec, onTyped: (t) => got({ typed: t }), startLabel: "Say your line" })] }),
-    err ? jsx6(Notice, { tone: "bad", children: err }) : null,
-    take && !live ? jsx6(LastTake, { take, limit: SAY, title: "Your line, out loud", onChange: setTake }) : null
+  return jsxs7(Fragment5, { children: [
+    jsxs7("div", { className: "ldw-stage2", children: [jsx7(Clock, { limit: SAY, elapsed: rec.elapsed, live }), jsx7(SpeakControls, { rec, onTyped: (t) => got({ typed: t }), startLabel: "Say your line" })] }),
+    err ? jsx7(Notice, { tone: "bad", children: err }) : null,
+    take && !live ? jsx7(LastTake, { take, limit: SAY, title: "Your line, out loud", onChange: setTake }) : null
   ] });
 }
 function RhetoricView() {
-  const rh = useValue2($rh);
-  const stage = useValue2($stage);
-  const [err, setErr] = useState6(null);
-  useEffect5(() => {
+  const rh = useValue3($rh);
+  const stage = useValue3($stage);
+  const [err, setErr] = useState7(null);
+  useEffect6(() => {
     if (!rh) rest("rhetoric").then((d) => $rh.set(d), (e) => setErr(errText(e)));
   }, []);
-  if (err) return jsx6(Notice, { tone: "bad", children: err });
-  if (!rh) return jsx6(Thinking, { label: "Opening rhetoric" });
+  useEffect6(() => {
+    if (stage !== "write") $coachCtx.set({ floor: "rhetoric", sees: ["the figures and the speeches"] });
+  }, [stage]);
+  if (err) return jsx7(Notice, { tone: "bad", children: err });
+  if (!rh) return jsx7(Thinking, { label: "Opening rhetoric" });
   const idx = STAGES.findIndex((s) => s[0] === stage);
-  return jsxs6(Fragment4, { children: [
-    jsx6(Strip, { label: "Rhetoric practice", segments: STAGES.map(([k, code, sub], i) => ({
+  return jsxs7(Fragment5, { children: [
+    jsx7(Strip, { label: "Rhetoric practice", segments: STAGES.map(([k, code, sub], i) => ({
       key: k,
       code,
       sub,
@@ -2352,78 +2739,78 @@ function RhetoricView() {
       state: k === stage ? "now" : "later",
       onClick: () => $stage.set(k)
     })) }),
-    stage === "read" ? jsx6(ReadStage, {}) : stage === "figures" ? jsx6(FiguresStage, {}) : stage === "spot" ? jsx6(SpotStage, {}) : stage === "write" ? jsx6(WriteStage, {}) : jsx6(SayStage, {})
+    stage === "read" ? jsx7(ReadStage, {}) : stage === "figures" ? jsx7(FiguresStage, {}) : stage === "spot" ? jsx7(SpotStage, {}) : stage === "write" ? jsx7(WriteStage, {}) : jsx7(SayStage, {})
   ] });
 }
 
 // desktop/src/ballotsview.js
-import { useEffect as useEffect6, useState as useState7 } from "react";
-import { Fragment as Fragment5, jsx as jsx7, jsxs as jsxs7 } from "react/jsx-runtime";
-import { Button as Button6, Codicon as Codicon6 } from "@hermes/plugin-sdk";
+import { useEffect as useEffect7, useState as useState8 } from "react";
+import { Fragment as Fragment6, jsx as jsx8, jsxs as jsxs8 } from "react/jsx-runtime";
+import { Button as Button7, Codicon as Codicon7 } from "@hermes/plugin-sdk";
 var EVENTS = { ld: "Lincoln-Douglas", extemp: "Extemp", drill: "60-second answer", rhetoric: "Rhetoric" };
 function day(t) {
   return t ? new Date(t * 1e3).toLocaleDateString(void 0, { month: "short", day: "numeric" }) : "";
 }
 function PatternRows({ group, label }) {
   if (!group || !group.of) return null;
-  return jsxs7("section", { className: "ldw-patterns", "aria-label": `${label} patterns`, children: [
-    jsx7("h3", { className: "ldw-h2", children: `${label}: across your last ${group.of} ${group.of === 1 ? "ballot" : "ballots"}` }),
-    group.patterns.length ? jsx7("ul", { className: "ldw-patlist", children: group.patterns.map((p) => jsxs7("li", { className: "ldw-pat", children: [
-      jsxs7("div", { className: "ldw-pat-text", children: [jsx7("b", { children: p.text }), jsx7("span", { children: `${p.count} of ${p.of}${p.measured ? ", measured from your recordings" : ""}` })] }),
-      jsx7("ol", { className: "ldw-rounds", "aria-label": "Rounds", children: p.rounds.map((r, i) => jsxs7("li", {
+  return jsxs8("section", { className: "ldw-patterns", "aria-label": `${label} patterns`, children: [
+    jsx8("h3", { className: "ldw-h2", children: `${label}: across your last ${group.of} ${group.of === 1 ? "ballot" : "ballots"}` }),
+    group.patterns.length ? jsx8("ul", { className: "ldw-patlist", children: group.patterns.map((p) => jsxs8("li", { className: "ldw-pat", children: [
+      jsxs8("div", { className: "ldw-pat-text", children: [jsx8("b", { children: p.text }), jsx8("span", { children: `${p.count} of ${p.of}${p.measured ? ", measured from your recordings" : ""}` })] }),
+      jsx8("ol", { className: "ldw-rounds", "aria-label": "Rounds", children: p.rounds.map((r, i) => jsxs8("li", {
         className: "ldw-round",
         "data-hit": r.hit ? "" : void 0,
         title: r.hit ? "Written on this ballot" : "Not on this ballot",
         children: [
-          jsx7("span", { children: r.label }),
-          r.result ? jsx7("b", { children: r.result }) : null,
-          jsx7("span", { className: "hk-sr", children: r.hit ? ", written on this ballot" : ", not on this ballot" })
+          jsx8("span", { children: r.label }),
+          r.result ? jsx8("b", { children: r.result }) : null,
+          jsx8("span", { className: "hk-sr", children: r.hit ? ", written on this ballot" : ", not on this ballot" })
         ]
       }, i)) })
-    ] }, p.tag)) }) : jsx7("p", { className: "ldw-meta", children: group.of < 2 ? "Patterns show once you have two ballots." : "Nothing has come up twice yet." })
+    ] }, p.tag)) }) : jsx8("p", { className: "ldw-meta", children: group.of < 2 ? "Patterns show once you have two ballots." : "Nothing has come up twice yet." })
   ] });
 }
 function Legend() {
-  const chip = (label, result, hit) => jsxs7("span", { className: "ldw-round", "data-hit": hit ? "" : void 0, "aria-hidden": "true", children: [jsx7("span", { children: label }), jsx7("b", { children: result })] });
-  return jsxs7("p", { className: "ldw-legend", children: [
-    jsxs7("span", { className: "ldw-legend-item", children: [chip("R1", "L", true), "The judge wrote it on that ballot"] }),
-    jsxs7("span", { className: "ldw-legend-item", children: [chip("R2", "W", false), "Not on that ballot"] }),
-    jsx7("span", { children: "R is a Lincoln-Douglas round and # an extemp speech or 60-second answer; W and L are won and lost." })
+  const chip = (label, result, hit) => jsxs8("span", { className: "ldw-round", "data-hit": hit ? "" : void 0, "aria-hidden": "true", children: [jsx8("span", { children: label }), jsx8("b", { children: result })] });
+  return jsxs8("p", { className: "ldw-legend", children: [
+    jsxs8("span", { className: "ldw-legend-item", children: [chip("R1", "L", true), "The judge wrote it on that ballot"] }),
+    jsxs8("span", { className: "ldw-legend-item", children: [chip("R2", "W", false), "Not on that ballot"] }),
+    jsx8("span", { children: "R is a Lincoln-Douglas round and # an extemp speech or 60-second answer; W and L are won and lost." })
   ] });
 }
 function resultOf(b) {
   return b.event === "ld" ? `${b.decision === b.side ? "Won" : "Lost"} on the ${b.side === "aff" ? "affirmative" : "negative"}` : { yes: "Answered the question", partly: "Partly answered", no: "Did not answer" }[b.answered] || "";
 }
 function FullSheet({ b, open }) {
-  return b.event === "ld" ? jsx7(LdSheet, { b, defaultOpen: open }) : jsx7(ExtempSheet, { b, defaultOpen: open });
+  return b.event === "ld" ? jsx8(LdSheet, { b, defaultOpen: open }) : jsx8(ExtempSheet, { b, defaultOpen: open });
 }
 function BallotRow({ b, onDone, open, onToggle }) {
   const drill = b.drill || (b.drills || [])[0];
   const pts = b.event === "ld" ? (b.speaker_points || {}).student : b.points;
   const m = b.measured && b.event !== "ld" ? b.measured : null;
-  return jsxs7("li", { className: cls("ldw-brow", open && "ldw-brow-open"), children: [
-    jsxs7("button", { type: "button", className: "ldw-brow-main", "aria-expanded": open, onClick: onToggle, children: [
-      jsxs7("span", { className: "ldw-brow-top", children: [
-        jsx7("b", { children: EVENTS[b.event] || "Ballot" }),
-        jsx7("span", { children: day(b.at) }),
-        b.round_no ? jsx7("span", { children: `Round ${b.round_no}` }) : null,
-        b.judge ? jsx7("span", { children: b.judge }) : null,
-        jsxs7("span", { className: "ldw-brow-open-lbl", children: [jsx7(Codicon6, { name: open ? "chevron-up" : "chevron-down" }), open ? "Close the ballot" : "Open the ballot"] })
+  return jsxs8("li", { className: cls("ldw-brow", open && "ldw-brow-open"), children: [
+    jsxs8("button", { type: "button", className: "ldw-brow-main", "aria-expanded": open, onClick: onToggle, children: [
+      jsxs8("span", { className: "ldw-brow-top", children: [
+        jsx8("b", { children: EVENTS[b.event] || "Ballot" }),
+        jsx8("span", { children: day(b.at) }),
+        b.round_no ? jsx8("span", { children: `Round ${b.round_no}` }) : null,
+        b.judge ? jsx8("span", { children: b.judge }) : null,
+        jsxs8("span", { className: "ldw-brow-open-lbl", children: [jsx8(Codicon7, { name: open ? "chevron-up" : "chevron-down" }), open ? "Close the ballot" : "Open the ballot"] })
       ] }),
-      jsx7("span", { className: "ldw-brow-q", children: b.question || b.resolution || "" }),
-      jsxs7("span", { className: "ldw-brow-res", children: [
-        jsx7("strong", { children: resultOf(b) }),
+      jsx8("span", { className: "ldw-brow-q", children: b.question || b.resolution || "" }),
+      jsxs8("span", { className: "ldw-brow-res", children: [
+        jsx8("strong", { children: resultOf(b) }),
         pts !== null && pts !== void 0 ? ` · ${pts} points` : "",
         m && !m.typed ? ` · ${mmss(m.speaking || 0)} spoken` : "",
         m && m.wpm ? ` · ${m.wpm} words a minute` : ""
       ] }),
-      (b.tags || []).length || (b.measured_tags || []).length ? jsx7("span", { className: "ldw-meta", children: [...b.tags || [], ...b.measured_tags || []].map((t) => b.tag_text && b.tag_text[t] || t).join(" · ") }) : null
+      (b.tags || []).length || (b.measured_tags || []).length ? jsx8("span", { className: "ldw-meta", children: [...b.tags || [], ...b.measured_tags || []].map((t) => b.tag_text && b.tag_text[t] || t).join(" · ") }) : null
     ] }),
-    drill ? jsxs7("label", { className: cls("ldw-brow-drill", b.drill_done && "ldw-done"), children: [
-      jsx7("input", { type: "checkbox", "aria-label": `Drill done: ${drill.name}`, checked: !!b.drill_done, onChange: (e) => onDone(b.index, e.target.checked, b.at) }),
-      jsxs7("span", { children: [jsx7("span", { className: "ldw-stamp2 ldw-stamp-sm", children: "Drill" }), " ", drill.name] })
+    drill ? jsxs8("label", { className: cls("ldw-brow-drill", b.drill_done && "ldw-done"), children: [
+      jsx8("input", { type: "checkbox", "aria-label": `Drill done: ${drill.name}`, checked: !!b.drill_done, onChange: (e) => onDone(b.index, e.target.checked, b.at) }),
+      jsxs8("span", { children: [jsx8("span", { className: "ldw-stamp2 ldw-stamp-sm", children: "Drill" }), " ", drill.name] })
     ] }) : null,
-    open ? jsx7("div", { className: "ldw-brow-sheet", children: jsx7(FullSheet, { b, open: true }) }) : null
+    open ? jsx8("div", { className: "ldw-brow-sheet", children: jsx8(FullSheet, { b, open: true }) }) : null
   ] });
 }
 async function saveBallots(setMsg) {
@@ -2441,30 +2828,36 @@ async function saveBallots(setMsg) {
   }
 }
 function PrintBallots({ data, hist, onClose }) {
-  return jsxs7("div", { className: "ldw-print-ballots", children: [
-    jsxs7("div", { className: "hk-actions ldw-noprint", children: [
-      jsx7(Button6, { onClick: () => window.print(), children: jsxs7(Fragment5, { children: [jsx7(Codicon6, { name: "file" }), "Print"] }) }),
-      jsx7(Button6, { variant: "secondary", onClick: onClose, children: "Back to ballots" })
+  return jsxs8("div", { className: "ldw-print-ballots", children: [
+    jsxs8("div", { className: "hk-actions ldw-noprint", children: [
+      jsx8(Button7, { onClick: () => window.print(), children: jsxs8(Fragment6, { children: [jsx8(Codicon7, { name: "file" }), "Print"] }) }),
+      jsx8(Button7, { variant: "secondary", onClick: onClose, children: "Back to ballots" })
     ] }),
-    jsx7("h1", { className: "ldw-set-h1", children: `Practice ballots · ${hist.length}` }),
-    jsxs7("div", { className: "ldw-patgrid", children: [jsx7(PatternRows, { group: data.patterns.ld, label: "Lincoln-Douglas" }), jsx7(PatternRows, { group: data.patterns.extemp, label: "Extemp" })] }),
-    jsx7(Legend, {}),
-    ...hist.map((b) => jsxs7("section", { className: "ldw-print-sheet", children: [
-      jsx7("h2", { className: "ldw-h3", children: `${EVENTS[b.event] || "Ballot"} · ${day(b.at)}${b.round_no ? ` · round ${b.round_no}` : ""}` }),
-      jsx7(FullSheet, { b, open: true })
+    jsx8("h1", { className: "ldw-set-h1", children: `Practice ballots · ${hist.length}` }),
+    jsxs8("div", { className: "ldw-patgrid", children: [jsx8(PatternRows, { group: data.patterns.ld, label: "Lincoln-Douglas" }), jsx8(PatternRows, { group: data.patterns.extemp, label: "Extemp" })] }),
+    jsx8(Legend, {}),
+    ...hist.map((b) => jsxs8("section", { className: "ldw-print-sheet", children: [
+      jsx8("h2", { className: "ldw-h3", children: `${EVENTS[b.event] || "Ballot"} · ${day(b.at)}${b.round_no ? ` · round ${b.round_no}` : ""}` }),
+      jsx8(FullSheet, { b, open: true })
     ] }, b.index))
   ] });
 }
 function BallotsView() {
-  const [data, setData] = useState7(null);
-  const [err, setErr] = useState7(null);
-  const [open, setOpen] = useState7(null);
-  const [printing, setPrinting] = useState7(false);
-  const [msg, setMsg] = useState7(null);
+  const [data, setData] = useState8(null);
+  const [err, setErr] = useState8(null);
+  const [open, setOpen] = useState8(null);
+  const [printing, setPrinting] = useState8(false);
+  const [msg, setMsg] = useState8(null);
   const load2 = () => rest("ballots").then(setData, (e) => setErr(errText(e)));
-  useEffect6(() => {
+  useEffect7(() => {
     load2();
   }, []);
+  const opened = data && open !== null ? data.history.find((b) => b.index === open) : null;
+  useCoachContext({
+    floor: "ballots",
+    ballot_at: opened ? opened.at : null,
+    sees: opened ? ["the ballot you opened", opened.take_id || opened.event === "ld" ? "your words behind it" : null] : ["the patterns across your ballots"]
+  }, [opened && opened.at]);
   const done = async (index, v, at) => {
     try {
       const out = await post(`ballots/${index}/drill`, { done: v, at });
@@ -2473,39 +2866,39 @@ function BallotsView() {
       setErr(errText(e));
     }
   };
-  if (err && !data) return jsx7(Notice, { tone: "bad", children: err });
-  if (!data) return jsx7(Thinking, { label: "Opening your ballots" });
+  if (err && !data) return jsx8(Notice, { tone: "bad", children: err });
+  if (!data) return jsx8(Thinking, { label: "Opening your ballots" });
   const hist = [...data.history].reverse().map((b) => ({ ...b, tag_text: data.tag_text }));
-  if (!hist.length) return jsxs7(Fragment5, { children: [
-    jsx7("h1", { className: "ldw-set-h1", children: "Ballots" }),
-    jsx7(Empty, { icon: "law", title: "No ballots yet", body: "Every ballot lands here: Lincoln-Douglas rounds, extemp speeches and 60-second answers. What judges write twice shows up as a pattern." })
+  if (!hist.length) return jsxs8(Fragment6, { children: [
+    jsx8("h1", { className: "ldw-set-h1", children: "Ballots" }),
+    jsx8(Empty, { icon: "law", title: "No ballots yet", body: "Every ballot lands here: Lincoln-Douglas rounds, extemp speeches and 60-second answers. What judges write twice shows up as a pattern." })
   ] });
-  if (printing) return jsx7(PrintBallots, { data, hist, onClose: () => setPrinting(false) });
-  return jsxs7("div", { className: "ldw-ballots", children: [
-    jsxs7("div", { className: "ldw-ballots-head", children: [
-      jsx7("h1", { className: "ldw-set-h1", children: "Ballots" }),
-      jsxs7("div", { className: "hk-actions", children: [
-        jsx7(Button6, { size: "sm", variant: "secondary", onClick: () => setPrinting(true), children: jsxs7(Fragment5, { children: [jsx7(Codicon6, { name: "file" }), "Print ballots"] }) }),
-        jsx7(Button6, { size: "sm", variant: "secondary", onClick: () => saveBallots(setMsg), children: jsxs7(Fragment5, { children: [jsx7(Codicon6, { name: "save" }), "Save as a file for your coach"] }) })
+  if (printing) return jsx8(PrintBallots, { data, hist, onClose: () => setPrinting(false) });
+  return jsxs8("div", { className: "ldw-ballots", children: [
+    jsxs8("div", { className: "ldw-ballots-head", children: [
+      jsx8("h1", { className: "ldw-set-h1", children: "Ballots" }),
+      jsxs8("div", { className: "hk-actions", children: [
+        jsx8(Button7, { size: "sm", variant: "secondary", onClick: () => setPrinting(true), children: jsxs8(Fragment6, { children: [jsx8(Codicon7, { name: "file" }), "Print ballots"] }) }),
+        jsx8(Button7, { size: "sm", variant: "secondary", onClick: () => saveBallots(setMsg), children: jsxs8(Fragment6, { children: [jsx8(Codicon7, { name: "save" }), "Save as a file for your coach"] }) })
       ] })
     ] }),
-    msg ? jsx7(Notice, { tone: msg.tone, children: msg.text, action: msg.path && api && api.os && typeof api.os.revealPath === "function" ? jsx7(Button6, { size: "sm", variant: "secondary", onClick: () => api.os.revealPath(msg.path), children: "Show the file" }) : null }) : null,
-    jsxs7("div", { className: "ldw-patgrid", children: [jsx7(PatternRows, { group: data.patterns.ld, label: "Lincoln-Douglas" }), jsx7(PatternRows, { group: data.patterns.extemp, label: "Extemp" })] }),
-    jsx7(Legend, {}),
-    err ? jsx7(Notice, { tone: "bad", children: err }) : null,
-    jsx7("h3", { className: "ldw-h2", children: `Every ballot · ${hist.length}` }),
-    jsx7("ol", { className: "ldw-blist", children: hist.map((b) => jsx7(BallotRow, { b, onDone: done, open: open === b.index, onToggle: () => setOpen(open === b.index ? null : b.index) }, b.index)) })
+    msg ? jsx8(Notice, { tone: msg.tone, children: msg.text, action: msg.path && api && api.os && typeof api.os.revealPath === "function" ? jsx8(Button7, { size: "sm", variant: "secondary", onClick: () => api.os.revealPath(msg.path), children: "Show the file" }) : null }) : null,
+    jsxs8("div", { className: "ldw-patgrid", children: [jsx8(PatternRows, { group: data.patterns.ld, label: "Lincoln-Douglas" }), jsx8(PatternRows, { group: data.patterns.extemp, label: "Extemp" })] }),
+    jsx8(Legend, {}),
+    err ? jsx8(Notice, { tone: "bad", children: err }) : null,
+    jsx8("h3", { className: "ldw-h2", children: `Every ballot · ${hist.length}` }),
+    jsx8("ol", { className: "ldw-blist", children: hist.map((b) => jsx8(BallotRow, { b, onDone: done, open: open === b.index, onToggle: () => setOpen(open === b.index ? null : b.index) }, b.index)) })
   ] });
 }
 
 // desktop/src/settingsview.js
-import { useState as useState8 } from "react";
-import { Fragment as Fragment6, jsx as jsx8, jsxs as jsxs8 } from "react/jsx-runtime";
-import { Button as Button7, useValue as useValue3 } from "@hermes/plugin-sdk";
+import { useState as useState9 } from "react";
+import { Fragment as Fragment7, jsx as jsx9, jsxs as jsxs9 } from "react/jsx-runtime";
+import { Button as Button8, useValue as useValue4 } from "@hermes/plugin-sdk";
 var MODEL_TEXT = { "base.en": "Faster", "small.en": "More accurate, slower" };
 var mb = (bytes) => `${Math.max(0.1, bytes / 1048576).toFixed(bytes < 10485760 ? 1 : 0)} MB`;
 function Section2({ title, children }) {
-  return jsxs8("section", { className: "ldw-set", "aria-label": title, children: [jsx8("h2", { className: "ldw-set-title", children: title }), jsx8("div", { className: "ldw-set-body", children })] });
+  return jsxs9("section", { className: "ldw-set", "aria-label": title, children: [jsx9("h2", { className: "ldw-set-title", children: title }), jsx9("div", { className: "ldw-set-body", children })] });
 }
 var cloudish = (h) => h.usable && h.local !== true;
 var sendsTo = (h) => h.local === false ? h.label : "the speech-to-text set up in Hermes, which may be a service on the internet";
@@ -2515,8 +2908,8 @@ function hermesLine(h, t) {
   return `Made by ${sendsTo(h)}, as set in Hermes Settings, Voice. A recording goes there only when you press Transcribe now on that take. Every take asks first.`;
 }
 function Transcripts({ t }) {
-  const [busy, setBusy] = useState8(false);
-  const [err, setErr] = useState8(null);
+  const [busy, setBusy] = useState9(false);
+  const [err, setErr] = useState9(null);
   const pick = async (m) => {
     setBusy(true);
     setErr(null);
@@ -2532,21 +2925,21 @@ function Transcripts({ t }) {
   const h = t.hermes || {};
   const cached = (t.cached || {})[t.model];
   const own = t.fallback && (!h.usable || cloudish(h) && Object.values(t.cached || {}).some(Boolean));
-  return jsxs8(Section2, { title: "Transcripts", children: [
-    jsx8("p", { className: "ldw-set-status", "data-ok": t.available ? "" : void 0, children: h.usable ? hermesLine(h, t) : own ? "Made on this computer with faster-whisper. Your recordings stay on it." : "Not set up yet. Every take still gets real timing and pauses." }),
-    own && h.reason === "model" ? jsx8("p", { className: "ldw-set-line", children: `Hermes's own speech-to-text would first download its ${h.model} model, so the workbench uses its own copy, kept in its own folder.` }) : null,
-    cloudish(h) && t.own_ready ? jsx8("p", { className: "ldw-set-line", children: `Hermes Settings, Voice names ${sendsTo(h)}. The workbench uses its own speech model on this computer instead, so nothing is sent.` }) : null,
-    !t.available || !h.usable && !t.fallback ? jsx8(Notice, { tone: "info", children: TRANSCRIPTS_OFF }) : null,
-    own ? jsx8(Choices, { label: "Transcript model", value: t.model, onChange: pick, disabled: busy, options: (t.models || []).map((m) => ({ id: m, label: `${m}: ${MODEL_TEXT[m] || ""}` })) }) : null,
-    own ? jsx8("p", { className: "ldw-set-line", children: cached ? `${t.model} is already on this computer.` : cloudish(h) ? `${t.model} is not on this computer, so each take asks before it goes to ${sendsTo(h)}. Pick a model that is here to keep transcripts on this computer.` : `The first transcript asks before it downloads ${t.model} (about ${(t.mb || {})[t.model] || 150} MB) from huggingface.co into the workbench's own folder, once. After that it works offline.` }) : null,
-    own && t.own_folder_writable === false && !cached ? jsx8(Notice, { tone: "warn", children: "The workbench's folder for the speech model is not writable, so the model cannot be saved. Timing and pauses still work." }) : null,
-    err ? jsx8(Notice, { tone: "bad", children: err }) : null
+  return jsxs9(Section2, { title: "Transcripts", children: [
+    jsx9("p", { className: "ldw-set-status", "data-ok": t.available ? "" : void 0, children: h.usable ? hermesLine(h, t) : own ? "Made on this computer with faster-whisper. Your recordings stay on it." : "Not set up yet. Every take still gets real timing and pauses." }),
+    own && h.reason === "model" ? jsx9("p", { className: "ldw-set-line", children: `Hermes's own speech-to-text would first download its ${h.model} model, so the workbench uses its own copy, kept in its own folder.` }) : null,
+    cloudish(h) && t.own_ready ? jsx9("p", { className: "ldw-set-line", children: `Hermes Settings, Voice names ${sendsTo(h)}. The workbench uses its own speech model on this computer instead, so nothing is sent.` }) : null,
+    !t.available || !h.usable && !t.fallback ? jsx9(Notice, { tone: "info", children: TRANSCRIPTS_OFF }) : null,
+    own ? jsx9(Choices, { label: "Transcript model", value: t.model, onChange: pick, disabled: busy, options: (t.models || []).map((m) => ({ id: m, label: `${m}: ${MODEL_TEXT[m] || ""}` })) }) : null,
+    own ? jsx9("p", { className: "ldw-set-line", children: cached ? `${t.model} is already on this computer.` : cloudish(h) ? `${t.model} is not on this computer, so each take asks before it goes to ${sendsTo(h)}. Pick a model that is here to keep transcripts on this computer.` : `The first transcript asks before it downloads ${t.model} (about ${(t.mb || {})[t.model] || 150} MB) from huggingface.co into the workbench's own folder, once. After that it works offline.` }) : null,
+    own && t.own_folder_writable === false && !cached ? jsx9(Notice, { tone: "warn", children: "The workbench's folder for the speech model is not writable, so the model cannot be saved. Timing and pauses still work." }) : null,
+    err ? jsx9(Notice, { tone: "bad", children: err }) : null
   ] });
 }
 function DeleteWithConfirm({ label, ask, yes, no, disabled, run }) {
-  const [sure, setSure] = useState8(false);
-  const [busy, setBusy] = useState8(false);
-  const [msg, setMsg] = useState8(null);
+  const [sure, setSure] = useState9(false);
+  const [busy, setBusy] = useState9(false);
+  const [msg, setMsg] = useState9(null);
   const go = async () => {
     setBusy(true);
     setMsg(null);
@@ -2559,16 +2952,16 @@ function DeleteWithConfirm({ label, ask, yes, no, disabled, run }) {
       setSure(false);
     }
   };
-  return jsxs8(Fragment6, { children: [
-    !sure ? jsx8("div", { children: jsx8(Button7, { size: "sm", variant: "secondary", disabled, onClick: () => {
+  return jsxs9(Fragment7, { children: [
+    !sure ? jsx9("div", { children: jsx9(Button8, { size: "sm", variant: "secondary", disabled, onClick: () => {
       setMsg(null);
       setSure(true);
     }, children: label }) }) : null,
-    sure ? jsx8(Notice, { tone: "warn", children: ask, action: jsxs8("div", { className: "hk-actions", children: [
-      jsx8(Button7, { size: "sm", variant: "secondary", className: "ldw-danger", loading: busy, onClick: go, children: yes }),
-      jsx8(Button7, { size: "sm", variant: "secondary", onClick: () => setSure(false), children: no })
+    sure ? jsx9(Notice, { tone: "warn", children: ask, action: jsxs9("div", { className: "hk-actions", children: [
+      jsx9(Button8, { size: "sm", variant: "secondary", className: "ldw-danger", loading: busy, onClick: go, children: yes }),
+      jsx9(Button8, { size: "sm", variant: "secondary", onClick: () => setSure(false), children: no })
     ] }) }) : null,
-    msg ? jsx8(Notice, { tone: msg.tone, children: msg.text }) : null
+    msg ? jsx9(Notice, { tone: msg.tone, children: msg.text }) : null
   ] });
 }
 var plural2 = (n, one) => `${n} ${one}${n === 1 ? "" : "s"}`;
@@ -2583,22 +2976,44 @@ function Recordings({ r, kept }) {
     await loadHome();
     return `Deleted ${plural2(d.transcripts, "transcript")} and ${plural2(d.ballots, "ballot")}${d.round_ended ? ", and ended the round in progress" : ""}. Recordings, timing, cases and your extemp file are kept.`;
   };
-  return jsxs8(Section2, { title: "Recordings, transcripts and ballots", children: [
-    jsxs8("p", { className: "ldw-set-line", children: [jsx8("b", { children: String(r.count) }), ` recording${r.count === 1 ? "" : "s"} on this computer, ${mb(r.bytes || 0)}. The newest ${r.keep} are kept; older ones are deleted as you go.`] }),
-    jsx8(DeleteWithConfirm, { label: "Delete all recordings", ask: "Delete every recording? Ballots, timing and transcripts stay.", yes: "Delete them", no: "Keep them", disabled: !r.count, run: wipeAudio }),
-    jsxs8("p", { className: "ldw-set-line", children: [jsx8("b", { children: String(kept.transcripts) }), ` transcript${kept.transcripts === 1 ? "" : "s"} and `, jsx8("b", { children: String(kept.ballots) }), ` ballot${kept.ballots === 1 ? "" : "s"} on this computer.`] }),
-    jsx8(DeleteWithConfirm, { label: "Delete transcripts and ballots", ask: "Delete every transcript and ballot? A round in progress ends. Recordings, timing, cases and your extemp file stay.", yes: "Delete them", no: "Keep them", disabled: !kept.transcripts && !kept.ballots, run: wipeWords })
+  return jsxs9(Section2, { title: "Recordings, transcripts and ballots", children: [
+    jsxs9("p", { className: "ldw-set-line", children: [jsx9("b", { children: String(r.count) }), ` recording${r.count === 1 ? "" : "s"} on this computer, ${mb(r.bytes || 0)}. The newest ${r.keep} are kept; older ones are deleted as you go.`] }),
+    jsx9(DeleteWithConfirm, { label: "Delete all recordings", ask: "Delete every recording? Ballots, timing and transcripts stay.", yes: "Delete them", no: "Keep them", disabled: !r.count, run: wipeAudio }),
+    jsxs9("p", { className: "ldw-set-line", children: [jsx9("b", { children: String(kept.transcripts) }), ` transcript${kept.transcripts === 1 ? "" : "s"} and `, jsx9("b", { children: String(kept.ballots) }), ` ballot${kept.ballots === 1 ? "" : "s"} on this computer.`] }),
+    jsx9(DeleteWithConfirm, { label: "Delete transcripts and ballots", ask: "Delete every transcript and ballot? A round in progress ends. Recordings, timing, cases and your extemp file stay.", yes: "Delete them", no: "Keep them", disabled: !kept.transcripts && !kept.ballots, run: wipeWords })
+  ] });
+}
+function CoachExamples({ on }) {
+  const [busy, setBusy] = useState9(false);
+  const [err, setErr] = useState9(null);
+  const pick = async (v) => {
+    setBusy(true);
+    setErr(null);
+    try {
+      await post("settings", { coach_examples: v === "on" });
+      $coachOn.set(v === "on");
+      await loadHome();
+    } catch (e) {
+      setErr(errText(e));
+    } finally {
+      setBusy(false);
+    }
+  };
+  return jsxs9(Section2, { title: "Coach examples", children: [
+    jsx9(Choices, { label: "Coach examples", value: on ? "on" : "off", onChange: pick, disabled: busy, options: [{ id: "on", label: "On" }, { id: "off", label: "Off" }] }),
+    jsx9("p", { className: "ldw-set-line", children: on ? "After you try something yourself, the coach can show a strong version and make suggestions: a model answer or opening, areas and evidence from your own file, contentions, a value and criterion, a block, a stronger card, three versions of your line, and a redo of the weakest moment on a ballot. Each one is marked as the coach's, and every citation, quote and number in it is checked against your file and your words." : "The coach asks questions, explains and critiques, and writes nothing for you to say. For a room where students write every word. The coach chat still works." }),
+    err ? jsx9(Notice, { tone: "bad", children: err }) : null
   ] });
 }
 function Outlets() {
-  const [saved, setSaved] = useState8(null);
-  const [n, setN] = useState8(0);
-  return jsxs8(Section2, { title: "Headline outlets", children: [
-    jsx8(OutletEditor, { key: n, embedded: true, onClose: (d) => {
+  const [saved, setSaved] = useState9(null);
+  const [n, setN] = useState9(0);
+  return jsxs9(Section2, { title: "Headline outlets", children: [
+    jsx9(OutletEditor, { key: n, embedded: true, onClose: (d) => {
       setSaved(d ? "Saved. The next pull uses these outlets." : null);
       setN(n + 1);
     } }),
-    saved ? jsx8(Notice, { tone: "good", children: saved }) : null
+    saved ? jsx9(Notice, { tone: "good", children: saved }) : null
   ] });
 }
 function voiceLines(t) {
@@ -2618,21 +3033,22 @@ function voiceLines(t) {
   ];
 }
 var LEAVES = [
-  ["Your words", "The words of your speeches go to the model you chose in Hermes, for the opponent, the judge and the coach."],
+  ["Your words", "The words of your speeches go to the model you chose in Hermes, for the opponent, the judge and the coach. When you ask the coach, the headlines and notes in your extemp file go with them, so it can cite them."],
   ["Headlines", "A pull asks Google News, or the outlet’s own feed, for headlines on your topic. Only titles, dates and links come back."],
   ["Hear it", "When you press it, the opponent’s speech goes to the voice you set up in Hermes to be read aloud."],
   ["Web search", "Only in a round you set to internet allowed, when you press Search. Your search words go to the web search you set up in Hermes."],
   ["Saved links", "When you save a link to your file or add one as a topic source, the page is read once to keep its text."]
 ];
 function SettingsView() {
-  const home = useValue3($home);
-  if (!home) return jsx8(Thinking, { label: "Opening Settings" });
-  return jsxs8("div", { className: "ldw-settings", children: [
-    jsx8("h1", { className: "ldw-set-h1", children: "Settings" }),
-    jsx8(Transcripts, { t: home.transcripts || {} }),
-    jsx8(Recordings, { r: home.recordings || { count: 0, bytes: 0, keep: 20 }, kept: { transcripts: home.transcripts_kept || 0, ballots: home.ballots || 0 } }),
-    jsx8(Outlets, {}),
-    jsx8(Section2, { title: "What leaves your computer", children: jsx8("dl", { className: "ldw-leaves", children: voiceLines(home.transcripts).concat(LEAVES).map(([k, v]) => jsxs8(Fragment6, { children: [jsx8("dt", { children: k }), jsx8("dd", { children: v })] }, k)) }) })
+  const home = useValue4($home);
+  if (!home) return jsx9(Thinking, { label: "Opening Settings" });
+  return jsxs9("div", { className: "ldw-settings", children: [
+    jsx9("h1", { className: "ldw-set-h1", children: "Settings" }),
+    jsx9(CoachExamples, { on: !home.settings || home.settings.coach_examples !== false }),
+    jsx9(Transcripts, { t: home.transcripts || {} }),
+    jsx9(Recordings, { r: home.recordings || { count: 0, bytes: 0, keep: 20 }, kept: { transcripts: home.transcripts_kept || 0, ballots: home.ballots || 0 } }),
+    jsx9(Outlets, {}),
+    jsx9(Section2, { title: "What leaves your computer", children: jsx9("dl", { className: "ldw-leaves", children: voiceLines(home.transcripts).concat(LEAVES).map(([k, v]) => jsxs9(Fragment7, { children: [jsx9("dt", { children: k }), jsx9("dd", { children: v })] }, k)) }) })
   ] });
 }
 
@@ -2985,6 +3401,53 @@ button.ldw-brow-main:focus-visible{outline:2px solid var(--hk-accent);outline-of
 .ldw-print-sheet{display:grid;gap:8px;break-inside:avoid}
 @media print{.ldw-print-ballots .ldw-noprint,.ldw-rail{display:none !important}.ldw-print-sheet{break-inside:avoid;page-break-inside:avoid}
   .ldw-print-ballots .ldw-sheet{animation:none;box-shadow:none}.ldw-print-ballots h2,.ldw-print-ballots h3{break-after:avoid}.ldw-print-ballots p,.ldw-print-ballots li{orphans:3;widows:3}}
+/* The coach: its own box for everything it writes, dashed like an insert pinned to the page, with a label that
+   says whose words they are; the chat beside the floor. */
+.ldw-ev-coach{margin-top:16px}
+.ldw-ev-coach b{font-size:16px;display:inline-flex;align-items:center;gap:6px}.ldw-ev-coach b .codicon{font-size:16px !important}
+.ldw-ev-coach[aria-expanded=true]{background:color-mix(in srgb,var(--hk-accent) 9%,transparent)}
+.ldw-frame[data-chat]{grid-template-columns:184px minmax(0,1fr) minmax(300px,360px)}
+.ldw-frame[data-chat]>.ldw-inner{container-type:inline-size}
+.ldw-chat{position:sticky;top:0;align-self:start;height:calc(100vh - 60px);box-sizing:border-box;border-left:1px solid var(--hk-stroke);
+  padding:18px 18px 14px;display:grid;grid-template-rows:auto auto minmax(0,1fr) auto auto;gap:10px;background:var(--hk-bg)}
+.ldw-chat-head{display:flex;align-items:center;justify-content:space-between;gap:10px}.ldw-chat-head .ldw-h2{margin:0}
+.ldw-chat-sees{margin:0;font-size:13.5px;line-height:1.45;padding-bottom:10px;border-bottom:1px solid var(--hk-stroke)}
+.ldw-chat-thread{overflow:auto;display:grid;gap:12px;align-content:start;min-height:120px}
+.ldw-chat-thread .ldw-prose{font-family:inherit;font-size:14px;line-height:1.55}
+.ldw-chat-foot{margin:0;font-size:12.5px;line-height:1.45}
+@container (max-width:900px){.ldw-frame[data-chat]{grid-template-columns:1fr}
+  .ldw-chat{position:sticky;bottom:0;top:auto;height:auto;max-height:60vh;border-left:0;border-top:1px solid var(--hk-stroke-strong);box-shadow:0 -6px 18px color-mix(in srgb,var(--hk-ink) 12%,transparent)}
+  .ldw-ev-coach{margin-top:0}.ldw-ev-coach b{font-size:17px}}
+
+.ldw-coachbox{border:1.5px dashed var(--hk-stroke-strong);border-radius:var(--ldw-r);padding:14px 16px;display:grid;gap:9px;max-width:760px;box-sizing:border-box;min-width:0}
+.ldw-coachbox-head{display:flex;align-items:baseline;gap:4px 14px;flex-wrap:wrap}
+.ldw-coachbox-label{font-family:var(--hk-mono);font-size:12px;font-weight:800;letter-spacing:.12em;text-transform:uppercase}
+.ldw-coachbox-sub{font-size:13.5px}
+.ldw-coachbox-close{margin-left:auto}
+.ldw-coachbox-said{margin:2px 0}
+.ldw-coachbox-h{margin:4px 0 0;font-size:13px;font-weight:700}
+.ldw-coachbox-notes{margin:0;padding-left:20px;display:grid;gap:4px;font-size:14.5px;line-height:1.5}
+.ldw-coachbox-kept{margin:0;font-size:14px;line-height:1.5}
+.ldw-coachbox-check{margin:2px 0 0;padding-top:8px;border-top:1px dashed var(--hk-stroke);font-size:13px;line-height:1.45}
+.ldw-coachask{display:flex;align-items:center;gap:8px 14px;flex-wrap:wrap}.ldw-coachask .ldw-meta{font-size:13.5px}
+.ldw-coachask-row{margin-top:10px}
+.ldw-redo-row{display:grid;grid-template-columns:142px minmax(0,1fr);gap:12px;align-items:baseline}.ldw-redo-row p{margin:0}
+.ldw-redo-k{font-family:var(--hk-mono);font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase}
+@container (max-width:620px){.ldw-redo-row{grid-template-columns:1fr;gap:2px}}
+.ldw-prep-main{display:grid;gap:18px;min-width:0}
+.ldw-prepcoach{display:grid;gap:10px;padding-top:14px;border-top:1px solid var(--hk-stroke)}
+.ldw-prepcoach-row{display:flex;gap:8px 12px;align-items:center;flex-wrap:wrap}.ldw-prepcoach-row .ldw-why-off,.ldw-prepcoach-row .ldw-meta{margin:0;font-size:13.5px;flex:1;min-width:220px}
+.ldw-prepcoach-row .ldw-topic{flex:1;min-width:220px}
+.ldw-areas{margin:0;padding-left:22px;display:grid;gap:12px;list-style:decimal}.ldw-areas>li{display:list-item}.ldw-areas>li>*+*{margin-top:3px}.ldw-areas p{margin:0;font-size:14.5px;line-height:1.5}
+.ldw-areas b{font-size:15px}
+.ldw-areas-src{font-family:var(--ldw-serif)}
+.ldw-areas-cite{font-family:var(--hk-mono);font-size:12.5px;font-weight:700}
+.ldw-areas.ldw-picks{list-style:none;padding-left:0}
+.ldw-versions{margin:0;padding-left:22px;display:grid;gap:10px;list-style:decimal}.ldw-versions p{margin:0}
+.ldw-drafts{margin:0;padding:0;list-style:none;display:grid;gap:14px}.ldw-drafts>li{display:grid;gap:4px}.ldw-drafts b{font-size:14.5px}
+.ldw-draft-text .ldw-prose{font-size:14.5px;line-height:1.55}.ldw-draft-text ol{list-style:decimal}.ldw-draft-text ul{list-style:disc}
+.ldw-attackbox{display:grid;gap:8px;max-width:680px}
+.ldw-sheet .ldw-coachbox{margin-top:12px;max-width:none;border-color:var(--ldw-paper-rule)}.ldw-sheet .ldw-coachbox-check{border-top-color:var(--ldw-paper-rule)}
 `;
 
 // desktop/src/plugin.js
@@ -3027,6 +3490,19 @@ var SECTION_TOOLS = {
   Blocks: ["attack", "coach"],
   "Other material": ["coach", "notes"]
 };
+var SUGGEST = {
+  "Contention 1": ["contentions", "card"],
+  "Contention 2": ["contentions", "card"],
+  "Contention 3": ["contentions", "card"],
+  Value: ["framework"],
+  Criterion: ["framework"],
+  Blocks: ["block", "card"],
+  Definitions: ["card"],
+  "Other material": ["card"]
+};
+var SUGGEST_LABEL = { contentions: "Suggest contentions", framework: "Suggest a value and criterion", block: "Write a block to an attack", card: "Strengthen this card" };
+var $sectionPush = atom5(null);
+var unmark = (t) => String(t || "").replace(/\s*\[\[not-(?:found|in-file)\]\]/g, " [check this: not in your case]");
 var PATH = [
   { title: "Understand the resolution", short: "Resolution", desc: "What it asks, and what each key word means", sections: ["Resolution analysis", "Definitions"], tool: "breakdown" },
   { title: "Build the framework", short: "Framework", desc: "Your value and the criterion that measures it", sections: ["Value", "Criterion"], tool: "values" },
@@ -3049,17 +3525,17 @@ function Board({ r }) {
   });
   const ballotState = !r ? "later" : r.phase === "ballot" || r.phase === "judging" ? "now" : "later";
   segs.push({ key: "ballot", code: "Ballot", sub: r && r.ballots.length ? `${r.ballots.length} written` : "Judge", minutes: 2.4, state: ballotState, min: 76 });
-  return jsx9(Strip, { segments: segs, label: "The round, drawn to scale in time" });
+  return jsx10(Strip, { segments: segs, label: "The round, drawn to scale in time" });
 }
 function usePrep(r) {
-  const [left, setLeft] = useState9(r ? r.prep : 0);
-  const [running, setRunning] = useState9(false);
-  const ref = useRef5(left);
+  const [left, setLeft] = useState10(r ? r.prep : 0);
+  const [running, setRunning] = useState10(false);
+  const ref = useRef6(left);
   ref.current = left;
-  useEffect7(() => {
+  useEffect8(() => {
     if (!running && r) setLeft(r.prep);
   }, [r && r.prep, r && r.round_no]);
-  useEffect7(() => {
+  useEffect8(() => {
     if (!running) return void 0;
     const id = setInterval(() => setLeft((v) => {
       if (v <= 1) {
@@ -3070,7 +3546,7 @@ function usePrep(r) {
     }), 1e3);
     return () => clearInterval(id);
   }, [running]);
-  useEffect7(() => {
+  useEffect8(() => {
     if (!running && r && left < r.prep) post("round/prep", { left: ref.current }).then(setRound, () => {
     });
   }, [running]);
@@ -3080,13 +3556,13 @@ function usePrep(r) {
   }, stop: () => setRunning(false) };
 }
 function useCountdown(seconds, key) {
-  const [left, setLeft] = useState9(seconds);
-  const [running, setRunning] = useState9(false);
-  useEffect7(() => {
+  const [left, setLeft] = useState10(seconds);
+  const [running, setRunning] = useState10(false);
+  useEffect8(() => {
     setLeft(seconds);
     setRunning(false);
   }, [key]);
-  useEffect7(() => {
+  useEffect8(() => {
     if (!running) return void 0;
     const id = setInterval(() => setLeft((v) => v - 1), 1e3);
     return () => clearInterval(id);
@@ -3094,14 +3570,14 @@ function useCountdown(seconds, key) {
   return { left, running, total: seconds, start: () => setRunning(true), pause: () => setRunning(false) };
 }
 function ClockPanel({ big, label, rows = [], primary, clock, prep, over, extra, limit, elapsed, go, beside }) {
-  const face = limit ? jsx9(Clock, { limit, elapsed: elapsed || 0, label }) : jsxs9("div", { className: "ldw-clockface", children: [
-    jsx9("div", { className: "ldw-clock-label", children: label }),
-    jsx9("div", { className: cls("ldw-bigclock", over && "ldw-over"), role: "timer", "aria-live": "off", children: big })
+  const face = limit ? jsx10(Clock, { limit, elapsed: elapsed || 0, label }) : jsxs10("div", { className: "ldw-clockface", children: [
+    jsx10("div", { className: "ldw-clock-label", children: label }),
+    jsx10("div", { className: cls("ldw-bigclock", over && "ldw-over"), role: "timer", "aria-live": "off", children: big })
   ] });
-  return jsxs9("section", { className: cls("ldw-clock ldw-stage2", beside && "ldw-stage3"), "aria-label": "Clock", children: [
-    jsxs9("div", { className: "ldw-ldface", children: [
+  return jsxs10("section", { className: cls("ldw-clock ldw-stage2", beside && "ldw-stage3"), "aria-label": "Clock", children: [
+    jsxs10("div", { className: "ldw-ldface", children: [
       face,
-      clock ? jsx9("button", {
+      clock ? jsx10("button", {
         type: "button",
         className: "hk-link",
         onClick: clock.running ? clock.pause : clock.start,
@@ -3109,13 +3585,13 @@ function ClockPanel({ big, label, rows = [], primary, clock, prep, over, extra, 
       }) : null
     ] }),
     beside || null,
-    jsxs9("div", { className: "ldw-ldside", children: [
+    jsxs10("div", { className: "ldw-ldside", children: [
       go || null,
       primary || null,
-      prep ? jsxs9("div", { className: "ldw-preprow", children: [
-        jsx9("span", { children: "Prep left" }),
-        jsx9("b", { className: "ldw-num", children: mmss(prep.left) }),
-        jsx9("button", {
+      prep ? jsxs10("div", { className: "ldw-preprow", children: [
+        jsx10("span", { children: "Prep left" }),
+        jsx10("b", { className: "ldw-num", children: mmss(prep.left) }),
+        jsx10("button", {
           type: "button",
           className: "hk-link",
           onClick: prep.toggle,
@@ -3123,53 +3599,53 @@ function ClockPanel({ big, label, rows = [], primary, clock, prep, over, extra, 
           children: prep.running ? "Stop prep" : prep.left > 0 ? "Use prep" : "None left"
         })
       ] }) : null,
-      rows.length ? jsx9("dl", { className: "ldw-rows", children: rows.map(([k, v]) => jsxs9(Fragment7, { children: [jsx9("dt", { children: k }), jsx9("dd", { children: v })] }, k)) }) : null,
+      rows.length ? jsx10("dl", { className: "ldw-rows", children: rows.map(([k, v]) => jsxs10(Fragment8, { children: [jsx10("dt", { children: k }), jsx10("dd", { children: v })] }, k)) }) : null,
       extra || null
     ] })
   ] });
 }
-var BigButton = ({ primary, icon, children, ...rest2 }) => jsx9(Button8, {
+var BigButton = ({ primary, icon, children, ...rest2 }) => jsx10(Button9, {
   variant: primary ? "default" : "secondary",
   className: cls("ldw-big", primary && "ldw-primary"),
   ...rest2,
-  children: jsxs9(Fragment7, { children: [icon ? jsx9(Codicon7, { name: icon }) : null, children] })
+  children: jsxs10(Fragment8, { children: [icon ? jsx10(Codicon8, { name: icon }) : null, children] })
 });
-var StageHead = ({ title, sub }) => jsxs9("div", { className: "ldw-stagehead", children: [
-  jsx9("h2", { className: "ldw-h2", children: title }),
-  sub ? jsx9("span", { className: "ldw-meta", children: sub }) : null
+var StageHead = ({ title, sub }) => jsxs10("div", { className: "ldw-stagehead", children: [
+  jsx10("h2", { className: "ldw-h2", children: title }),
+  sub ? jsx10("span", { className: "ldw-meta", children: sub }) : null
 ] });
 var fastJudge = (r) => ["flow", "circuit"].includes(r && r.judge);
 function FlowBeside({ r, onHide }) {
   const cols = stops().filter((s) => s.kind === "speech" && r.transcript.some((t) => t.id === s.id));
-  return jsxs9("section", { className: "ldw-flowside", "aria-label": "The flow so far", children: [
-    jsxs9("div", { className: "ldw-flowside-head", children: [
-      jsx9("h3", { className: "ldw-h3", children: "The flow so far" }),
-      jsx9("button", { type: "button", className: "hk-link", onClick: onHide, children: "Hide the flow" })
+  return jsxs10("section", { className: "ldw-flowside", "aria-label": "The flow so far", children: [
+    jsxs10("div", { className: "ldw-flowside-head", children: [
+      jsx10("h3", { className: "ldw-h3", children: "The flow so far" }),
+      jsx10("button", { type: "button", className: "hk-link", onClick: onHide, children: "Hide the flow" })
     ] }),
-    jsx9("div", { className: "ldw-flowside-cols", style: { gridTemplateColumns: `repeat(${cols.length}, minmax(0, 1fr))` }, children: cols.map((s) => jsxs9("div", { className: "ldw-flowside-col", children: [
-      jsxs9("div", { className: "ldw-flowside-th", children: [jsx9("b", { children: s.id }), jsx9("span", { children: speakerOf(s, r.side) === "student" ? "You" : "Opp" })] }),
-      ...(r.flow[s.id] || []).map((p, i) => jsx9("div", { className: "ldw-flowside-pt", children: p }, i)),
-      !r.flow[s.id] ? jsx9("span", { className: "ldw-meta", children: "Flowing..." }) : null
+    jsx10("div", { className: "ldw-flowside-cols", style: { gridTemplateColumns: `repeat(${cols.length}, minmax(0, 1fr))` }, children: cols.map((s) => jsxs10("div", { className: "ldw-flowside-col", children: [
+      jsxs10("div", { className: "ldw-flowside-th", children: [jsx10("b", { children: s.id }), jsx10("span", { children: speakerOf(s, r.side) === "student" ? "You" : "Opp" })] }),
+      ...(r.flow[s.id] || []).map((p, i) => jsx10("div", { className: "ldw-flowside-pt", children: p }, i)),
+      !r.flow[s.id] ? jsx10("span", { className: "ldw-meta", children: "Flowing..." }) : null
     ] }, s.id)) })
   ] });
 }
 function StudentSpeech({ r, stop, flowBeside, onHideFlow }) {
-  const [text, setText] = useState9(r.drafts[stop.id] || "");
-  const [busy, setBusy] = useState9(false);
-  const [err, setErr] = useState9(null);
-  const [take, setTake] = useState9(null);
-  const [undo, setUndo] = useState9(null);
+  const [text, setText] = useState10(r.drafts[stop.id] || "");
+  const [busy, setBusy] = useState10(false);
+  const [err, setErr] = useState10(null);
+  const [take, setTake] = useState10(null);
+  const [undo, setUndo] = useState10(null);
   const target = stop.minutes * 60;
   const clock = useCountdown(target, `${r.round_no}-${stop.id}`);
   const prep = usePrep(r);
-  const timer = useRef5(null);
-  const merged = useRef5(null);
+  const timer = useRef6(null);
+  const merged = useRef6(null);
   const save = (v) => {
     clearTimeout(timer.current);
     timer.current = setTimeout(() => post("round/draft", { speech_id: stop.id, text: v }).catch(() => {
     }), 700);
   };
-  useEffect7(() => () => clearTimeout(timer.current), []);
+  useEffect8(() => () => clearTimeout(timer.current), []);
   const change = (v) => {
     setText(v);
     save(v);
@@ -3184,7 +3660,7 @@ function StudentSpeech({ r, stop, flowBeside, onHideFlow }) {
     }
   } });
   const recording = rec.state === "live" || rec.state === "armed";
-  useEffect7(() => {
+  useEffect8(() => {
     if (take && take.transcript.status === "done" && take.transcript.text && merged.current !== take.id) {
       merged.current = take.id;
       setUndo(text.trim() ? text : null);
@@ -3214,55 +3690,55 @@ function StudentSpeech({ r, stop, flowBeside, onHideFlow }) {
   const shown = recording ? target - rec.elapsed : clock.left;
   const length = real !== null ? real : spoken;
   const pace = !text.trim() && real === null ? "Not started" : length > target ? `${mmss(length - target)} too long` : length < target * 0.6 ? "Short" : "On time";
-  return jsxs9(Fragment7, { children: [
-    jsx9(ClockPanel, {
+  return jsxs10(Fragment8, { children: [
+    jsx10(ClockPanel, {
       limit: target,
       elapsed: target - shown,
       label: `${stop.id} · your speech`,
       clock: recording ? null : clock,
       prep: recording ? null : prep,
-      beside: flowBeside && r.transcript.some((t) => t.speaker === "ai") ? jsx9(FlowBeside, { r, onHide: onHideFlow }) : null,
-      go: jsx9(SpeakControls, { rec, startLabel: `Speak your ${stop.id}`, onTyped: (t) => change(text.trim() ? `${text}
+      beside: flowBeside && r.transcript.some((t) => t.speaker === "ai") ? jsx10(FlowBeside, { r, onHide: onHideFlow }) : null,
+      go: jsx10(SpeakControls, { rec, startLabel: `Speak your ${stop.id}`, onTyped: (t) => change(text.trim() ? `${text}
 
 ${t}` : t) }),
       rows: recording ? [] : [["Pace", pace], real !== null ? ["Spoken length", `${mmss(real)}, recorded`] : ["Spoken length", `about ${mmss(spoken)}, estimated`]],
-      primary: recording ? null : jsx9(BigButton, { icon: "arrow-right", onClick: finish, loading: busy, disabled: take && ["waiting", "working"].includes(take.transcript.status), children: "Finish speech" })
+      primary: recording ? null : jsx10(BigButton, { icon: "arrow-right", onClick: finish, loading: busy, disabled: take && ["waiting", "working"].includes(take.transcript.status), children: "Finish speech" })
     }),
-    jsxs9("section", { className: "ldw-panel ldw-stage", "aria-label": "Your speech", children: [
-      jsx9(StageHead, { title: `Your ${stop.id}`, sub: stop.name }),
-      jsx9("p", { className: "ldw-goal", children: ($cfg.get().speech_goals || {})[stop.id] }),
-      recording ? jsx9(LiveWave, { rec, limit: target }) : null,
-      take && !recording ? jsx9(LastTake, { take, limit: target, title: `Your ${stop.id}, spoken`, onChange: setTake, fastOk: fastJudge(r) }) : null,
-      undo !== null ? jsx9(Notice, {
+    jsxs10("section", { className: "ldw-panel ldw-stage", "aria-label": "Your speech", children: [
+      jsx10(StageHead, { title: `Your ${stop.id}`, sub: stop.name }),
+      jsx10("p", { className: "ldw-goal", children: ($cfg.get().speech_goals || {})[stop.id] }),
+      recording ? jsx10(LiveWave, { rec, limit: target }) : null,
+      take && !recording ? jsx10(LastTake, { take, limit: target, title: `Your ${stop.id}, spoken`, onChange: setTake, fastOk: fastJudge(r) }) : null,
+      undo !== null ? jsx10(Notice, {
         tone: "info",
         children: "What you said is in the box. Fix any words the transcript got wrong.",
-        action: jsx9(Button8, { size: "sm", variant: "secondary", onClick: () => {
+        action: jsx10(Button9, { size: "sm", variant: "secondary", onClick: () => {
           change(undo);
           setUndo(null);
         }, children: "Bring back my typed draft" })
       }) : null,
-      jsx9(Textarea4, {
+      jsx10(Textarea5, {
         className: "ldw-speechbox",
         "aria-label": `Your ${stop.id}`,
         value: text,
         onChange: (e) => change(e.target.value),
         placeholder: "Speak it, or type it here. Signpost as you go: 'Off the top, framework.' 'On their first contention...'"
       }),
-      err ? jsx9(Notice, { tone: "bad", children: err }) : null,
-      jsx9("span", { className: "ldw-meta", children: `${words(text)} words${real === null ? ` · about ${mmss(spoken)} aloud at ${WPM} words a minute, estimated` : ""}` })
+      err ? jsx10(Notice, { tone: "bad", children: err }) : null,
+      jsx10("span", { className: "ldw-meta", children: `${words(text)} words${real === null ? ` · about ${mmss(spoken)} aloud at ${WPM} words a minute, estimated` : ""}` })
     ] })
   ] });
 }
 function OpponentSpeech({ r, stop }) {
   const pending = r.pending_ai && r.pending_ai.id === stop.id ? r.pending_ai.text : null;
-  const [err, setErr] = useState9(null);
-  const [busy, setBusy] = useState9(false);
+  const [err, setErr] = useState10(null);
+  const [busy, setBusy] = useState10(false);
   const prep = usePrep(r);
   const ask = () => {
     setErr(null);
     post("round/opponent").then(setRound, (e) => setErr(errText(e)));
   };
-  useEffect7(() => {
+  useEffect8(() => {
     if (!pending) ask();
   }, [r.round_no, stop.id]);
   const next = async () => {
@@ -3276,38 +3752,38 @@ function OpponentSpeech({ r, stop }) {
       setBusy(false);
     }
   };
-  return jsxs9(Fragment7, { children: [
-    jsx9(ClockPanel, {
+  return jsxs10(Fragment8, { children: [
+    jsx10(ClockPanel, {
       limit: ($cfg.get().prep_minutes || 4) * 60,
       elapsed: ($cfg.get().prep_minutes || 4) * 60 - prep.left,
       label: `Your prep · opponent's ${stop.id}`,
       prep,
       rows: [["Speech time", mmss(stop.minutes * 60)]],
-      primary: jsx9(BigButton, { primary: true, icon: "arrow-right", disabled: !pending, loading: busy, onClick: next, children: "Continue" })
+      primary: jsx10(BigButton, { primary: true, icon: "arrow-right", disabled: !pending, loading: busy, onClick: next, children: "Continue" })
     }),
-    jsxs9("section", { className: "ldw-panel ldw-stage", "aria-label": "Opponent's speech", children: [
-      jsx9(StageHead, { title: `Opponent's ${stop.id}`, sub: stop.name }),
-      err ? jsx9(Failure, { title: "The opponent could not speak", body: err, onRetry: ask }) : null,
-      !pending && !err ? jsx9(Thinking, { label: "Your opponent is writing the speech" }) : null,
-      pending ? jsxs9(Fragment7, { children: [
-        jsx9(Listen, { id: stop.id }),
-        jsx9("div", { className: "ldw-speech", children: renderText(pending) }),
-        jsx9("div", { className: "ldw-meta", children: `${words(pending)} words · about ${mmss(words(pending) / WPM * 60)} spoken. Flow it as you read or listen.` }),
-        jsx9(SpotSpeech, { r, id: stop.id })
+    jsxs10("section", { className: "ldw-panel ldw-stage", "aria-label": "Opponent's speech", children: [
+      jsx10(StageHead, { title: `Opponent's ${stop.id}`, sub: stop.name }),
+      err ? jsx10(Failure, { title: "The opponent could not speak", body: err, onRetry: ask }) : null,
+      !pending && !err ? jsx10(Thinking, { label: "Your opponent is writing the speech" }) : null,
+      pending ? jsxs10(Fragment8, { children: [
+        jsx10(Listen, { id: stop.id }),
+        jsx10("div", { className: "ldw-speech", children: renderText(pending) }),
+        jsx10("div", { className: "ldw-meta", children: `${words(pending)} words · about ${mmss(words(pending) / WPM * 60)} spoken. Flow it as you read or listen.` }),
+        jsx10(SpotSpeech, { r, id: stop.id })
       ] }) : null
     ] })
   ] });
 }
 function Listen({ id }) {
-  const [state, setState] = useState9("idle");
-  const [err, setErr] = useState9(null);
-  const [playing, setPlaying] = useState9(false);
-  const [rate, setRate] = useState9("1");
-  const [t, setT] = useState9({ at: 0, of: 0 });
-  const audio = useRef5(null);
-  const urls = useRef5([]);
-  const part = useRef5(0);
-  useEffect7(() => () => {
+  const [state, setState] = useState10("idle");
+  const [err, setErr] = useState10(null);
+  const [playing, setPlaying] = useState10(false);
+  const [rate, setRate] = useState10("1");
+  const [t, setT] = useState10({ at: 0, of: 0 });
+  const audio = useRef6(null);
+  const urls = useRef6([]);
+  const part = useRef6(0);
+  useEffect8(() => () => {
     try {
       audio.current && audio.current.pause();
     } catch (e) {
@@ -3364,8 +3840,8 @@ function Listen({ id }) {
     setRate(v);
     if (audio.current) audio.current.playbackRate = Number(v);
   };
-  return jsxs9("div", { className: "ldw-listen", children: [
-    jsx9("audio", {
+  return jsxs10("div", { className: "ldw-listen", children: [
+    jsx10("audio", {
       ref: audio,
       preload: "auto",
       onEnded: ended,
@@ -3374,28 +3850,28 @@ function Listen({ id }) {
       },
       onTimeUpdate: (e) => setT({ at: e.currentTarget.currentTime || 0, of: e.currentTarget.duration || 0 })
     }),
-    state !== "ready" ? jsx9(Button8, {
+    state !== "ready" ? jsx10(Button9, {
       variant: "secondary",
       size: "sm",
       loading: state === "loading",
       onClick: load2,
-      children: jsxs9(Fragment7, { children: [jsx9(Codicon7, { name: "unmute" }), state === "loading" ? "Getting the voice ready" : "Hear it"] })
+      children: jsxs10(Fragment8, { children: [jsx10(Codicon8, { name: "unmute" }), state === "loading" ? "Getting the voice ready" : "Hear it"] })
     }) : null,
-    state === "ready" ? jsx9(Button8, {
+    state === "ready" ? jsx10(Button9, {
       variant: "secondary",
       size: "sm",
       onClick: () => playing ? pause() : play(),
-      children: jsxs9(Fragment7, { children: [jsx9(Codicon7, { name: playing ? "debug-pause" : "play" }), playing ? "Pause" : "Play"] })
+      children: jsxs10(Fragment8, { children: [jsx10(Codicon8, { name: playing ? "debug-pause" : "play" }), playing ? "Pause" : "Play"] })
     }) : null,
-    state === "ready" ? jsx9(Choices, { value: rate, onChange: speed, label: "Speed", options: [{ id: "1", label: "1x" }, { id: "1.25", label: "1.25x" }] }) : null,
-    state === "ready" && t.of && isFinite(t.of) ? jsx9("span", { className: "ldw-num ldw-meta", children: `${mmss(t.at)} / ${mmss(t.of)}` }) : null,
-    err ? jsx9(Notice, { tone: "warn", children: err }) : null
+    state === "ready" ? jsx10(Choices, { value: rate, onChange: speed, label: "Speed", options: [{ id: "1", label: "1x" }, { id: "1.25", label: "1.25x" }] }) : null,
+    state === "ready" && t.of && isFinite(t.of) ? jsx10("span", { className: "ldw-num ldw-meta", children: `${mmss(t.at)} / ${mmss(t.of)}` }) : null,
+    err ? jsx10(Notice, { tone: "warn", children: err }) : null
   ] });
 }
 function SpotSpeech({ r, id }) {
-  const [text, setText] = useState9((r.spots || {})[id] || null);
-  const [busy, setBusy] = useState9(false);
-  const [err, setErr] = useState9(null);
+  const [text, setText] = useState10((r.spots || {})[id] || null);
+  const [busy, setBusy] = useState10(false);
+  const [err, setErr] = useState10(null);
   const go = async () => {
     setBusy(true);
     setErr(null);
@@ -3407,36 +3883,36 @@ function SpotSpeech({ r, id }) {
       setBusy(false);
     }
   };
-  return jsxs9("div", { className: "hk-stack", children: [
-    !text ? jsx9("div", { children: jsx9(Button8, {
+  return jsxs10("div", { className: "hk-stack", children: [
+    !text ? jsx10("div", { children: jsx10(Button9, {
       variant: "secondary",
       size: "sm",
       loading: busy,
       onClick: go,
-      children: jsxs9(Fragment7, { children: [jsx9(Codicon7, { name: "search" }), "Spot fallacies"] })
+      children: jsxs10(Fragment8, { children: [jsx10(Codicon8, { name: "search" }), "Spot fallacies"] })
     }) }) : null,
-    busy ? jsx9(Thinking, { label: "Looking for fallacies" }) : null,
-    err ? jsx9(Notice, { tone: "bad", children: err }) : null,
-    text ? jsx9(FallaciesFound, { text, where: "in the speech" }) : null
+    busy ? jsx10(Thinking, { label: "Looking for fallacies" }) : null,
+    err ? jsx10(Notice, { tone: "bad", children: err }) : null,
+    text ? jsx10(FallaciesFound, { text, where: "in the speech" }) : null
   ] });
 }
 function FallaciesFound({ text, where }) {
   const missing = notFoundCount(text);
-  return jsxs9("div", { className: "ldw-helper", children: [
-    jsx9("h3", { className: "ldw-h3", children: "Fallacies found" }),
-    jsx9("p", { className: "ldw-meta", children: missing ? `Every quote was checked against the text. ${missing === 1 ? "One was" : `${missing} were`} not found ${where}: it is marked. Do not use it until you find the real words.` : `Every quote was checked: each one is ${where}, word for word.` }),
-    jsx9("div", { className: "ldw-helper-body", children: renderChecked(text, `Not found ${where}. Check it before you use it.`) })
+  return jsxs10("div", { className: "ldw-helper", children: [
+    jsx10("h3", { className: "ldw-h3", children: "Fallacies found" }),
+    jsx10("p", { className: "ldw-meta", children: missing ? `Every quote was checked against the text. ${missing === 1 ? "One was" : `${missing} were`} not found ${where}: it is marked. Do not use it until you find the real words.` : `Every quote was checked: each one is ${where}, word for word.` }),
+    jsx10("div", { className: "ldw-helper-body", children: renderChecked(text, `Not found ${where}. Check it before you use it.`) })
   ] });
 }
 function CrossEx({ r, stop }) {
   const studentAsks = speakerOf(stop, r.side) === "student";
   const log = r.cx[stop.id] || [];
-  const [text, setText] = useState9("");
-  const [busy, setBusy] = useState9(false);
-  const [err, setErr] = useState9(null);
+  const [text, setText] = useState10("");
+  const [busy, setBusy] = useState10(false);
+  const [err, setErr] = useState10(null);
   const clock = useCountdown(stop.minutes * 60, `${r.round_no}-${stop.id}`);
   const prep = usePrep(r);
-  const box = useRef5(null);
+  const box = useRef6(null);
   const send = async (body) => {
     setBusy(true);
     setErr(null);
@@ -3449,10 +3925,10 @@ function CrossEx({ r, stop }) {
       setBusy(false);
     }
   };
-  useEffect7(() => {
+  useEffect8(() => {
     if (!studentAsks && !log.length) send({});
   }, [r.round_no, stop.id]);
-  useEffect7(() => {
+  useEffect8(() => {
     if (box.current) box.current.scrollTop = box.current.scrollHeight;
   }, [log.length, busy]);
   const submit = () => {
@@ -3470,29 +3946,29 @@ function CrossEx({ r, stop }) {
       setErr(errText(e));
     }
   };
-  return jsxs9(Fragment7, { children: [
-    jsx9(ClockPanel, {
+  return jsxs10(Fragment8, { children: [
+    jsx10(ClockPanel, {
       limit: stop.minutes * 60,
       elapsed: stop.minutes * 60 - clock.left,
       label: `Cross-ex · ${studentAsks ? "you ask" : "opponent asks"}`,
       clock,
       prep,
       rows: [["Exchanges", String(log.length)]],
-      primary: jsx9(BigButton, { primary: true, icon: "arrow-right", onClick: end, children: "End cross-ex" })
+      primary: jsx10(BigButton, { primary: true, icon: "arrow-right", onClick: end, children: "End cross-ex" })
     }),
-    jsxs9("section", { className: "ldw-panel ldw-stage", "aria-label": "Cross-examination", children: [
-      jsx9(StageHead, { title: "Cross-examination", sub: studentAsks ? "You ask the questions" : "The opponent questions you" }),
-      jsx9("p", { className: "ldw-goal", children: studentAsks ? "Ask short questions that set up your next speech: pin down a definition, expose a missing warrant, get a concession on framework. Do not argue; ask." : "Answer honestly and briefly. Do not give a speech. Your answers are binding and the opponent will use them." }),
-      jsxs9("div", { className: "ldw-cx", ref: box, children: [
-        ...log.map((t, i) => jsxs9("div", { className: "ldw-cx-turn", "data-q": t.q ? "1" : "0", "data-you": t.who === r.side ? "1" : "0", children: [
-          jsx9("span", { className: "ldw-who", children: `${t.who === r.side ? "You" : "Opponent"}, ${t.q ? "question" : "answer"}` }),
-          jsx9("p", { children: t.text })
+    jsxs10("section", { className: "ldw-panel ldw-stage", "aria-label": "Cross-examination", children: [
+      jsx10(StageHead, { title: "Cross-examination", sub: studentAsks ? "You ask the questions" : "The opponent questions you" }),
+      jsx10("p", { className: "ldw-goal", children: studentAsks ? "Ask short questions that set up your next speech: pin down a definition, expose a missing warrant, get a concession on framework. Do not argue; ask." : "Answer honestly and briefly. Do not give a speech. Your answers are binding and the opponent will use them." }),
+      jsxs10("div", { className: "ldw-cx", ref: box, children: [
+        ...log.map((t, i) => jsxs10("div", { className: "ldw-cx-turn", "data-q": t.q ? "1" : "0", "data-you": t.who === r.side ? "1" : "0", children: [
+          jsx10("span", { className: "ldw-who", children: `${t.who === r.side ? "You" : "Opponent"}, ${t.q ? "question" : "answer"}` }),
+          jsx10("p", { children: t.text })
         ] }, i)),
-        busy ? jsx9(Thinking, { label: studentAsks ? "The opponent is answering" : "The opponent is thinking" }) : null
+        busy ? jsx10(Thinking, { label: studentAsks ? "The opponent is answering" : "The opponent is thinking" }) : null
       ] }),
-      err ? jsx9(Notice, { tone: "bad", children: err }) : null,
-      jsxs9("div", { className: "ldw-ask", children: [
-        jsx9(Textarea4, {
+      err ? jsx10(Notice, { tone: "bad", children: err }) : null,
+      jsxs10("div", { className: "ldw-ask", children: [
+        jsx10(Textarea5, {
           "aria-label": studentAsks ? "Your question" : "Your answer",
           value: text,
           placeholder: studentAsks ? "Your question" : "Your answer",
@@ -3504,49 +3980,49 @@ function CrossEx({ r, stop }) {
             }
           }
         }),
-        jsx9(Button8, { onClick: submit, disabled: busy || !text.trim(), "aria-label": "Send", children: jsx9(Codicon7, { name: "send" }) })
+        jsx10(Button9, { onClick: submit, disabled: busy || !text.trim(), "aria-label": "Send", children: jsx10(Codicon8, { name: "send" }) })
       ] })
     ] })
   ] });
 }
 function PaperBallot({ b, roundNo }) {
-  const [open, setOpen] = useState9(false);
+  const [open, setOpen] = useState10(false);
   if (!b) {
-    return jsxs9("section", { className: "ldw-panel ldw-side", "aria-label": "Last ballot", children: [
-      jsx9("h2", { className: "ldw-h3", children: "Last ballot" }),
-      jsx9(Empty, { icon: "law", title: "No ballot yet", body: "Finish a round and the judge's ballot lands here, with the lines that decided it and three drills." })
+    return jsxs10("section", { className: "ldw-panel ldw-side", "aria-label": "Last ballot", children: [
+      jsx10("h2", { className: "ldw-h3", children: "Last ballot" }),
+      jsx10(Empty, { icon: "law", title: "No ballot yet", body: "Finish a round and the judge's ballot lands here, with the lines that decided it and three drills." })
     ] });
   }
   const pts = b.speaker_points || {};
   const first = (b.decisive || [])[0];
   const reason = clip(b.reason, 220);
-  return jsxs9("section", { className: "ldw-panel ldw-side", "aria-label": "Last ballot", children: [
-    jsx9("h2", { className: "ldw-h3", children: `Last ballot · round ${b.round_no || roundNo || ""}` }),
-    jsxs9("article", { className: "ldw-paper", children: [
-      jsxs9("div", { className: "ldw-paper-top", children: [jsx9("span", { children: "Lincoln-Douglas ballot" }), jsx9("span", { children: b.judge })] }),
-      jsxs9("div", { className: "ldw-paper-line", children: [
-        jsxs9("span", { children: [jsx9("span", { className: "ldw-box", "data-x": b.decision === "aff" ? "1" : "0", "aria-hidden": "true" }), "Affirmative"] }),
-        jsxs9("span", { children: [jsx9("span", { className: "ldw-box", "data-x": b.decision === "neg" ? "1" : "0", "aria-hidden": "true" }), "Negative"] }),
-        jsx9("span", { className: "hk-sr", children: `Decision: ${sideName(b.decision)}` })
+  return jsxs10("section", { className: "ldw-panel ldw-side", "aria-label": "Last ballot", children: [
+    jsx10("h2", { className: "ldw-h3", children: `Last ballot · round ${b.round_no || roundNo || ""}` }),
+    jsxs10("article", { className: "ldw-paper", children: [
+      jsxs10("div", { className: "ldw-paper-top", children: [jsx10("span", { children: "Lincoln-Douglas ballot" }), jsx10("span", { children: b.judge })] }),
+      jsxs10("div", { className: "ldw-paper-line", children: [
+        jsxs10("span", { children: [jsx10("span", { className: "ldw-box", "data-x": b.decision === "aff" ? "1" : "0", "aria-hidden": "true" }), "Affirmative"] }),
+        jsxs10("span", { children: [jsx10("span", { className: "ldw-box", "data-x": b.decision === "neg" ? "1" : "0", "aria-hidden": "true" }), "Negative"] }),
+        jsx10("span", { className: "hk-sr", children: `Decision: ${sideName(b.decision)}` })
       ] }),
-      jsxs9("div", { className: "ldw-paper-line", children: [jsx9("span", { children: `Speaker points · you (${sideShort(b.side)})` }), jsx9("b", { children: pts.student ?? "" })] }),
-      first ? jsxs9("div", { className: "ldw-paper-line ldw-paper-decided", children: [jsx9("span", { children: "Decided on" }), jsx9("b", { children: `${first.speech}: "${clip(first.line, 70)}"` })] }) : null,
-      jsx9("p", { className: "ldw-paper-rfd", children: reason }),
-      jsx9("div", { className: "ldw-stamp", children: `${(b.drills || []).length} drills` })
+      jsxs10("div", { className: "ldw-paper-line", children: [jsx10("span", { children: `Speaker points · you (${sideShort(b.side)})` }), jsx10("b", { children: pts.student ?? "" })] }),
+      first ? jsxs10("div", { className: "ldw-paper-line ldw-paper-decided", children: [jsx10("span", { children: "Decided on" }), jsx10("b", { children: `${first.speech}: "${clip(first.line, 70)}"` })] }) : null,
+      jsx10("p", { className: "ldw-paper-rfd", children: reason }),
+      jsx10("div", { className: "ldw-stamp", children: `${(b.drills || []).length} drills` })
     ] }),
-    jsx9(BigButton, { icon: open ? "chevron-up" : "checklist", onClick: () => setOpen((v) => !v), "aria-expanded": open, children: open ? "Hide the drills" : "Run the drills" }),
-    open ? jsx9("div", { className: "ldw-drills", children: (b.drills || []).map((d, i) => jsxs9("div", { className: "ldw-drill", children: [
-      jsx9("h3", { className: "ldw-h3", children: `${i + 1}. ${d.name}` }),
-      jsx9("p", { className: "ldw-why", children: d.why }),
-      jsx9("p", { children: d.how })
+    jsx10(BigButton, { icon: open ? "chevron-up" : "checklist", onClick: () => setOpen((v) => !v), "aria-expanded": open, children: open ? "Hide the drills" : "Run the drills" }),
+    open ? jsx10("div", { className: "ldw-drills", children: (b.drills || []).map((d, i) => jsxs10("div", { className: "ldw-drill", children: [
+      jsx10("h3", { className: "ldw-h3", children: `${i + 1}. ${d.name}` }),
+      jsx10("p", { className: "ldw-why", children: d.why }),
+      jsx10("p", { children: d.how })
     ] }, i)) }) : null
   ] });
 }
 function FullBallot({ r, onRedo, onFlowHit, onNew }) {
   const b = r.ballots[r.ballots.length - 1];
   const judges = ($cfg.get() || {}).judges || {};
-  const [busy, setBusy] = useState9(null);
-  const [err, setErr] = useState9(null);
+  const [busy, setBusy] = useState10(null);
+  const [err, setErr] = useState10(null);
   const ask = async (key) => {
     setBusy(key);
     setErr(null);
@@ -3559,27 +4035,27 @@ function FullBallot({ r, onRedo, onFlowHit, onNew }) {
     }
   };
   const mine = r.transcript.filter((t) => t.speaker === "student").map((t) => t.id);
-  return jsxs9(Fragment7, { children: [
-    jsxs9("section", { className: "ldw-ldballot", "aria-label": "Ballot", children: [
-      busy ? jsx9(Thinking, { label: `The ${judges[busy].label.toLowerCase()} is writing a ballot` }) : null,
-      err ? jsx9(Notice, { tone: "bad", children: err }) : null,
-      jsx9(LdSheet, { b: { ...b, side: b.side || r.side, resolution: b.resolution || r.resolution }, onLine: onFlowHit })
+  return jsxs10(Fragment8, { children: [
+    jsxs10("section", { className: "ldw-ldballot", "aria-label": "Ballot", children: [
+      busy ? jsx10(Thinking, { label: `The ${judges[busy].label.toLowerCase()} is writing a ballot` }) : null,
+      err ? jsx10(Notice, { tone: "bad", children: err }) : null,
+      jsx10(LdSheet, { b: { ...b, side: b.side || r.side, resolution: b.resolution || r.resolution }, onLine: onFlowHit })
     ] }),
-    jsxs9("aside", { className: "ldw-ldside ldw-ldactions", "aria-label": "After the ballot", children: [
-      jsx9("div", { className: "ldw-clock-label", children: `Ballot ${r.ballots.length} for this round` }),
-      jsx9(Menu, { label: busy ? "Judging..." : "Ask another judge", icon: "law", align: "end", items: Object.entries(judges).filter(([k]) => k !== b.judge_key).map(([k, j]) => ({ label: `Ask the ${j.label.toLowerCase()}`, meta: j.summary, disabled: !!busy, onSelect: () => ask(k) })) }),
-      jsx9(Menu, { label: "Redo a speech", icon: "refresh", align: "end", items: mine.map((id) => ({ label: `Redo your ${id}`, disabled: !!busy, onSelect: () => onRedo(id) })) }),
-      jsx9(BigButton, { primary: true, icon: "add", onClick: onNew, children: "New round" }),
-      jsx9("dl", { className: "ldw-rows", children: [["Prep left", mmss(r.prep)], ["Your points", b.speaker_points && b.speaker_points.student ? b.speaker_points.student.toFixed(1) : "none"]].map(([k, v]) => jsxs9(Fragment7, { children: [jsx9("dt", { children: k }), jsx9("dd", { children: v })] }, k)) })
+    jsxs10("aside", { className: "ldw-ldside ldw-ldactions", "aria-label": "After the ballot", children: [
+      jsx10("div", { className: "ldw-clock-label", children: `Ballot ${r.ballots.length} for this round` }),
+      jsx10(Menu, { label: busy ? "Judging..." : "Ask another judge", icon: "law", align: "end", items: Object.entries(judges).filter(([k]) => k !== b.judge_key).map(([k, j]) => ({ label: `Ask the ${j.label.toLowerCase()}`, meta: j.summary, disabled: !!busy, onSelect: () => ask(k) })) }),
+      jsx10(Menu, { label: "Redo a speech", icon: "refresh", align: "end", items: mine.map((id) => ({ label: `Redo your ${id}`, disabled: !!busy, onSelect: () => onRedo(id) })) }),
+      jsx10(BigButton, { primary: true, icon: "add", onClick: onNew, children: "New round" }),
+      jsx10("dl", { className: "ldw-rows", children: [["Prep left", mmss(r.prep)], ["Your points", b.speaker_points && b.speaker_points.student ? b.speaker_points.student.toFixed(1) : "none"]].map(([k, v]) => jsxs10(Fragment8, { children: [jsx10("dt", { children: k }), jsx10("dd", { children: v })] }, k)) })
     ] })
   ] });
 }
 function Redo({ r, id, onDone }) {
   const t = r.transcript.find((x) => x.id === id);
   const stop = stops().find((s) => s.id === id);
-  const [text, setText] = useState9(t ? t.text : "");
-  const [busy, setBusy] = useState9(false);
-  const [err, setErr] = useState9(null);
+  const [text, setText] = useState10(t ? t.text : "");
+  const [busy, setBusy] = useState10(false);
+  const [err, setErr] = useState10(null);
   const clock = useCountdown(stop.minutes * 60, `redo-${id}`);
   const judgeKey = (r.ballots[r.ballots.length - 1] || {}).judge_key || r.judge;
   const submit = async () => {
@@ -3596,51 +4072,51 @@ function Redo({ r, id, onDone }) {
       setBusy(false);
     }
   };
-  return jsxs9(Fragment7, { children: [
-    jsx9(ClockPanel, {
+  return jsxs10(Fragment8, { children: [
+    jsx10(ClockPanel, {
       limit: stop.minutes * 60,
       elapsed: stop.minutes * 60 - clock.left,
       label: `${id} · redo`,
       clock,
       rows: [["Spoken length", `about ${mmss(words(text) / WPM * 60)}`]],
-      primary: jsx9(BigButton, { primary: true, icon: "arrow-right", loading: busy, onClick: submit, children: "Submit the redo" }),
-      extra: jsx9("button", { type: "button", className: "hk-link ldw-center", disabled: busy, onClick: onDone, children: "Cancel the redo" })
+      primary: jsx10(BigButton, { primary: true, icon: "arrow-right", loading: busy, onClick: submit, children: "Submit the redo" }),
+      extra: jsx10("button", { type: "button", className: "hk-link ldw-center", disabled: busy, onClick: onDone, children: "Cancel the redo" })
     }),
-    jsxs9("section", { className: "ldw-panel ldw-stage", "aria-label": "Redo a speech", children: [
-      jsx9(StageHead, { title: `Redo your ${id}`, sub: stop.name }),
-      jsx9("p", { className: "ldw-goal", children: "Same round, same opponent. Fix what the ballot named, then the same judge rules again on the new version." }),
-      jsx9(Textarea4, { className: "ldw-speechbox", "aria-label": `New ${id}`, value: text, onChange: (e) => setText(e.target.value) }),
-      busy ? jsx9(Thinking, { label: "The judge is reading the new version" }) : null,
-      err ? jsx9(Notice, { tone: "bad", children: err }) : null
+    jsxs10("section", { className: "ldw-panel ldw-stage", "aria-label": "Redo a speech", children: [
+      jsx10(StageHead, { title: `Redo your ${id}`, sub: stop.name }),
+      jsx10("p", { className: "ldw-goal", children: "Same round, same opponent. Fix what the ballot named, then the same judge rules again on the new version." }),
+      jsx10(Textarea5, { className: "ldw-speechbox", "aria-label": `New ${id}`, value: text, onChange: (e) => setText(e.target.value) }),
+      busy ? jsx10(Thinking, { label: "The judge is reading the new version" }) : null,
+      err ? jsx10(Notice, { tone: "bad", children: err }) : null
     ] })
   ] });
 }
 function Judging({ r }) {
-  const [err, setErr] = useState9(null);
+  const [err, setErr] = useState10(null);
   const go = () => {
     setErr(null);
     post("round/judge", {}).then(setRound, (e) => setErr(errText(e)));
   };
-  useEffect7(() => {
+  useEffect8(() => {
     go();
   }, [r.round_no]);
-  return jsxs9(Fragment7, { children: [
-    jsxs9("section", { className: "ldw-panel ldw-stage", "aria-label": "Judging", children: [
-      jsx9(StageHead, { title: "The ballot" }),
-      err ? jsx9(Failure, { title: "The judge could not finish", body: err, onRetry: go }) : jsx9(Thinking, { label: "The judge is writing the ballot" })
+  return jsxs10(Fragment8, { children: [
+    jsxs10("section", { className: "ldw-panel ldw-stage", "aria-label": "Judging", children: [
+      jsx10(StageHead, { title: "The ballot" }),
+      err ? jsx10(Failure, { title: "The judge could not finish", body: err, onRetry: go }) : jsx10(Thinking, { label: "The judge is writing the ballot" })
     ] })
   ] });
 }
 function Setup() {
-  const st = useValue4($state);
+  const st = useValue5($state);
   const cfg = $cfg.get();
   const cases = st.workbench && st.workbench.cases || [];
   const active = st.workbench && st.workbench.case;
-  const [caseId, setCaseId] = useState9(active ? active.id : (cases[0] || {}).id);
-  const [level, setLevel] = useState9("jv");
-  const [judge, setJudge] = useState9("traditional");
-  const [busy, setBusy] = useState9(false);
-  const [err, setErr] = useState9(null);
+  const [caseId, setCaseId] = useState10(active ? active.id : (cases[0] || {}).id);
+  const [level, setLevel] = useState10("jv");
+  const [judge, setJudge] = useState10("traditional");
+  const [busy, setBusy] = useState10(false);
+  const [err, setErr] = useState10(null);
   const chosen = cases.find((c) => c.id === caseId);
   const start = async () => {
     setBusy(true);
@@ -3654,18 +4130,18 @@ function Setup() {
       setBusy(false);
     }
   };
-  return jsxs9(Fragment7, { children: [
-    jsx9(ClockPanel, {
+  return jsxs10(Fragment8, { children: [
+    jsx10(ClockPanel, {
       big: mmss((cfg.prep_minutes || 4) * 60),
       label: "Prep for the whole round",
       rows: [["Full round", "about 45 minutes"], ["Speech times", "NSDA"]],
-      primary: jsx9(BigButton, { primary: true, icon: "play", loading: busy, disabled: !chosen, onClick: start, children: "Start the round" })
+      primary: jsx10(BigButton, { primary: true, icon: "play", loading: busy, disabled: !chosen, onClick: start, children: "Start the round" })
     }),
-    jsxs9("section", { className: "ldw-panel ldw-stage", "aria-label": "Set up a round", children: [
-      jsx9(StageHead, { title: "New practice round", sub: "Choose a case, an opponent and a judge" }),
-      jsx9("p", { className: "ldw-goal", children: "You debate the side your case is written for, and it loads into your constructive. The AI debates the other side and cross-examines you. Your answers in cross-examination are binding: the opponent will use them." }),
-      jsx9("h3", { className: "ldw-h3", children: "Case" }),
-      cases.length ? jsx9("ul", { className: "ldw-pick", role: "listbox", "aria-label": "Case for this round", children: cases.map((c) => jsx9("li", { children: jsxs9("button", {
+    jsxs10("section", { className: "ldw-panel ldw-stage", "aria-label": "Set up a round", children: [
+      jsx10(StageHead, { title: "New practice round", sub: "Choose a case, an opponent and a judge" }),
+      jsx10("p", { className: "ldw-goal", children: "You debate the side your case is written for, and it loads into your constructive. The AI debates the other side and cross-examines you. Your answers in cross-examination are binding: the opponent will use them." }),
+      jsx10("h3", { className: "ldw-h3", children: "Case" }),
+      cases.length ? jsx10("ul", { className: "ldw-pick", role: "listbox", "aria-label": "Case for this round", children: cases.map((c) => jsx10("li", { children: jsxs10("button", {
         type: "button",
         role: "option",
         "aria-selected": c.id === caseId,
@@ -3673,45 +4149,45 @@ function Setup() {
         "data-active": c.id === caseId ? "" : void 0,
         onClick: () => setCaseId(c.id),
         children: [
-          jsx9("span", { className: "ldw-side-tag", children: sideShort(c.side) }),
-          jsxs9("span", { className: "hk-grow", children: [jsx9("strong", { children: c.name }), jsx9("span", { className: "ldw-meta", children: ` · ${c.words} words · ${c.resolution || "no resolution yet"}` })] })
+          jsx10("span", { className: "ldw-side-tag", children: sideShort(c.side) }),
+          jsxs10("span", { className: "hk-grow", children: [jsx10("strong", { children: c.name }), jsx10("span", { className: "ldw-meta", children: ` · ${c.words} words · ${c.resolution || "no resolution yet"}` })] })
         ]
       }) }, c.id)) }) : null,
-      jsx9("h3", { className: "ldw-h3", children: "Opponent" }),
-      jsx9(Choices, { label: "Opponent", value: level, onChange: setLevel, options: [{ id: "novice", label: "Novice" }, { id: "jv", label: "JV" }, { id: "varsity", label: "Varsity" }] }),
-      jsx9("p", { className: "ldw-meta", children: "Start one level below where you compete, then move up." }),
-      jsx9("h3", { className: "ldw-h3", children: "Judge" }),
-      jsx9(Choices, { label: "Judge", value: judge, onChange: setJudge, options: Object.entries(cfg.judges).map(([k, j]) => ({ id: k, label: j.label })) }),
-      jsx9("p", { className: "ldw-meta", children: cfg.judges[judge].summary }),
-      chosen && !chosen.words ? jsx9(Notice, { tone: "warn", children: "This case is empty. You can still debate, but you will write your constructive from scratch." }) : null,
-      err ? jsx9(Notice, { tone: "bad", children: err }) : null
+      jsx10("h3", { className: "ldw-h3", children: "Opponent" }),
+      jsx10(Choices, { label: "Opponent", value: level, onChange: setLevel, options: [{ id: "novice", label: "Novice" }, { id: "jv", label: "JV" }, { id: "varsity", label: "Varsity" }] }),
+      jsx10("p", { className: "ldw-meta", children: "Start one level below where you compete, then move up." }),
+      jsx10("h3", { className: "ldw-h3", children: "Judge" }),
+      jsx10(Choices, { label: "Judge", value: judge, onChange: setJudge, options: Object.entries(cfg.judges).map(([k, j]) => ({ id: k, label: j.label })) }),
+      jsx10("p", { className: "ldw-meta", children: cfg.judges[judge].summary }),
+      chosen && !chosen.words ? jsx10(Notice, { tone: "warn", children: "This case is empty. You can still debate, but you will write your constructive from scratch." }) : null,
+      err ? jsx10(Notice, { tone: "bad", children: err }) : null
     ] })
   ] });
 }
 function Flow({ r, hit }) {
   const cols = stops().filter((s) => s.kind === "speech");
-  return jsxs9("section", { className: "ldw-panel ldw-flow", "aria-label": "Flow", children: [
-    jsx9("h2", { className: "ldw-h3", children: "Flow" }),
-    jsx9("div", { className: "ldw-flow-scroll", children: jsxs9("table", { children: [
-      jsx9("thead", { children: jsx9("tr", { children: cols.map((s) => jsxs9("th", { scope: "col", children: [s.id, jsx9("span", { children: `${speakerOf(s, r.side) === "student" ? "You" : "Opponent"} · ${s.side}` })] }, s.id)) }) }),
-      jsx9("tbody", { children: jsx9("tr", { children: cols.map((s) => {
+  return jsxs10("section", { className: "ldw-panel ldw-flow", "aria-label": "Flow", children: [
+    jsx10("h2", { className: "ldw-h3", children: "Flow" }),
+    jsx10("div", { className: "ldw-flow-scroll", children: jsxs10("table", { children: [
+      jsx10("thead", { children: jsx10("tr", { children: cols.map((s) => jsxs10("th", { scope: "col", children: [s.id, jsx10("span", { children: `${speakerOf(s, r.side) === "student" ? "You" : "Opponent"} · ${s.side}` })] }, s.id)) }) }),
+      jsx10("tbody", { children: jsx10("tr", { children: cols.map((s) => {
         const pts = r.flow[s.id];
         const done = r.transcript.some((t) => t.id === s.id);
-        return jsx9("td", { "data-hit": hit === s.id ? "1" : void 0, children: pts ? pts.map((p, i) => jsx9("div", { children: p }, i)) : done ? jsx9("span", { className: "ldw-meta", children: "Flowing..." }) : null }, s.id);
+        return jsx10("td", { "data-hit": hit === s.id ? "1" : void 0, children: pts ? pts.map((p, i) => jsx10("div", { children: p }, i)) : done ? jsx10("span", { className: "ldw-meta", children: "Flowing..." }) : null }, s.id);
       }) }) })
     ] }) })
   ] });
 }
 function Room() {
-  const st = useValue4($state);
+  const st = useValue5($state);
   const r = st.round;
-  const [showFlow, setShowFlow] = useState9(false);
-  const [redo, setRedo] = useState9(null);
-  const [hit, setHit] = useState9(null);
-  const [confirmEnd, setConfirmEnd] = useState9(false);
-  const [flowBeside, setFlowBeside] = useState9(true);
+  const [showFlow, setShowFlow] = useState10(false);
+  const [redo, setRedo] = useState10(null);
+  const [hit, setHit] = useState10(null);
+  const [confirmEnd, setConfirmEnd] = useState10(false);
+  const [flowBeside, setFlowBeside] = useState10(true);
   const missing = r ? r.transcript.filter((t) => !r.flow[t.id]).length : 0;
-  useEffect7(() => {
+  useEffect8(() => {
     if (!missing) return void 0;
     const id = setInterval(refreshState, 4e3);
     return () => clearInterval(id);
@@ -3724,32 +4200,32 @@ function Room() {
   const newRound = () => post("round/new").then(() => setRound(null));
   const stop = currentStop(r);
   let floor;
-  if (!r) floor = jsx9(Setup, {});
-  else if (redo) floor = jsx9(Redo, { r, id: redo, onDone: () => setRedo(null) });
-  else if (r.phase === "judging") floor = jsx9(Judging, { r });
+  if (!r) floor = jsx10(Setup, {});
+  else if (redo) floor = jsx10(Redo, { r, id: redo, onDone: () => setRedo(null) });
+  else if (r.phase === "judging") floor = jsx10(Judging, { r });
   else if (r.phase === "ballot") {
-    floor = jsx9(FullBallot, { r, onRedo: setRedo, onFlowHit: flowHit, onNew: newRound });
-  } else if (stop.kind === "cx") floor = jsx9(CrossEx, { r, stop }, `${r.round_no}-${stop.id}`);
-  else if (speakerOf(stop, r.side) === "student") floor = jsx9(StudentSpeech, { r, stop, flowBeside: flowBeside && !showFlow, onHideFlow: () => setFlowBeside(false) }, `${r.round_no}-${stop.id}`);
-  else floor = jsx9(OpponentSpeech, { r, stop }, `${r.round_no}-${stop.id}`);
+    floor = jsx10(FullBallot, { r, onRedo: setRedo, onFlowHit: flowHit, onNew: newRound });
+  } else if (stop.kind === "cx") floor = jsx10(CrossEx, { r, stop }, `${r.round_no}-${stop.id}`);
+  else if (speakerOf(stop, r.side) === "student") floor = jsx10(StudentSpeech, { r, stop, flowBeside: flowBeside && !showFlow, onHideFlow: () => setFlowBeside(false) }, `${r.round_no}-${stop.id}`);
+  else floor = jsx10(OpponentSpeech, { r, stop }, `${r.round_no}-${stop.id}`);
   const last = r && r.ballots.length ? r.ballots[r.ballots.length - 1] : st.history && st.history.last;
-  const roundMenu = r ? jsx9(Menu, { label: "Round", icon: "list-flat", align: "end", items: [
+  const roundMenu = r ? jsx10(Menu, { label: "Round", icon: "list-flat", align: "end", items: [
     { label: showFlow || r.phase === "ballot" ? "Hide the flow" : "Show the flow", icon: "list-flat", disabled: r.phase === "ballot", onSelect: () => setShowFlow((v) => !v) },
     !flowBeside && r.phase === "live" ? { label: "Flow beside the clock in your speeches", icon: "layout-sidebar-right", onSelect: () => setFlowBeside(true) } : null,
     r.phase !== "ballot" ? { label: "End this round", icon: "close", danger: true, onSelect: () => setConfirmEnd(true) } : null
   ] }) : null;
-  return jsxs9(Fragment7, { children: [
-    roundMenu ? jsx9("div", { className: "ldw-row-end", children: roundMenu }) : null,
-    confirmEnd ? jsx9(Notice, { tone: "warn", children: "End this round? It will be cleared.", action: jsxs9("div", { className: "hk-actions", children: [
-      jsx9(Button8, { size: "sm", variant: "secondary", className: "ldw-danger", onClick: () => {
+  return jsxs10(Fragment8, { children: [
+    roundMenu ? jsx10("div", { className: "ldw-row-end", children: roundMenu }) : null,
+    confirmEnd ? jsx10(Notice, { tone: "warn", children: "End this round? It will be cleared.", action: jsxs10("div", { className: "hk-actions", children: [
+      jsx10(Button9, { size: "sm", variant: "secondary", className: "ldw-danger", onClick: () => {
         setConfirmEnd(false);
         newRound();
       }, children: "End it" }),
-      jsx9(Button8, { size: "sm", variant: "secondary", onClick: () => setConfirmEnd(false), children: "Keep going" })
+      jsx10(Button9, { size: "sm", variant: "secondary", onClick: () => setConfirmEnd(false), children: "Keep going" })
     ] }) }) : null,
-    jsx9(Board, { r }),
-    jsxs9("div", { className: "ldw-floor", children: [floor, r && (r.phase === "ballot" && !redo) ? null : jsx9(PaperBallot, { b: last, roundNo: st.history && st.history.count })] }),
-    r && (showFlow || r.phase === "ballot") ? jsx9(Flow, { r, hit }) : null
+    jsx10(Board, { r }),
+    jsxs10("div", { className: "ldw-floor", children: [floor, r && (r.phase === "ballot" && !redo) ? null : jsx10(PaperBallot, { b: last, roundNo: st.history && st.history.count })] }),
+    r && (showFlow || r.phase === "ballot") ? jsx10(Flow, { r, hit }) : null
   ] });
 }
 var local = {};
@@ -3768,8 +4244,8 @@ function saveSection(caseId, key, text) {
     });
   }, 600);
 }
-var $coach = atom4({ busy: null, focus: null, err: null });
-var $bench = atom4({ msg: null, importOpen: false, sourceOpen: false, renaming: false, confirmDelete: false });
+var $coach = atom5({ busy: null, focus: null, err: null });
+var $bench = atom5({ msg: null, importOpen: false, sourceOpen: false, renaming: false, confirmDelete: false });
 var benchSet = (patch) => $bench.set({ ...$bench.get(), ...patch });
 async function runTool(c, tool, section, message, underSection) {
   if ($coach.get().busy) return;
@@ -3803,10 +4279,10 @@ async function pickSave(title, name, filter) {
 }
 function CaseSwitcher({ wb }) {
   const c = wb.case;
-  const fileRef = useRef5(null);
-  const bench = useValue4($bench);
-  const [name, setName] = useState9(c.name);
-  useEffect7(() => {
+  const fileRef = useRef6(null);
+  const bench = useValue5($bench);
+  const [name, setName] = useState10(c.name);
+  useEffect8(() => {
     setName(c.name);
   }, [c.id, c.name]);
   const saveBackup = async () => {
@@ -3825,8 +4301,8 @@ function CaseSwitcher({ wb }) {
     benchAct(() => post(`cases/${c.id}`, { name }));
   };
   if (bench.renaming) {
-    return jsxs9("div", { className: "ldw-rename", children: [
-      jsx9(Input2, {
+    return jsxs10("div", { className: "ldw-rename", children: [
+      jsx10(Input3, {
         "aria-label": "Case name",
         value: name,
         autoFocus: true,
@@ -3836,8 +4312,8 @@ function CaseSwitcher({ wb }) {
           if (e.key === "Escape") benchSet({ renaming: false });
         }
       }),
-      jsx9(Button8, { size: "sm", onClick: saveName, children: "Save name" }),
-      jsx9(Button8, { size: "sm", variant: "secondary", onClick: () => benchSet({ renaming: false }), children: "Cancel" })
+      jsx10(Button9, { size: "sm", onClick: saveName, children: "Save name" }),
+      jsx10(Button9, { size: "sm", variant: "secondary", onClick: () => benchSet({ renaming: false }), children: "Cancel" })
     ] });
   }
   const items = [
@@ -3862,24 +4338,24 @@ function CaseSwitcher({ wb }) {
     { label: "Save a backup", icon: "save", meta: "Every case in one file", onSelect: saveBackup },
     { label: "Load a backup", icon: "folder-opened", meta: "Adds the cases in a backup file", onSelect: () => fileRef.current && fileRef.current.click() }
   ];
-  return jsxs9(Fragment7, { children: [
-    jsx9(Menu, { items, ariaLabel: `Case: ${c.name}. Switch cases or manage this one`, trigger: (p) => jsxs9("button", { type: "button", className: "ldw-switcher", ...p, children: [
-      jsx9("span", { className: "ldw-switcher-name", children: c.name }),
-      jsx9(Codicon7, { name: "chevron-down" })
+  return jsxs10(Fragment8, { children: [
+    jsx10(Menu, { items, ariaLabel: `Case: ${c.name}. Switch cases or manage this one`, trigger: (p) => jsxs10("button", { type: "button", className: "ldw-switcher", ...p, children: [
+      jsx10("span", { className: "ldw-switcher-name", children: c.name }),
+      jsx10(Codicon8, { name: "chevron-down" })
     ] }) }),
-    jsx9("input", { ref: fileRef, type: "file", accept: ".json,application/json", hidden: true, onChange: loadBackup, "aria-label": "Backup file" })
+    jsx10("input", { ref: fileRef, type: "file", accept: ".json,application/json", hidden: true, onChange: loadBackup, "aria-label": "Backup file" })
   ] });
 }
 function ResolutionRow({ c, source }) {
   const cfg = $cfg.get();
-  const bench = useValue4($bench);
-  const [text, setText] = useState9(c.resolution || "");
-  const [paste, setPaste] = useState9("");
-  const [url, setUrl] = useState9("");
-  const [busy, setBusy] = useState9(false);
-  const [err, setErr] = useState9(null);
-  const timer = useRef5(null);
-  useEffect7(() => {
+  const bench = useValue5($bench);
+  const [text, setText] = useState10(c.resolution || "");
+  const [paste, setPaste] = useState10("");
+  const [url, setUrl] = useState10("");
+  const [busy, setBusy] = useState10(false);
+  const [err, setErr] = useState10(null);
+  const timer = useRef6(null);
+  useEffect8(() => {
     setText(c.resolution || "");
   }, [c.id]);
   const save = (v) => {
@@ -3900,10 +4376,10 @@ function ResolutionRow({ c, source }) {
       setBusy(false);
     }
   };
-  return jsxs9("section", { className: "ldw-resrow-wrap", "aria-label": "Resolution", children: [
-    jsxs9("div", { className: "ldw-resrow", children: [
-      jsx9("label", { className: "ldw-field-label", htmlFor: "ldw-res", children: "Resolution" }),
-      jsx9(Input2, {
+  return jsxs10("section", { className: "ldw-resrow-wrap", "aria-label": "Resolution", children: [
+    jsxs10("div", { className: "ldw-resrow", children: [
+      jsx10("label", { className: "ldw-field-label", htmlFor: "ldw-res", children: "Resolution" }),
+      jsx10(Input3, {
         id: "ldw-res",
         className: "ldw-resinput",
         value: text,
@@ -3914,14 +4390,14 @@ function ResolutionRow({ c, source }) {
           if (e.key === "Enter") runBriefing("auto", e.target.value);
         }
       }),
-      jsx9(Button8, {
+      jsx10(Button9, {
         size: "sm",
         variant: "secondary",
         title: "A map of this topic for both sides",
         onClick: () => runBriefing("open", text),
-        children: jsxs9(Fragment7, { children: [jsx9(Codicon7, { name: "book" }), "Briefing"] })
+        children: jsxs10(Fragment8, { children: [jsx10(Codicon8, { name: "book" }), "Briefing"] })
       }),
-      jsx9(Menu, { label: "Topic", icon: "list-unordered", align: "end", items: [
+      jsx10(Menu, { label: "Topic", icon: "list-unordered", align: "end", items: [
         { label: "Topic briefing", meta: "A map of this topic for both sides", onSelect: () => runBriefing("open", text) },
         { label: "Use the current NSDA topic", meta: `${cfg.resolution.period}: ${cfg.resolution.text}`, onSelect: () => {
           save(cfg.resolution.text);
@@ -3930,36 +4406,36 @@ function ResolutionRow({ c, source }) {
         { label: bench.sourceOpen ? "Hide the topic source" : "Topic source", meta: source ? `Reading from ${source.title || "pasted text"}` : "Paste a topic analysis or read a link", onSelect: () => benchSet({ sourceOpen: !bench.sourceOpen }) }
       ] })
     ] }),
-    bench.sourceOpen ? jsxs9("div", { className: "ldw-source", children: [
-      jsxs9("div", { className: "hk-stack", children: [
-        jsx9("h3", { className: "ldw-h3", children: "Paste the text" }),
-        jsx9("p", { className: "ldw-meta", children: "Paste a topic analysis or a handout from your coach. The coaching tools read it as background. The opponent does not." }),
-        jsx9(Textarea4, { "aria-label": "Topic source text", value: paste, onChange: (e) => setPaste(e.target.value), placeholder: "Paste the topic analysis or source text" }),
-        jsx9("div", { children: jsx9(Button8, { size: "sm", variant: "secondary", disabled: busy, onClick: () => call(() => post("workbench", { source: { title: "Pasted text", text: paste } })).then((ok) => ok && runBriefing("redo", text)), children: "Use this text" }) })
+    bench.sourceOpen ? jsxs10("div", { className: "ldw-source", children: [
+      jsxs10("div", { className: "hk-stack", children: [
+        jsx10("h3", { className: "ldw-h3", children: "Paste the text" }),
+        jsx10("p", { className: "ldw-meta", children: "Paste a topic analysis or a handout from your coach. The coaching tools read it as background. The opponent does not." }),
+        jsx10(Textarea5, { "aria-label": "Topic source text", value: paste, onChange: (e) => setPaste(e.target.value), placeholder: "Paste the topic analysis or source text" }),
+        jsx10("div", { children: jsx10(Button9, { size: "sm", variant: "secondary", disabled: busy, onClick: () => call(() => post("workbench", { source: { title: "Pasted text", text: paste } })).then((ok) => ok && runBriefing("redo", text)), children: "Use this text" }) })
       ] }),
-      jsxs9("div", { className: "hk-stack", children: [
-        jsx9("h3", { className: "ldw-h3", children: "Or read a link" }),
-        jsx9("p", { className: "ldw-meta", children: "A public page only, such as the NSDA topics page or your league's topic page. PDFs need to be copied and pasted." }),
-        jsxs9("div", { className: "hk-row", children: [
-          jsx9(Input2, { className: "hk-grow", "aria-label": "Topic source link", value: url, onChange: (e) => setUrl(e.target.value), placeholder: cfg.topics_url }),
-          jsx9(Button8, { size: "sm", variant: "secondary", loading: busy, onClick: () => call(() => post("source/read", { url })).then((ok) => ok && runBriefing("open", text)), children: "Read link" })
+      jsxs10("div", { className: "hk-stack", children: [
+        jsx10("h3", { className: "ldw-h3", children: "Or read a link" }),
+        jsx10("p", { className: "ldw-meta", children: "A public page only, such as the NSDA topics page or your league's topic page. PDFs need to be copied and pasted." }),
+        jsxs10("div", { className: "hk-row", children: [
+          jsx10(Input3, { className: "hk-grow", "aria-label": "Topic source link", value: url, onChange: (e) => setUrl(e.target.value), placeholder: cfg.topics_url }),
+          jsx10(Button9, { size: "sm", variant: "secondary", loading: busy, onClick: () => call(() => post("source/read", { url })).then((ok) => ok && runBriefing("open", text)), children: "Read link" })
         ] }),
-        source ? jsxs9("p", { className: "ldw-meta", children: [
+        source ? jsxs10("p", { className: "ldw-meta", children: [
           `Reading from ${source.title || "pasted text"} · ${words(source.text)} words. `,
-          jsx9("button", { type: "button", className: "hk-link", onClick: () => call(() => post("workbench", { source: null })), children: "Remove" })
-        ] }) : jsx9("p", { className: "ldw-meta", children: "No source added. The coach works from the resolution alone." })
+          jsx10("button", { type: "button", className: "hk-link", onClick: () => call(() => post("workbench", { source: null })), children: "Remove" })
+        ] }) : jsx10("p", { className: "ldw-meta", children: "No source added. The coach works from the resolution alone." })
       ] })
     ] }) : null,
-    err ? jsx9(Notice, { tone: "bad", children: err }) : null
+    err ? jsx10(Notice, { tone: "bad", children: err }) : null
   ] });
 }
 function ImportPanel({ c }) {
-  const [text, setText] = useState9("");
-  const [docx, setDocx] = useState9(null);
-  const [file, setFile] = useState9("");
-  const [busy, setBusy] = useState9(false);
-  const [msg, setMsg] = useState9(null);
-  const fileRef = useRef5(null);
+  const [text, setText] = useState10("");
+  const [docx, setDocx] = useState10(null);
+  const [file, setFile] = useState10("");
+  const [busy, setBusy] = useState10(false);
+  const [msg, setMsg] = useState10(null);
+  const fileRef = useRef6(null);
   const pick = async (e) => {
     const f = e.target.files && e.target.files[0];
     e.target.value = "";
@@ -4002,27 +4478,27 @@ function ImportPanel({ c }) {
       setBusy(false);
     }
   };
-  return jsxs9("section", { className: "ldw-panel ldw-import", "aria-label": "Import a case", children: [
-    jsxs9("div", { className: "ldw-row-between", children: [
-      jsx9("h2", { className: "ldw-h2", children: "Import a case you already wrote" }),
-      jsx9("button", { type: "button", className: "hk-link", onClick: () => benchSet({ importOpen: false }), children: "Close" })
+  return jsxs10("section", { className: "ldw-panel ldw-import", "aria-label": "Import a case", children: [
+    jsxs10("div", { className: "ldw-row-between", children: [
+      jsx10("h2", { className: "ldw-h2", children: "Import a case you already wrote" }),
+      jsx10("button", { type: "button", className: "hk-link", onClick: () => benchSet({ importOpen: false }), children: "Close" })
     ] }),
-    jsx9("p", { className: "ldw-goal", children: "Paste your case or upload it as a Word document or text file. It becomes a new case in My cases, sorted into sections without changing a single word. Then the coach reviews it." }),
-    jsx9(Textarea4, { className: "ldw-speechbox ldw-short", "aria-label": "Case to import", value: text, onChange: (e) => setText(e.target.value), placeholder: docx ? `${file} is ready to sort.` : "Paste your whole case here" }),
-    jsxs9("div", { className: "ldw-row-between", children: [
-      jsxs9("div", { className: "hk-row", children: [
-        jsxs9("button", { type: "button", className: "hk-link", onClick: () => fileRef.current && fileRef.current.click(), children: [jsx9(Codicon7, { name: "cloud-upload" }), "Upload a .docx or .txt file"] }),
-        jsx9("span", { className: "ldw-meta", children: file }),
-        jsx9("input", { ref: fileRef, type: "file", accept: ".docx,.txt,.md", hidden: true, onChange: pick, "aria-label": "Case file" })
+    jsx10("p", { className: "ldw-goal", children: "Paste your case or upload it as a Word document or text file. It becomes a new case in My cases, sorted into sections without changing a single word. Then the coach reviews it." }),
+    jsx10(Textarea5, { className: "ldw-speechbox ldw-short", "aria-label": "Case to import", value: text, onChange: (e) => setText(e.target.value), placeholder: docx ? `${file} is ready to sort.` : "Paste your whole case here" }),
+    jsxs10("div", { className: "ldw-row-between", children: [
+      jsxs10("div", { className: "hk-row", children: [
+        jsxs10("button", { type: "button", className: "hk-link", onClick: () => fileRef.current && fileRef.current.click(), children: [jsx10(Codicon8, { name: "cloud-upload" }), "Upload a .docx or .txt file"] }),
+        jsx10("span", { className: "ldw-meta", children: file }),
+        jsx10("input", { ref: fileRef, type: "file", accept: ".docx,.txt,.md", hidden: true, onChange: pick, "aria-label": "Case file" })
       ] }),
-      jsx9(Button8, { loading: busy, onClick: go, children: jsxs9(Fragment7, { children: [jsx9(Codicon7, { name: "check" }), "Sort and review my case"] }) })
+      jsx10(Button9, { loading: busy, onClick: go, children: jsxs10(Fragment8, { children: [jsx10(Codicon8, { name: "check" }), "Sort and review my case"] }) })
     ] }),
-    busy ? jsx9(Thinking, { label: "Sorting your case" }) : null,
-    msg ? jsx9(Notice, { tone: msg.tone, children: msg.text }) : null
+    busy ? jsx10(Thinking, { label: "Sorting your case" }) : null,
+    msg ? jsx10(Notice, { tone: msg.tone, children: msg.text }) : null
   ] });
 }
 function PathBar({ c }) {
-  const coach = useValue4($coach);
+  const coach = useValue5($coach);
   const secs = sectionsOf(c);
   const done = (st) => !st.sections.length ? Object.values(secs).filter((v) => words(v) >= 15).length >= 5 : st.sections.every((k) => words(secs[k]) >= (st.min || 15));
   const states = PATH.map(done);
@@ -4039,7 +4515,7 @@ function PathBar({ c }) {
     if (el) el.scrollIntoView({ behavior: "smooth", block: "center" });
     runTool(c, st.tool, target, "", true);
   };
-  return jsx9("nav", { "aria-label": "Writing path", children: jsx9("ol", { className: "ldw-path", children: PATH.map((st, i) => jsx9("li", { children: jsxs9("button", {
+  return jsx10("nav", { "aria-label": "Writing path", children: jsx10("ol", { className: "ldw-path", children: PATH.map((st, i) => jsx10("li", { children: jsxs10("button", {
     type: "button",
     className: "ldw-pstep",
     "data-done": states[i] ? "" : void 0,
@@ -4048,15 +4524,69 @@ function PathBar({ c }) {
     disabled: !!coach.busy,
     onClick: () => start(i),
     children: [
-      jsx9("span", { className: "ldw-pnum", children: states[i] ? jsx9(Codicon7, { name: "check" }) : String(i + 1) }),
-      jsx9("span", { children: st.short })
+      jsx10("span", { className: "ldw-pnum", children: states[i] ? jsx10(Codicon8, { name: "check" }) : String(i + 1) }),
+      jsx10("span", { children: st.short })
     ]
   }) }, i)) }) });
 }
+function SuggestionPanel({ c, k, s }) {
+  const hide = () => post(`cases/${c.id}`, { hide_suggestion: k }).then(setWorkbench, () => {
+  });
+  const [added, setAdded] = useState10({});
+  const add = (d, i) => {
+    const target = s.kind === "contentions" ? ["Contention 1", "Contention 2", "Contention 3"][i] || k : s.target || k;
+    const now = sectionsOf(c)[target] || "";
+    const piece = `[Coach's suggestion: rewrite it in your own words] ${d.label}
+${unmark(d.text)}`;
+    const text = now.trim() ? `${now.trimEnd()}
+
+${piece}` : piece;
+    saveSection(c.id, target, text);
+    $sectionPush.set({ caseId: c.id, key: target, text, n: Date.now() });
+    setAdded({ ...added, [i]: target });
+  };
+  return jsxs10(CoachBox, { label: "Coach's suggestion", sub: `${s.label || "A draft"}. Rewrite it in your own words before you read it.`, checks: s.checks, against: "your case", onClose: hide, children: [
+    s.note ? jsx10("p", { className: "ldw-coachbox-kept", children: inline(s.note, `${k}-note`) }) : null,
+    jsx10("ol", { className: "ldw-drafts", children: s.drafts.map((d, i) => {
+      const target = s.kind === "contentions" ? ["Contention 1", "Contention 2", "Contention 3"][i] || k : s.target || k;
+      return jsxs10("li", { children: [
+        jsx10("b", { children: d.label }),
+        jsx10("div", { className: "ldw-draft-text", children: renderChecked(d.text, COACH_FLAG) }),
+        added[i] ? jsx10("span", { className: "ldw-meta", children: `Added to ${added[i]}, marked for you to rewrite.` }) : jsx10("button", { type: "button", className: "hk-link", onClick: () => add(d, i), children: `Add to ${target}` })
+      ] }, i);
+    }) })
+  ] });
+}
 function SectionCard({ c, k }) {
   const cfg = $cfg.get();
-  const coach = useValue4($coach);
-  const [text, setText] = useState9(sectionsOf(c)[k] || "");
+  const coach = useValue5($coach);
+  const on = useValue5($coachOn);
+  const push = useValue5($sectionPush);
+  const [text, setText] = useState10(sectionsOf(c)[k] || "");
+  useEffect8(() => {
+    if (push && push.caseId === c.id && push.key === k) setText(push.text);
+  }, [push && push.n]);
+  const [sel, setSel] = useState10("");
+  const [sug, setSug] = useState10({ busy: null, err: null });
+  const [attack, setAttack] = useState10(null);
+  const suggestion = (c.suggestions || {})[k];
+  const suggest = async (kind) => {
+    if (kind === "block" && attack === null) {
+      setAttack("");
+      return;
+    }
+    setSug({ busy: kind, err: null });
+    const card = words(sel) >= 20 ? sel : text;
+    try {
+      const out = await post("coach/ld/suggest", { case_id: c.id, kind, section: k, sections: sectionsOf(c), attack: kind === "block" ? attack : "", card: kind === "card" ? card : "" });
+      setWorkbench({ case: out.case, cases: out.cases, source: out.source });
+      if (kind === "block") setAttack(null);
+      setSug({ busy: null, err: null });
+    } catch (e) {
+      setSug({ busy: null, err: errText(e) });
+    }
+  };
+  const kinds = on ? SUGGEST[k] || [] : [];
   const helper = (c.helpers || {})[k];
   const pending = coach.busy && coach.busy.section === k;
   const focus = coach.focus === k;
@@ -4071,28 +4601,69 @@ function SectionCard({ c, k }) {
     runTool(c, t, k, "", true);
   };
   const [main, ...more] = SECTION_TOOLS[k] || [];
-  return jsxs9("div", { className: "ldw-sec", id: `ldw-sec-${k.replace(/\W+/g, "-")}`, "data-focus": focus ? "" : void 0, children: [
-    jsxs9("div", { className: "ldw-row-between", children: [jsx9("h3", { className: "ldw-sec-title", children: k }), jsx9("span", { className: "ldw-meta", children: words(text) ? `${words(text)} words` : "" })] }),
-    jsx9("p", { className: "ldw-hint", children: SECTION_HINTS[k] }),
-    jsx9(Textarea4, { className: "ldw-sec-text", "aria-label": k, value: text, onChange: (e) => change(e.target.value), onFocus: () => $coach.set({ ...$coach.get(), focus: k }) }),
-    jsxs9("div", { className: "ldw-sec-actions", children: [
-      main ? jsxs9("button", {
+  return jsxs10("div", { className: "ldw-sec", id: `ldw-sec-${k.replace(/\W+/g, "-")}`, "data-focus": focus ? "" : void 0, children: [
+    jsxs10("div", { className: "ldw-row-between", children: [jsx10("h3", { className: "ldw-sec-title", children: k }), jsx10("span", { className: "ldw-meta", children: words(text) ? `${words(text)} words` : "" })] }),
+    jsx10("p", { className: "ldw-hint", children: SECTION_HINTS[k] }),
+    jsx10(Textarea5, {
+      className: "ldw-sec-text",
+      "aria-label": k,
+      value: text,
+      onChange: (e) => change(e.target.value),
+      onFocus: () => $coach.set({ ...$coach.get(), focus: k }),
+      onSelect: (e) => setSel(e.target.value.slice(e.target.selectionStart, e.target.selectionEnd))
+    }),
+    jsxs10("div", { className: "ldw-sec-actions", children: [
+      main ? jsxs10("button", {
         type: "button",
         className: "ldw-chip",
         "data-main": "",
         disabled: !!coach.busy,
         onClick: () => run(main),
-        children: [jsx9(Codicon7, { name: ICONS[main] || "question" }), cfg.tools[main]]
+        children: [jsx10(Codicon8, { name: ICONS[main] || "question" }), cfg.tools[main]]
       }) : null,
-      more.length ? jsx9(Menu, {
-        items: more.map((t) => ({ label: cfg.tools[t], icon: ICONS[t], disabled: !!coach.busy, onSelect: () => run(t) })),
-        trigger: (p) => jsxs9("button", { type: "button", className: "ldw-chip", ...p, "aria-label": `More help with ${k}`, children: ["More", jsx9(Codicon7, { name: "chevron-down" })] })
+      kinds.length && kinds[0] !== "card" ? jsxs10("button", {
+        type: "button",
+        className: "ldw-chip ldw-chip-coach",
+        disabled: !!sug.busy,
+        onClick: () => suggest(kinds[0]),
+        children: [jsx10(Codicon8, { name: "lightbulb" }), SUGGEST_LABEL[kinds[0]]]
+      }) : null,
+      more.length || kinds.length ? jsx10(Menu, {
+        items: [
+          ...more.map((t) => ({ label: cfg.tools[t], icon: ICONS[t], disabled: !!coach.busy, onSelect: () => run(t) })),
+          ...kinds.length ? [{ divider: true }, { heading: "The coach's suggestions" }, ...kinds.map((kind) => ({
+            label: SUGGEST_LABEL[kind],
+            icon: "lightbulb",
+            disabled: !!sug.busy,
+            meta: kind === "card" ? words(sel) >= 20 ? "The card you selected" : "Select the card first, or the whole section is used" : null,
+            onSelect: () => suggest(kind)
+          }))] : []
+        ],
+        trigger: (p) => jsxs10("button", { type: "button", className: "ldw-chip", ...p, "aria-label": `More help with ${k}`, children: ["More", jsx10(Codicon8, { name: "chevron-down" })] })
       }) : null
     ] }),
-    pending ? jsx9("div", { className: "ldw-helper", children: jsx9(Thinking, { label: cfg.tools[coach.busy.tool] }) }) : helper ? jsxs9("div", { className: "ldw-helper", children: [
-      jsxs9("div", { className: "ldw-row-between", children: [jsx9("h4", { className: "ldw-h3", children: helper.label }), jsx9("button", { type: "button", className: "hk-link", onClick: hide, children: "Hide" })] }),
-      jsx9("div", { className: "ldw-helper-body", children: renderChecked(helper.text, "Not found in your case. Check it before you use it.") }),
-      jsx9("button", { type: "button", className: "hk-link", onClick: () => {
+    attack !== null ? jsxs10("div", { className: "ldw-attackbox", children: [
+      jsx10("label", { className: "ldw-field-label", htmlFor: `ldw-attack-${k.replace(/\W+/g, "-")}`, children: "The attack to answer" }),
+      jsx10(Textarea5, {
+        id: `ldw-attack-${k.replace(/\W+/g, "-")}`,
+        className: "ldw-short",
+        value: attack,
+        placeholder: "Paste or type the attack: from Attack my case, your opponent, or your coach",
+        onChange: (e) => setAttack(e.target.value)
+      }),
+      jsxs10("div", { className: "hk-actions", children: [
+        jsx10(Button9, { size: "sm", loading: sug.busy === "block", disabled: words(attack) < 8, onClick: () => suggest("block"), children: "Write the block" }),
+        jsx10(Button9, { size: "sm", variant: "secondary", onClick: () => setAttack(null), children: "Cancel" })
+      ] })
+    ] }) : null,
+    sug.busy && sug.busy !== "block" ? jsx10(Thinking, { label: `${SUGGEST_LABEL[sug.busy]}: the coach is reading your case` }) : null,
+    sug.busy === "block" ? jsx10(Thinking, { label: "Writing a block to that attack" }) : null,
+    sug.err ? jsx10(Notice, { tone: "bad", children: sug.err }) : null,
+    on && suggestion && !sug.busy ? jsx10(SuggestionPanel, { c, k, s: suggestion }) : null,
+    pending ? jsx10("div", { className: "ldw-helper", children: jsx10(Thinking, { label: cfg.tools[coach.busy.tool] }) }) : helper ? jsxs10("div", { className: "ldw-helper", children: [
+      jsxs10("div", { className: "ldw-row-between", children: [jsx10("h4", { className: "ldw-h3", children: helper.label }), jsx10("button", { type: "button", className: "hk-link", onClick: hide, children: "Hide" })] }),
+      jsx10("div", { className: "ldw-helper-body", children: renderChecked(helper.text, "Not found in your case. Check it before you use it.") }),
+      jsx10("button", { type: "button", className: "hk-link", onClick: () => {
         $coach.set({ ...$coach.get(), focus: k });
         const a = document.getElementById("ldw-ask");
         if (a) a.focus();
@@ -4101,11 +4672,11 @@ function SectionCard({ c, k }) {
   ] });
 }
 function CoachPanel({ c }) {
-  const coach = useValue4($coach);
-  const [text, setText] = useState9("");
-  const box = useRef5(null);
+  const coach = useValue5($coach);
+  const [text, setText] = useState10("");
+  const box = useRef6(null);
   const thread = c.thread || [];
-  useEffect7(() => {
+  useEffect8(() => {
     if (box.current) box.current.scrollTop = box.current.scrollHeight;
   }, [thread.length, coach.busy]);
   const send = () => {
@@ -4114,23 +4685,23 @@ function CoachPanel({ c }) {
     setText("");
     runTool(c, "coach", coach.focus, t, false);
   };
-  return jsxs9("aside", { className: "ldw-panel ldw-coach", "aria-label": "Coach", children: [
-    jsxs9("div", { className: "ldw-row-between", children: [
-      jsx9("h2", { className: "ldw-h2", children: "Coach" }),
-      jsx9("span", { className: "ldw-focus", title: "The section the coach is looking at. Click into a section to change it.", children: coach.focus || "Whole case" })
+  return jsxs10("aside", { className: "ldw-panel ldw-coach", "aria-label": "Coach", children: [
+    jsxs10("div", { className: "ldw-row-between", children: [
+      jsx10("h2", { className: "ldw-h2", children: "Coach" }),
+      jsx10("span", { className: "ldw-focus", title: "The section the coach is looking at. Click into a section to change it.", children: coach.focus || "Whole case" })
     ] }),
-    jsxs9("div", { className: "ldw-thread", ref: box, "aria-live": "polite", children: [
-      !thread.length && !coach.busy ? jsx9("p", { className: "ldw-meta", children: "Click into a section and use the button under it, or ask the coach anything here. A rough draft gets better coaching than a blank page." }) : null,
-      ...thread.map((m, i) => jsxs9("div", { className: "ldw-msg", "data-role": m.role, children: [
-        jsx9("span", { className: "ldw-who", children: m.role === "coach" ? m.label || "Coach" : "You" }),
-        m.role === "coach" ? m.section ? jsx9("p", { className: "ldw-meta", children: `Shown under ${m.section}. Ask a follow-up below.` }) : renderText(m.text) : jsx9("p", { children: m.text })
+    jsxs10("div", { className: "ldw-thread", ref: box, "aria-live": "polite", children: [
+      !thread.length && !coach.busy ? jsx10("p", { className: "ldw-meta", children: "Click into a section and use the button under it, or ask the coach anything here. A rough draft gets better coaching than a blank page." }) : null,
+      ...thread.map((m, i) => jsxs10("div", { className: "ldw-msg", "data-role": m.role, children: [
+        jsx10("span", { className: "ldw-who", children: m.role === "coach" ? m.label || "Coach" : "You" }),
+        m.role === "coach" ? m.section ? jsx10("p", { className: "ldw-meta", children: `Shown under ${m.section}. Ask a follow-up below.` }) : renderText(m.text) : jsx10("p", { children: m.text })
       ] }, i)),
-      coach.busy && coach.pendingMessage ? jsxs9("div", { className: "ldw-msg", "data-role": "you", children: [jsx9("span", { className: "ldw-who", children: "You" }), jsx9("p", { children: coach.pendingMessage })] }) : null,
-      coach.busy ? jsx9(Thinking, { label: "Reading your case" }) : null,
-      coach.err ? jsx9(Notice, { tone: "bad", children: `I could not reach the coach just now. ${coach.err}` }) : null
+      coach.busy && coach.pendingMessage ? jsxs10("div", { className: "ldw-msg", "data-role": "you", children: [jsx10("span", { className: "ldw-who", children: "You" }), jsx10("p", { children: coach.pendingMessage })] }) : null,
+      coach.busy ? jsx10(Thinking, { label: "Reading your case" }) : null,
+      coach.err ? jsx10(Notice, { tone: "bad", children: `I could not reach the coach just now. ${coach.err}` }) : null
     ] }),
-    jsxs9("div", { className: "ldw-ask", children: [
-      jsx9(Textarea4, {
+    jsxs10("div", { className: "ldw-ask", children: [
+      jsx10(Textarea5, {
         id: "ldw-ask",
         "aria-label": "Message to the coach",
         value: text,
@@ -4143,7 +4714,7 @@ function CoachPanel({ c }) {
           }
         }
       }),
-      jsx9(Button8, { onClick: send, disabled: !!coach.busy || !text.trim(), "aria-label": "Send", children: jsx9(Codicon7, { name: "send" }) })
+      jsx10(Button9, { onClick: send, disabled: !!coach.busy || !text.trim(), "aria-label": "Send", children: jsx10(Codicon8, { name: "send" }) })
     ] })
   ] });
 }
@@ -4152,12 +4723,12 @@ function TimeBar({ c }) {
   const w = READ_SECTIONS.reduce((n, k) => n + words(secs[k]), 0);
   const sec = w / WPM * 60;
   const target = c.side === "aff" ? 360 : 270;
-  return jsxs9("div", { className: "ldw-timebar", children: [
-    jsx9("span", { children: `${mmss(sec)} of ${mmss(target)} spoken at ${WPM} words a minute${c.side === "neg" ? " (leaves 2:30 of your NC to attack)" : ""}` }),
-    jsx9("div", { className: "ldw-bar ldw-grow", "data-over": sec > target ? "1" : void 0, children: jsx9("span", { style: { width: `${Math.min(100, sec / target * 100)}%` } }) })
+  return jsxs10("div", { className: "ldw-timebar", children: [
+    jsx10("span", { children: `${mmss(sec)} of ${mmss(target)} spoken at ${WPM} words a minute${c.side === "neg" ? " (leaves 2:30 of your NC to attack)" : ""}` }),
+    jsx10("div", { className: "ldw-bar ldw-grow", "data-over": sec > target ? "1" : void 0, children: jsx10("span", { style: { width: `${Math.min(100, sec / target * 100)}%` } }) })
   ] });
 }
-var $brief = atom4({ open: false, busy: false, text: "", err: null, resolution: "" });
+var $brief = atom5({ open: false, busy: false, text: "", err: null, resolution: "" });
 var briefAsked = /* @__PURE__ */ new Set();
 async function runBriefing(mode, resolution) {
   const res = String(resolution || "").trim();
@@ -4187,36 +4758,36 @@ async function runBriefing(mode, resolution) {
   }
 }
 function BriefingPanel() {
-  const b = useValue4($brief);
+  const b = useValue5($brief);
   if (!b.open) return null;
-  return jsxs9("section", { className: "ldw-panel ldw-brief", "aria-label": "Topic briefing", "aria-live": "polite", children: [
-    jsxs9("div", { className: "ldw-row-between", children: [
-      jsxs9("div", { className: "ldw-stagehead", children: [jsx9("span", { className: "ldw-label ldw-accent", children: "Topic briefing" }), jsx9("h2", { className: "ldw-h2 ldw-brief-title", children: b.resolution })] }),
-      jsxs9("div", { className: "hk-actions", children: [
-        jsx9(Button8, { size: "sm", variant: "secondary", disabled: b.busy, onClick: () => runBriefing("redo", b.resolution), children: jsxs9(Fragment7, { children: [jsx9(Codicon7, { name: "refresh" }), "Redo"] }) }),
-        jsx9(Button8, { size: "sm", variant: "secondary", disabled: b.busy || !b.text, onClick: () => $view.set("printbrief"), children: jsxs9(Fragment7, { children: [jsx9(Codicon7, { name: "preview" }), "Print"] }) }),
-        jsx9(Button8, { size: "sm", onClick: () => $brief.set({ ...b, open: false }), children: "Got it" })
+  return jsxs10("section", { className: "ldw-panel ldw-brief", "aria-label": "Topic briefing", "aria-live": "polite", children: [
+    jsxs10("div", { className: "ldw-row-between", children: [
+      jsxs10("div", { className: "ldw-stagehead", children: [jsx10("span", { className: "ldw-label ldw-accent", children: "Topic briefing" }), jsx10("h2", { className: "ldw-h2 ldw-brief-title", children: b.resolution })] }),
+      jsxs10("div", { className: "hk-actions", children: [
+        jsx10(Button9, { size: "sm", variant: "secondary", disabled: b.busy, onClick: () => runBriefing("redo", b.resolution), children: jsxs10(Fragment8, { children: [jsx10(Codicon8, { name: "refresh" }), "Redo"] }) }),
+        jsx10(Button9, { size: "sm", variant: "secondary", disabled: b.busy || !b.text, onClick: () => $view.set("printbrief"), children: jsxs10(Fragment8, { children: [jsx10(Codicon8, { name: "preview" }), "Print"] }) }),
+        jsx10(Button9, { size: "sm", onClick: () => $brief.set({ ...b, open: false }), children: "Got it" })
       ] })
     ] }),
-    jsx9("p", { className: "ldw-goal", children: 'Read this before you write. It maps the ground for both sides. Check anything marked "check this" before you use it.' }),
-    b.busy ? jsx9(Thinking, { label: "Preparing your briefing on this topic" }) : null,
-    b.err ? jsx9(Notice, { tone: "bad", children: b.err }) : null,
-    b.text ? jsx9("div", { className: "ldw-brief-body", children: renderText(b.text) }) : null
+    jsx10("p", { className: "ldw-goal", children: 'Read this before you write. It maps the ground for both sides. Check anything marked "check this" before you use it.' }),
+    b.busy ? jsx10(Thinking, { label: "Preparing your briefing on this topic" }) : null,
+    b.err ? jsx10(Notice, { tone: "bad", children: b.err }) : null,
+    b.text ? jsx10("div", { className: "ldw-brief-body", children: renderText(b.text) }) : null
   ] });
 }
 function PrintBriefing() {
-  const b = useValue4($brief);
-  return jsxs9(Fragment7, { children: [
-    jsxs9("div", { className: "hk-actions ldw-noprint", children: [
-      jsx9(Button8, { variant: "secondary", onClick: () => $view.set("bench"), children: jsxs9(Fragment7, { children: [jsx9(Codicon7, { name: "arrow-left" }), "Back to the workbench"] }) }),
-      jsx9(Button8, { onClick: () => window.print(), children: jsxs9(Fragment7, { children: [jsx9(Codicon7, { name: "file" }), "Print"] }) })
+  const b = useValue5($brief);
+  return jsxs10(Fragment8, { children: [
+    jsxs10("div", { className: "hk-actions ldw-noprint", children: [
+      jsx10(Button9, { variant: "secondary", onClick: () => $view.set("bench"), children: jsxs10(Fragment8, { children: [jsx10(Codicon8, { name: "arrow-left" }), "Back to the workbench"] }) }),
+      jsx10(Button9, { onClick: () => window.print(), children: jsxs10(Fragment8, { children: [jsx10(Codicon8, { name: "file" }), "Print"] }) })
     ] }),
-    jsxs9("article", { className: "ldw-print", children: [jsx9("h1", { children: "Topic briefing" }), jsx9("p", { className: "ldw-print-meta", children: b.resolution }), renderText(b.text)] })
+    jsxs10("article", { className: "ldw-print", children: [jsx10("h1", { children: "Topic briefing" }), jsx10("p", { className: "ldw-print-meta", children: b.resolution }), renderText(b.text)] })
   ] });
 }
 function Bench() {
-  const st = useValue4($state);
-  const bench = useValue4($bench);
+  const st = useValue5($state);
+  const bench = useValue5($bench);
   const wb = st.workbench;
   const c = wb.case;
   const setSide = (side) => benchAct(() => post(`cases/${c.id}`, { side }));
@@ -4240,68 +4811,68 @@ function Bench() {
     );
   };
   const msg = bench.msg;
-  useEffect7(() => {
+  useEffect8(() => {
     runBriefing("auto", c.resolution);
   }, [c.id]);
-  return jsxs9(Fragment7, { children: [
-    jsx9(BriefingPanel, {}),
-    jsx9(ResolutionRow, { c, source: wb.source }, `res-${c.id}`),
-    jsxs9("div", { className: "ldw-casehead", children: [
-      jsx9(CaseSwitcher, { wb }),
-      jsx9(Choices, { label: "Side", value: c.side, onChange: setSide, options: [{ id: "aff", label: "Aff" }, { id: "neg", label: "Neg" }] }),
-      jsx9("span", { className: "hk-grow" }),
-      jsx9(Button8, {
+  return jsxs10(Fragment8, { children: [
+    jsx10(BriefingPanel, {}),
+    jsx10(ResolutionRow, { c, source: wb.source }, `res-${c.id}`),
+    jsxs10("div", { className: "ldw-casehead", children: [
+      jsx10(CaseSwitcher, { wb }),
+      jsx10(Choices, { label: "Side", value: c.side, onChange: setSide, options: [{ id: "aff", label: "Aff" }, { id: "neg", label: "Neg" }] }),
+      jsx10("span", { className: "hk-grow" }),
+      jsx10(Button9, {
         size: "sm",
         variant: "secondary",
         "aria-expanded": bench.importOpen,
         onClick: () => benchSet({ importOpen: !bench.importOpen }),
-        children: jsxs9(Fragment7, { children: [jsx9(Codicon7, { name: "cloud-upload" }), "Import"] })
+        children: jsxs10(Fragment8, { children: [jsx10(Codicon8, { name: "cloud-upload" }), "Import"] })
       }),
-      jsx9(Menu, { label: "Export", icon: "export", align: "end", items: [
+      jsx10(Menu, { label: "Export", icon: "export", align: "end", items: [
         { label: "Save as Word", icon: "file", meta: ".docx", onSelect: () => exportAs("docx") },
         { label: "Save as text", icon: "file-text", meta: ".txt", onSelect: () => exportAs("txt") },
         { label: "Print view", icon: "preview", onSelect: () => exportAs("print") }
       ] })
     ] }),
-    bench.confirmDelete ? jsx9(Notice, { tone: "warn", children: `Delete "${c.name}" for good? This cannot be undone.`, action: jsxs9("div", { className: "hk-actions", children: [
-      jsx9(Button8, { size: "sm", variant: "secondary", className: "ldw-danger", onClick: () => {
+    bench.confirmDelete ? jsx10(Notice, { tone: "warn", children: `Delete "${c.name}" for good? This cannot be undone.`, action: jsxs10("div", { className: "hk-actions", children: [
+      jsx10(Button9, { size: "sm", variant: "secondary", className: "ldw-danger", onClick: () => {
         benchSet({ confirmDelete: false });
         benchAct(() => post(`cases/${c.id}/delete`));
       }, children: "Delete" }),
-      jsx9(Button8, { size: "sm", variant: "secondary", onClick: () => benchSet({ confirmDelete: false }), children: "Keep it" })
+      jsx10(Button9, { size: "sm", variant: "secondary", onClick: () => benchSet({ confirmDelete: false }), children: "Keep it" })
     ] }) }) : null,
-    msg ? jsx9(Notice, { tone: msg.tone, children: msg.text, action: msg.path && api.os && api.os.revealPath ? jsx9(Button8, { size: "sm", variant: "secondary", onClick: () => api.os.revealPath(msg.path), children: "Show file" }) : null }) : null,
-    bench.importOpen ? jsx9(ImportPanel, { c }) : null,
-    jsx9(PathBar, { c }),
-    jsxs9("div", { className: "ldw-benchgrid", children: [
-      jsxs9("section", { className: "ldw-case", "aria-label": `Your ${sideName(c.side)} case`, children: [
-        jsx9(TimeBar, { c }),
-        ...($cfg.get().sections || []).map((k) => jsx9(SectionCard, { c, k }, `${c.id}-${k}`))
+    msg ? jsx10(Notice, { tone: msg.tone, children: msg.text, action: msg.path && api.os && api.os.revealPath ? jsx10(Button9, { size: "sm", variant: "secondary", onClick: () => api.os.revealPath(msg.path), children: "Show file" }) : null }) : null,
+    bench.importOpen ? jsx10(ImportPanel, { c }) : null,
+    jsx10(PathBar, { c }),
+    jsxs10("div", { className: "ldw-benchgrid", children: [
+      jsxs10("section", { className: "ldw-case", "aria-label": `Your ${sideName(c.side)} case`, children: [
+        jsx10(TimeBar, { c }),
+        ...($cfg.get().sections || []).map((k) => jsx10(SectionCard, { c, k }, `${c.id}-${k}`))
       ] }),
-      jsx9(CoachPanel, { c })
+      jsx10(CoachPanel, { c })
     ] })
   ] });
 }
 function PrintView() {
-  const st = useValue4($state);
+  const st = useValue5($state);
   const c = st.workbench.case;
   const secs = sectionsOf(c);
-  return jsxs9(Fragment7, { children: [
-    jsxs9("div", { className: "hk-actions ldw-noprint", children: [
-      jsx9(Button8, { variant: "secondary", onClick: () => $view.set("bench"), children: jsxs9(Fragment7, { children: [jsx9(Codicon7, { name: "arrow-left" }), "Back to the workbench"] }) }),
-      jsx9(Button8, { onClick: () => window.print(), children: jsxs9(Fragment7, { children: [jsx9(Codicon7, { name: "file" }), "Print"] }) })
+  return jsxs10(Fragment8, { children: [
+    jsxs10("div", { className: "hk-actions ldw-noprint", children: [
+      jsx10(Button9, { variant: "secondary", onClick: () => $view.set("bench"), children: jsxs10(Fragment8, { children: [jsx10(Codicon8, { name: "arrow-left" }), "Back to the workbench"] }) }),
+      jsx10(Button9, { onClick: () => window.print(), children: jsxs10(Fragment8, { children: [jsx10(Codicon8, { name: "file" }), "Print"] }) })
     ] }),
-    jsxs9("article", { className: "ldw-print", children: [
-      jsx9("h1", { children: c.name }),
-      jsx9("p", { className: "ldw-print-meta", children: `${c.side === "aff" ? "Affirmative" : "Negative"} case · ${c.resolution || ""}` }),
-      ...($cfg.get().sections || []).filter((k) => (secs[k] || "").trim()).map((k) => jsxs9("section", { children: [
-        jsx9("h2", { children: k }),
-        ...secs[k].trim().split(/\n+/).map((p, i) => jsx9("p", { children: p }, i))
+    jsxs10("article", { className: "ldw-print", children: [
+      jsx10("h1", { children: c.name }),
+      jsx10("p", { className: "ldw-print-meta", children: `${c.side === "aff" ? "Affirmative" : "Negative"} case · ${c.resolution || ""}` }),
+      ...($cfg.get().sections || []).filter((k) => (secs[k] || "").trim()).map((k) => jsxs10("section", { children: [
+        jsx10("h2", { children: k }),
+        ...secs[k].trim().split(/\n+/).map((p, i) => jsx10("p", { children: p }, i))
       ] }, k))
     ] })
   ] });
 }
-var $drill = atom4({ n: 0, right: 0, item: null, picked: null, busy: false, err: null });
+var $drill = atom5({ n: 0, right: 0, item: null, picked: null, busy: false, err: null });
 async function newDrill() {
   $drill.set({ ...$drill.get(), item: null, picked: null, busy: true, err: null });
   try {
@@ -4311,7 +4882,7 @@ async function newDrill() {
   }
 }
 function Drill() {
-  const d = useValue4($drill);
+  const d = useValue5($drill);
   const guide = ($cfg.get() || {}).fallacies || [];
   const opts = [...guide.map((f) => f.name), "None"];
   const pick = (o) => {
@@ -4320,39 +4891,39 @@ function Drill() {
     $drill.set({ ...d, picked: o, n: d.n + 1, right: d.right + (ok2 ? 1 : 0) });
   };
   const ok = d.picked && d.picked === d.item.answer;
-  return jsxs9("section", { className: "ldw-panel", "aria-label": "Practice", children: [
-    jsx9("h2", { className: "ldw-h2", children: "Practice: name that fallacy" }),
-    jsx9("p", { className: "ldw-goal", children: 'Read the argument. Pick the fallacy it commits, or "No fallacy" if the reasoning holds up.' }),
-    !d.item && !d.busy ? jsx9("div", { children: jsx9(Button8, { onClick: newDrill, children: jsxs9(Fragment7, { children: [jsx9(Codicon7, { name: "play" }), d.err ? "Try again" : "Give me an argument"] }) }) }) : null,
-    d.busy ? jsx9(Thinking, { label: "Writing an argument" }) : null,
-    d.err ? jsx9(Notice, { tone: "bad", children: d.err }) : null,
-    d.item ? jsxs9(Fragment7, { children: [
-      jsx9("blockquote", { className: "ldw-drill-arg", children: d.item.argument }),
-      jsx9("div", { className: "ldw-chips", role: "group", "aria-label": "Your answer", children: opts.map((o) => {
+  return jsxs10("section", { className: "ldw-panel", "aria-label": "Practice", children: [
+    jsx10("h2", { className: "ldw-h2", children: "Practice: name that fallacy" }),
+    jsx10("p", { className: "ldw-goal", children: 'Read the argument. Pick the fallacy it commits, or "No fallacy" if the reasoning holds up.' }),
+    !d.item && !d.busy ? jsx10("div", { children: jsx10(Button9, { onClick: newDrill, children: jsxs10(Fragment8, { children: [jsx10(Codicon8, { name: "play" }), d.err ? "Try again" : "Give me an argument"] }) }) }) : null,
+    d.busy ? jsx10(Thinking, { label: "Writing an argument" }) : null,
+    d.err ? jsx10(Notice, { tone: "bad", children: d.err }) : null,
+    d.item ? jsxs10(Fragment8, { children: [
+      jsx10("blockquote", { className: "ldw-drill-arg", children: d.item.argument }),
+      jsx10("div", { className: "ldw-chips", role: "group", "aria-label": "Your answer", children: opts.map((o) => {
         const state = !d.picked ? void 0 : o === d.item.answer ? "right" : o === d.picked ? "wrong" : void 0;
-        return jsxs9("button", {
+        return jsxs10("button", {
           type: "button",
           className: "ldw-chip ldw-opt",
           "data-result": state,
           "aria-pressed": d.picked === o,
           disabled: !!d.picked && !state,
           onClick: () => pick(o),
-          children: [state === "right" ? jsx9(Codicon7, { name: "check" }) : state === "wrong" ? jsx9(Codicon7, { name: "close" }) : null, o === "None" ? "No fallacy" : o]
+          children: [state === "right" ? jsx10(Codicon8, { name: "check" }) : state === "wrong" ? jsx10(Codicon8, { name: "close" }) : null, o === "None" ? "No fallacy" : o]
         }, o);
       }) }),
-      d.picked ? jsxs9("div", { className: "hk-stack", children: [
-        jsxs9("p", { className: "ldw-goal", children: [jsx9("strong", { children: ok ? "Right. " : `It was ${d.item.answer === "None" ? "no fallacy" : d.item.answer}. ` }), d.item.explanation] }),
-        jsx9("div", { children: jsx9(Button8, { onClick: newDrill, children: jsxs9(Fragment7, { children: [jsx9(Codicon7, { name: "arrow-right" }), "Next argument"] }) }) })
+      d.picked ? jsxs10("div", { className: "hk-stack", children: [
+        jsxs10("p", { className: "ldw-goal", children: [jsx10("strong", { children: ok ? "Right. " : `It was ${d.item.answer === "None" ? "no fallacy" : d.item.answer}. ` }), d.item.explanation] }),
+        jsx10("div", { children: jsx10(Button9, { onClick: newDrill, children: jsxs10(Fragment8, { children: [jsx10(Codicon8, { name: "arrow-right" }), "Next argument"] }) }) })
       ] }) : null
     ] }) : null,
-    d.n ? jsx9("div", { className: "ldw-meta", role: "status", children: `This session: ${d.right} of ${d.n} right` }) : null
+    d.n ? jsx10("div", { className: "ldw-meta", role: "status", children: `This session: ${d.right} of ${d.n} right` }) : null
   ] });
 }
 function CheckArgument() {
-  const [text, setText] = useState9("");
-  const [out, setOut] = useState9(null);
-  const [busy, setBusy] = useState9(false);
-  const [err, setErr] = useState9(null);
+  const [text, setText] = useState10("");
+  const [out, setOut] = useState10(null);
+  const [busy, setBusy] = useState10(false);
+  const [err, setErr] = useState10(null);
   const go = async () => {
     if (words(text) < 12) {
       setErr("Paste a longer argument first.");
@@ -4368,58 +4939,58 @@ function CheckArgument() {
       setBusy(false);
     }
   };
-  return jsxs9("section", { className: "ldw-panel", "aria-label": "Check an argument", children: [
-    jsx9("h2", { className: "ldw-h2", children: "Check an argument" }),
-    jsx9("p", { className: "ldw-goal", children: "Paste an opponent's case, a teammate's speech, or a paragraph from an article. To check your own case, use Find fallacies in any contention." }),
-    jsx9(Textarea4, { className: "ldw-speechbox ldw-short", "aria-label": "Argument to check", value: text, onChange: (e) => setText(e.target.value), placeholder: "Paste the argument here" }),
-    jsx9("div", { className: "ldw-row-end", children: jsx9(Button8, { loading: busy, onClick: go, children: jsxs9(Fragment7, { children: [jsx9(Codicon7, { name: "search" }), "Find the fallacies"] }) }) }),
-    busy ? jsx9(Thinking, { label: "Looking for fallacies" }) : null,
-    err ? jsx9(Notice, { tone: "bad", children: err }) : null,
-    out ? jsx9(FallaciesFound, { text: out, where: "in what you pasted" }) : null
+  return jsxs10("section", { className: "ldw-panel", "aria-label": "Check an argument", children: [
+    jsx10("h2", { className: "ldw-h2", children: "Check an argument" }),
+    jsx10("p", { className: "ldw-goal", children: "Paste an opponent's case, a teammate's speech, or a paragraph from an article. To check your own case, use Find fallacies in any contention." }),
+    jsx10(Textarea5, { className: "ldw-speechbox ldw-short", "aria-label": "Argument to check", value: text, onChange: (e) => setText(e.target.value), placeholder: "Paste the argument here" }),
+    jsx10("div", { className: "ldw-row-end", children: jsx10(Button9, { loading: busy, onClick: go, children: jsxs10(Fragment8, { children: [jsx10(Codicon8, { name: "search" }), "Find the fallacies"] }) }) }),
+    busy ? jsx10(Thinking, { label: "Looking for fallacies" }) : null,
+    err ? jsx10(Notice, { tone: "bad", children: err }) : null,
+    out ? jsx10(FallaciesFound, { text: out, where: "in what you pasted" }) : null
   ] });
 }
 function Fallacies() {
   const guide = ($cfg.get() || {}).fallacies || [];
-  return jsxs9(Fragment7, { children: [
-    jsx9("p", { className: "ldw-goal", children: "A fallacy is a mistake in reasoning that can make a weak argument sound strong. Learn the common ones, practice spotting them, and check any argument for them: yours or someone else's." }),
-    jsxs9("div", { className: "ldw-fx-grid", children: [jsx9(Drill, {}), jsx9(CheckArgument, {})] }),
-    jsxs9("section", { className: "hk-stack", "aria-label": "The guide", children: [
-      jsx9("h2", { className: "ldw-h2", children: `The guide: ${guide.length} common fallacies` }),
-      jsx9("div", { className: "ldw-fx-cards", children: guide.map((f) => jsxs9("article", { className: "ldw-fx-card", children: [
-        jsx9("h3", { className: "ldw-sec-title", children: f.name }),
-        jsx9("p", { children: f.definition }),
-        jsx9("p", { className: "ldw-fx-ex", children: `"${f.example}"` }),
-        jsxs9("p", { className: "ldw-fx-use", children: [jsx9("strong", { children: "In a round: " }), f.debate] })
+  return jsxs10(Fragment8, { children: [
+    jsx10("p", { className: "ldw-goal", children: "A fallacy is a mistake in reasoning that can make a weak argument sound strong. Learn the common ones, practice spotting them, and check any argument for them: yours or someone else's." }),
+    jsxs10("div", { className: "ldw-fx-grid", children: [jsx10(Drill, {}), jsx10(CheckArgument, {})] }),
+    jsxs10("section", { className: "hk-stack", "aria-label": "The guide", children: [
+      jsx10("h2", { className: "ldw-h2", children: `The guide: ${guide.length} common fallacies` }),
+      jsx10("div", { className: "ldw-fx-cards", children: guide.map((f) => jsxs10("article", { className: "ldw-fx-card", children: [
+        jsx10("h3", { className: "ldw-sec-title", children: f.name }),
+        jsx10("p", { children: f.definition }),
+        jsx10("p", { className: "ldw-fx-ex", children: `"${f.example}"` }),
+        jsxs10("p", { className: "ldw-fx-use", children: [jsx10("strong", { children: "In a round: " }), f.debate] })
       ] }, f.name)) })
     ] })
   ] });
 }
 function Header() {
-  const view = useValue4($view);
-  const st = useValue4($state);
+  const view = useValue5($view);
+  const st = useValue5($state);
   const cfg = $cfg.get();
   const r = st && st.round;
   const c = st && st.workbench && st.workbench.case;
   const eyebrow = view === "fallacies" ? "A guide, a practice drill and a checker" : view === "room" ? r ? `Practice round ${r.round_no} · ${sideShort(r.side)} · ${r.level === "jv" ? "JV" : r.level} · ${cfg.judges[r.judge].label}` : `${(st.history || {}).count || 0} ${((st.history || {}).count || 0) === 1 ? "ballot" : "ballots"} so far · NSDA Lincoln-Douglas` : c ? `${c.side === "aff" ? "Affirmative" : "Negative"} case · ${c.name}` : "";
   const res = view === "fallacies" ? null : view === "room" ? r ? r.resolution : c && c.resolution : c && c.resolution;
-  const tab = (id, label, icon) => jsxs9("button", {
+  const tab = (id, label, icon) => jsxs10("button", {
     type: "button",
     role: "tab",
     className: "ldw-tab",
     "aria-selected": view === id || id === "bench" && (view === "print" || view === "printbrief"),
     onClick: () => $view.set(id),
-    children: [jsx9(Codicon7, { name: icon }), label]
+    children: [jsx10(Codicon8, { name: icon }), label]
   });
-  return jsxs9("header", { className: "ldw-head ldw-noprint", children: [
-    jsxs9("div", { className: "ldw-head-title", children: [
-      jsx9("h1", { className: "ldw-h1", children: view === "room" ? "Tournament Room" : view === "fallacies" ? "Fallacies" : "Case Workbench" }),
-      jsx9("span", { className: "ldw-meta", children: eyebrow }),
-      res ? jsx9("span", { className: "ldw-res", children: `"${res.replace(/^Resolved:\s*/i, "")}"` }) : null
+  return jsxs10("header", { className: "ldw-head ldw-noprint", children: [
+    jsxs10("div", { className: "ldw-head-title", children: [
+      jsx10("h1", { className: "ldw-h1", children: view === "room" ? "Tournament Room" : view === "fallacies" ? "Fallacies" : "Case Workbench" }),
+      jsx10("span", { className: "ldw-meta", children: eyebrow }),
+      res ? jsx10("span", { className: "ldw-res", children: `"${res.replace(/^Resolved:\s*/i, "")}"` }) : null
     ] }),
-    jsxs9("nav", { className: "ldw-tabs", role: "tablist", "aria-label": "Debate", children: [tab("room", "Tournament Room", "law"), tab("bench", "Case Workbench", "edit"), tab("fallacies", "Fallacies", "warning")] })
+    jsxs10("nav", { className: "ldw-tabs", role: "tablist", "aria-label": "Debate", children: [tab("room", "Tournament Room", "law"), tab("bench", "Case Workbench", "edit"), tab("fallacies", "Fallacies", "warning")] })
   ] });
 }
-var $event = atom4(null);
+var $event = atom5(null);
 var EVENT_IDS = ["ld", "extemp", "rhetoric", "ballots"];
 function chooseEvent(id) {
   $event.set(id);
@@ -4428,11 +4999,11 @@ function chooseEvent(id) {
   if (id === "ballots" || id === "extemp" || id === "settings") loadHome();
 }
 function Rail({ event }) {
-  const st = useValue4($state);
-  const home = useValue4($home);
+  const st = useValue5($state);
+  const home = useValue5($home);
   const r = st && st.round;
   const xr = home && home.extemp_round;
-  const xmode = useValue4($extempMode) || (xr ? "round" : "drill");
+  const xmode = useValue5($extempMode) || (xr ? "round" : "drill");
   const sub = {
     ld: r ? `Round ${r.round_no}, ${sideShort(r.side)}` : "Cases and rounds",
     extemp: xmode === "openings" ? "Openings" : xmode === "round" ? xr ? { prep: "Full round, prep", speak: "Full round, at the podium", ballot: "Full round, ballot" }[xr.phase] || "Full round" : "Full round, the draw" : "60-second answer",
@@ -4441,43 +5012,69 @@ function Rail({ event }) {
     settings: "Transcripts, outlets"
   };
   const names = { ld: "Lincoln-Douglas", extemp: "Extemp", rhetoric: "Rhetoric", ballots: "Ballots", settings: "Settings" };
-  return jsx9("nav", { className: "ldw-rail ldw-noprint", "aria-label": "Events", children: [...EVENT_IDS, "settings"].map((id) => jsxs9("button", {
+  const view = useValue5($view);
+  const toBench = event === "ld" && view === "bench" ? () => {
+    const a = document.getElementById("ldw-ask");
+    if (a) {
+      a.scrollIntoView({ block: "center" });
+      a.focus();
+    }
+  } : null;
+  const btn = (id) => jsxs10("button", {
     type: "button",
     className: cls("ldw-ev", id === "ballots" && "ldw-ev-ballots", id === "settings" && "ldw-ev-settings"),
     "aria-current": event === id ? "page" : void 0,
     onClick: () => chooseEvent(id),
     children: [
-      jsx9("b", { children: names[id] }),
-      jsx9("span", { children: sub[id] })
+      jsx10("b", { children: names[id] }),
+      jsx10("span", { children: sub[id] })
     ]
-  }, id)) });
+  }, id);
+  return jsxs10("nav", { className: "ldw-rail ldw-noprint", "aria-label": "Events", children: [
+    ...EVENT_IDS.map(btn),
+    event !== "settings" ? jsx10(ChatButton, { onOpen: toBench }, "coach") : null,
+    btn("settings")
+  ] });
+}
+function useLdCoachContext(event) {
+  const view = useValue5($view);
+  const st = useValue5($state);
+  const r = st && st.round;
+  useEffect8(() => {
+    if (event !== "ld") return;
+    const room = view === "room";
+    $coachCtx.set({ floor: "ld", view: room ? "room" : view, sees: room && r ? ["the round", (r.ballots || []).length && "the ballot", "your open case"] : ["your case", "the resolution"] });
+  }, [event, view, r && r.round_no, r && (r.ballots || []).length, r && r.i]);
 }
 function DebatePage() {
-  const st = useValue4($state);
-  const cfg = useValue4($cfg);
-  const err = useValue4($loadError);
-  const view = useValue4($view);
-  const home = useValue4($home);
-  const picked = useValue4($event);
-  useEffect7(() => {
+  const st = useValue5($state);
+  const cfg = useValue5($cfg);
+  const err = useValue5($loadError);
+  const view = useValue5($view);
+  const home = useValue5($home);
+  const picked = useValue5($event);
+  useEffect8(() => {
     load();
     loadHome();
   }, []);
   const event = picked === "settings" ? "settings" : picked || (home && home.settings && EVENT_IDS.includes(home.settings.event) ? home.settings.event : "extemp");
+  const chat = useValue5($chatOpen) && event !== "settings" && !(event === "ld" && view === "bench");
+  useLdCoachContext(event);
   let body;
-  if (err && !st) body = jsx9(Failure, { title: "The workbench could not load", body: `${errText(err)} Check that Debate Workbench is turned on in Capabilities, Plugins, then try again.`, error: err, onRetry: () => {
+  if (err && !st) body = jsx10(Failure, { title: "The workbench could not load", body: `${errText(err)} Check that Debate Workbench is turned on in Capabilities, Plugins, then try again.`, error: err, onRetry: () => {
     load();
     loadHome();
   } });
-  else if (!st || !cfg) body = jsx9(Thinking, { label: "Opening the workbench" });
-  else if (event === "extemp") body = jsx9(ExtempView, {});
-  else if (event === "rhetoric") body = jsx9(RhetoricView, {});
-  else if (event === "ballots") body = jsx9(BallotsView, {});
-  else if (event === "settings") body = jsx9(SettingsView, {});
-  else body = jsxs9(Fragment7, { children: [jsx9(Header, {}), view === "room" ? jsx9(Room, {}) : view === "fallacies" ? jsx9(Fallacies, {}) : view === "printbrief" ? jsx9(PrintBriefing, {}) : view === "print" ? jsx9(PrintView, {}) : jsx9(Bench, {})] });
-  return jsx9("div", { className: "hk hk-page ldw", role: "region", "aria-label": "Debate Workbench", children: jsxs9("div", { className: "ldw-frame", children: [
-    jsx9(Rail, { event }),
-    jsx9("main", { className: "ldw-inner", "data-event": event, children: body })
+  else if (!st || !cfg) body = jsx10(Thinking, { label: "Opening the workbench" });
+  else if (event === "extemp") body = jsx10(ExtempView, {});
+  else if (event === "rhetoric") body = jsx10(RhetoricView, {});
+  else if (event === "ballots") body = jsx10(BallotsView, {});
+  else if (event === "settings") body = jsx10(SettingsView, {});
+  else body = jsxs10(Fragment8, { children: [jsx10(Header, {}), view === "room" ? jsx10(Room, {}) : view === "fallacies" ? jsx10(Fallacies, {}) : view === "printbrief" ? jsx10(PrintBriefing, {}) : view === "print" ? jsx10(PrintView, {}) : jsx10(Bench, {})] });
+  return jsx10("div", { className: "hk hk-page ldw", role: "region", "aria-label": "Debate Workbench", children: jsxs10("div", { className: "ldw-frame", "data-chat": chat ? "" : void 0, children: [
+    jsx10(Rail, { event }),
+    jsx10("main", { className: "ldw-inner", "data-event": event, children: body }),
+    chat && st && cfg ? jsx10(CoachChat, { floor: event }) : null
   ] }) });
 }
 var CSS = `
@@ -4740,7 +5337,7 @@ var plugin_default = {
       route: ROUTE,
       label: "Debate",
       codicon: "law",
-      render: () => jsx9(DebatePage, {}),
+      render: () => jsx10(DebatePage, {}),
       palette: [
         { id: "ld-workbench.room", label: "Debate: open the Tournament Room", keywords: ["lincoln douglas", "practice round", "ballot"], run: open("room") },
         { id: "ld-workbench.fallacies", contributionId: "fallacies", label: "Debate: practice logical fallacies", keywords: ["fallacy", "logic", "reasoning"], run: open("fallacies") },

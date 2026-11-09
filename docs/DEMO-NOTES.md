@@ -75,7 +75,8 @@ The harness (`harness/shoot.sh`, screens in `docs/shots/v02/`) is fine for layou
 | Headline pull | The real Nov 7 pull on the Federal Reserve, now filtered on topic by the plugin's own code | Live pull is better (dated), but the still is honest |
 | Spot fallacies under the NR | A hand-written answer whose three quotes are the NR's own words, checked by the plugin's code (`?spotmiss=1` shows the not-found mark) | Live, if filmed |
 | Opponent's NC and NR, cross-ex, the LD ballot, the case coach | Captured from the real backend and model on Oct 20, 2026 (`harness/fixtures.js`) | Usable as captured |
-| Rhetoric "Ask the coach" | Not answered in the harness | Live |
+| Rhetoric "Ask the coach" | Hand-written critique of the harness line (`harness/make_coach_fixtures.py`) | Live |
+| The coach's examples, suggestions, Show me and the chat (`docs/shots/v02/coach-*.png`) | Hand-written model answers on the harness's own file, take and round, put through the plugin's real coach routes and checks (`harness/make_coach_fixtures.py`) | Live, if filmed: the words will differ |
 
 ## Do not film
 

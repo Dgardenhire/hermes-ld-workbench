@@ -25,6 +25,7 @@ import { RhetoricView } from './rhetoric.js'
 import { BallotsView } from './ballotsview.js'
 import { SettingsView } from './settingsview.js'
 import { FRAME_CSS } from './styles.js'
+import { $chatOpen, $coachCtx, $coachOn, COACH_FLAG, ChatButton, CoachBox, CoachChat } from './coach.js'
 
 export { describeError }
 import { $cfg, $loadError, $state, $view, Choices, Label, MODEL_TIMEOUT, Menu, PLUGIN_ID, ROUTE, Thinking, WPM, api, clip, cls, errText, inline, load, mmss, notFoundCount, post, refreshState, renderChecked, renderText, rest, setApi, setRound, setWorkbench, sideName, sideShort, when, words } from './core.js'
@@ -52,6 +53,16 @@ const SECTION_TOOLS = {
   'Contention 1': ['arguments', 'logic', 'fallacies', 'attack', 'sources', 'coach'], 'Contention 2': ['arguments', 'logic', 'fallacies', 'attack', 'sources', 'coach'],
   'Contention 3': ['arguments', 'logic', 'fallacies', 'attack', 'sources', 'coach'], Blocks: ['attack', 'coach'], 'Other material': ['coach', 'notes'],
 }
+// The coach's suggestions under each section (coach.py LD_TASKS). The first one is a chip under the section;
+// "Strengthen this card" sits in the section's More menu.
+const SUGGEST = {
+  'Contention 1': ['contentions', 'card'], 'Contention 2': ['contentions', 'card'], 'Contention 3': ['contentions', 'card'],
+  Value: ['framework'], Criterion: ['framework'], Blocks: ['block', 'card'], Definitions: ['card'], 'Other material': ['card'],
+}
+const SUGGEST_LABEL = { contentions: 'Suggest contentions', framework: 'Suggest a value and criterion', block: 'Write a block to an attack', card: 'Strengthen this card' }
+const $sectionPush = atom(null) // { caseId, key, text, n }: a draft added to a section from another section's card
+const unmark = t => String(t || '').replace(/\s*\[\[not-(?:found|in-file)\]\]/g, ' [check this: not in your case]')
+
 const PATH = [
   { title: 'Understand the resolution', short: 'Resolution', desc: 'What it asks, and what each key word means', sections: ['Resolution analysis', 'Definitions'], tool: 'breakdown' },
   { title: 'Build the framework', short: 'Framework', desc: 'Your value and the criterion that measures it', sections: ['Value', 'Criterion'], tool: 'values' },
@@ -814,10 +825,57 @@ function PathBar({ c }) {
     ] }) }, i)) }) })
 }
 
+// A suggestion kept under its section: each draft, its check, and Add, which puts the draft into the case
+// marked for rewriting. Nothing reaches the case until the student presses Add.
+function SuggestionPanel({ c, k, s }) {
+  const hide = () => post(`cases/${c.id}`, { hide_suggestion: k }).then(setWorkbench, () => {})
+  const [added, setAdded] = useState({})
+  const add = (d, i) => {
+    const target = s.kind === 'contentions' ? (['Contention 1', 'Contention 2', 'Contention 3'][i] || k) : (s.target || k)
+    const now = sectionsOf(c)[target] || ''
+    const piece = `[Coach's suggestion: rewrite it in your own words] ${d.label}\n${unmark(d.text)}`
+    const text = now.trim() ? `${now.trimEnd()}\n\n${piece}` : piece
+    saveSection(c.id, target, text)
+    $sectionPush.set({ caseId: c.id, key: target, text, n: Date.now() })
+    setAdded({ ...added, [i]: target })
+  }
+  return jsxs(CoachBox, { label: "Coach's suggestion", sub: `${s.label || 'A draft'}. Rewrite it in your own words before you read it.`, checks: s.checks, against: 'your case', onClose: hide, children: [
+    s.note ? jsx('p', { className: 'ldw-coachbox-kept', children: inline(s.note, `${k}-note`) }) : null,
+    jsx('ol', { className: 'ldw-drafts', children: s.drafts.map((d, i) => {
+      const target = s.kind === 'contentions' ? (['Contention 1', 'Contention 2', 'Contention 3'][i] || k) : (s.target || k)
+      return jsxs('li', { children: [
+        jsx('b', { children: d.label }),
+        jsx('div', { className: 'ldw-draft-text', children: renderChecked(d.text, COACH_FLAG) }),
+        added[i] ? jsx('span', { className: 'ldw-meta', children: `Added to ${added[i]}, marked for you to rewrite.` })
+          : jsx('button', { type: 'button', className: 'hk-link', onClick: () => add(d, i), children: `Add to ${target}` }),
+      ] }, i)
+    }) }),
+  ] })
+}
+
 function SectionCard({ c, k }) {
   const cfg = $cfg.get()
   const coach = useValue($coach)
+  const on = useValue($coachOn)
+  const push = useValue($sectionPush)
   const [text, setText] = useState(sectionsOf(c)[k] || '')
+  useEffect(() => { if (push && push.caseId === c.id && push.key === k) setText(push.text) }, [push && push.n])
+  const [sel, setSel] = useState('')
+  const [sug, setSug] = useState({ busy: null, err: null })
+  const [attack, setAttack] = useState(null) // null: closed; text while the attack box is open
+  const suggestion = (c.suggestions || {})[k]
+  const suggest = async kind => {
+    if (kind === 'block' && attack === null) { setAttack(''); return }
+    setSug({ busy: kind, err: null })
+    const card = words(sel) >= 20 ? sel : text
+    try {
+      const out = await post('coach/ld/suggest', { case_id: c.id, kind, section: k, sections: sectionsOf(c), attack: kind === 'block' ? attack : '', card: kind === 'card' ? card : '' })
+      setWorkbench({ case: out.case, cases: out.cases, source: out.source })
+      if (kind === 'block') setAttack(null)
+      setSug({ busy: null, err: null })
+    } catch (e) { setSug({ busy: null, err: errText(e) }) }
+  }
+  const kinds = on ? SUGGEST[k] || [] : []
   const helper = (c.helpers || {})[k]
   const pending = coach.busy && coach.busy.section === k
   const focus = coach.focus === k
@@ -828,13 +886,31 @@ function SectionCard({ c, k }) {
   return jsxs('div', { className: 'ldw-sec', id: `ldw-sec-${k.replace(/\W+/g, '-')}`, 'data-focus': focus ? '' : undefined, children: [
     jsxs('div', { className: 'ldw-row-between', children: [jsx('h3', { className: 'ldw-sec-title', children: k }), jsx('span', { className: 'ldw-meta', children: words(text) ? `${words(text)} words` : '' })] }),
     jsx('p', { className: 'ldw-hint', children: SECTION_HINTS[k] }),
-    jsx(Textarea, { className: 'ldw-sec-text', 'aria-label': k, value: text, onChange: e => change(e.target.value), onFocus: () => $coach.set({ ...$coach.get(), focus: k }) }),
+    jsx(Textarea, { className: 'ldw-sec-text', 'aria-label': k, value: text, onChange: e => change(e.target.value), onFocus: () => $coach.set({ ...$coach.get(), focus: k }),
+      onSelect: e => setSel(e.target.value.slice(e.target.selectionStart, e.target.selectionEnd)) }),
     jsxs('div', { className: 'ldw-sec-actions', children: [
       main ? jsxs('button', { type: 'button', className: 'ldw-chip', 'data-main': '', disabled: !!coach.busy, onClick: () => run(main),
         children: [jsx(Codicon, { name: ICONS[main] || 'question' }), cfg.tools[main]] }) : null,
-      more.length ? jsx(Menu, { items: more.map(t => ({ label: cfg.tools[t], icon: ICONS[t], disabled: !!coach.busy, onSelect: () => run(t) })),
+      kinds.length && kinds[0] !== 'card' ? jsxs('button', { type: 'button', className: 'ldw-chip ldw-chip-coach', disabled: !!sug.busy, onClick: () => suggest(kinds[0]),
+        children: [jsx(Codicon, { name: 'lightbulb' }), SUGGEST_LABEL[kinds[0]]] }) : null,
+      more.length || kinds.length ? jsx(Menu, { items: [...more.map(t => ({ label: cfg.tools[t], icon: ICONS[t], disabled: !!coach.busy, onSelect: () => run(t) })),
+        ...(kinds.length ? [{ divider: true }, { heading: "The coach's suggestions" }, ...kinds.map(kind => ({ label: SUGGEST_LABEL[kind], icon: 'lightbulb', disabled: !!sug.busy,
+          meta: kind === 'card' ? (words(sel) >= 20 ? 'The card you selected' : 'Select the card first, or the whole section is used') : null, onSelect: () => suggest(kind) }))] : [])],
         trigger: p => jsxs('button', { type: 'button', className: 'ldw-chip', ...p, 'aria-label': `More help with ${k}`, children: ['More', jsx(Codicon, { name: 'chevron-down' })] }) }) : null,
     ] }),
+    attack !== null ? jsxs('div', { className: 'ldw-attackbox', children: [
+      jsx('label', { className: 'ldw-field-label', htmlFor: `ldw-attack-${k.replace(/\W+/g, '-')}`, children: 'The attack to answer' }),
+      jsx(Textarea, { id: `ldw-attack-${k.replace(/\W+/g, '-')}`, className: 'ldw-short', value: attack, placeholder: 'Paste or type the attack: from Attack my case, your opponent, or your coach',
+        onChange: e => setAttack(e.target.value) }),
+      jsxs('div', { className: 'hk-actions', children: [
+        jsx(Button, { size: 'sm', loading: sug.busy === 'block', disabled: words(attack) < 8, onClick: () => suggest('block'), children: 'Write the block' }),
+        jsx(Button, { size: 'sm', variant: 'secondary', onClick: () => setAttack(null), children: 'Cancel' }),
+      ] }),
+    ] }) : null,
+    sug.busy && sug.busy !== 'block' ? jsx(Thinking, { label: `${SUGGEST_LABEL[sug.busy]}: the coach is reading your case` }) : null,
+    sug.busy === 'block' ? jsx(Thinking, { label: 'Writing a block to that attack' }) : null,
+    sug.err ? jsx(Notice, { tone: 'bad', children: sug.err }) : null,
+    on && suggestion && !sug.busy ? jsx(SuggestionPanel, { c, k, s: suggestion }) : null,
     pending ? jsx('div', { className: 'ldw-helper', children: jsx(Thinking, { label: cfg.tools[coach.busy.tool] }) }) : helper ? jsxs('div', { className: 'ldw-helper', children: [
       jsxs('div', { className: 'ldw-row-between', children: [jsx('h4', { className: 'ldw-h3', children: helper.label }), jsx('button', { type: 'button', className: 'hk-link', onClick: hide, children: 'Hide' })] }),
       jsx('div', { className: 'ldw-helper-body', children: renderChecked(helper.text, 'Not found in your case. Check it before you use it.') }),
@@ -1138,10 +1214,32 @@ function Rail({ event }) {
     settings: 'Transcripts, outlets',
   }
   const names = { ld: 'Lincoln-Douglas', extemp: 'Extemp', rhetoric: 'Rhetoric', ballots: 'Ballots', settings: 'Settings' }
-  return jsx('nav', { className: 'ldw-rail ldw-noprint', 'aria-label': 'Events', children: [...EVENT_IDS, 'settings'].map(id => jsxs('button', { type: 'button',
+  const view = useValue($view)
+  // On the Case Workbench the coach already sits beside the case: the rail's button goes to it.
+  const toBench = event === 'ld' && view === 'bench' ? () => { const a = document.getElementById('ldw-ask'); if (a) { a.scrollIntoView({ block: 'center' }); a.focus() } } : null
+  const btn = id => jsxs('button', { type: 'button',
     className: cls('ldw-ev', id === 'ballots' && 'ldw-ev-ballots', id === 'settings' && 'ldw-ev-settings'), 'aria-current': event === id ? 'page' : undefined, onClick: () => chooseEvent(id), children: [
       jsx('b', { children: names[id] }), jsx('span', { children: sub[id] }),
-    ] }, id)) })
+    ] }, id)
+  return jsxs('nav', { className: 'ldw-rail ldw-noprint', 'aria-label': 'Events', children: [
+    ...EVENT_IDS.map(btn),
+    event !== 'settings' ? jsx(ChatButton, { onOpen: toBench }, 'coach') : null,
+    btn('settings'),
+  ] })
+}
+
+// Lincoln-Douglas says what is on screen here; the other events say it from their own floors.
+function useLdCoachContext(event) {
+  const view = useValue($view)
+  const st = useValue($state)
+  const r = st && st.round
+  useEffect(() => {
+    if (event !== 'ld') return
+    const room = view === 'room'
+    $coachCtx.set({ floor: 'ld', view: room ? 'room' : view, sees: room && r
+      ? ['the round', (r.ballots || []).length && 'the ballot', 'your open case']
+      : ['your case', 'the resolution'] })
+  }, [event, view, r && r.round_no, r && (r.ballots || []).length, r && r.i])
 }
 
 function DebatePage() {
@@ -1153,6 +1251,8 @@ function DebatePage() {
   const picked = useValue($event)
   useEffect(() => { load(); loadHome() }, [])
   const event = picked === 'settings' ? 'settings' : picked || (home && home.settings && EVENT_IDS.includes(home.settings.event) ? home.settings.event : 'extemp')
+  const chat = useValue($chatOpen) && event !== 'settings' && !(event === 'ld' && view === 'bench')
+  useLdCoachContext(event)
   let body
   if (err && !st) body = jsx(Failure, { title: 'The workbench could not load', body: `${errText(err)} Check that Debate Workbench is turned on in Capabilities, Plugins, then try again.`, error: err, onRetry: () => { load(); loadHome() } })
   else if (!st || !cfg) body = jsx(Thinking, { label: 'Opening the workbench' })
@@ -1161,9 +1261,10 @@ function DebatePage() {
   else if (event === 'ballots') body = jsx(BallotsView, {})
   else if (event === 'settings') body = jsx(SettingsView, {})
   else body = jsxs(Fragment, { children: [jsx(Header, {}), view === 'room' ? jsx(Room, {}) : view === 'fallacies' ? jsx(Fallacies, {}) : view === 'printbrief' ? jsx(PrintBriefing, {}) : view === 'print' ? jsx(PrintView, {}) : jsx(Bench, {})] })
-  return jsx('div', { className: 'hk hk-page ldw', role: 'region', 'aria-label': 'Debate Workbench', children: jsxs('div', { className: 'ldw-frame', children: [
+  return jsx('div', { className: 'hk hk-page ldw', role: 'region', 'aria-label': 'Debate Workbench', children: jsxs('div', { className: 'ldw-frame', 'data-chat': chat ? '' : undefined, children: [
     jsx(Rail, { event }),
     jsx('main', { className: 'ldw-inner', 'data-event': event, children: body }),
+    chat && st && cfg ? jsx(CoachChat, { floor: event }) : null,
   ] }) })
 }
 

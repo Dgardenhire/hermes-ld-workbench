@@ -7,6 +7,7 @@ import { Button, Textarea, atom, useValue } from '@hermes/plugin-sdk'
 import { Notice } from 'hermes-ui-kit'
 import { Thinking, cls, errText, post, renderText, rest, words } from './core.js'
 import { Clock, LastTake, SpeakControls, Strip, sendTake, useRecorder, useTakePoll } from './floor.js'
+import { $coachCtx, ThreeVersions, useCoachContext } from './coach.js'
 
 const $rh = atom(null) // the figures, effects and library from /rhetoric
 const $stage = atom('read') // read | figures | spot | write | say
@@ -179,6 +180,7 @@ function WriteStage() {
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState(null)
   const go = async () => { setBusy(true); setErr(null); try { setOut((await post('rhetoric/critique', { figure: picked, line })).text) } catch (e) { setErr(errText(e)) } finally { setBusy(false) } }
+  useCoachContext({ floor: 'rhetoric', figure: picked, line, critique: out || '', sees: [`${f.name}`, words(line) >= 4 && 'your line', out && "the coach's critique"] }, [picked, line, out])
   return jsxs('section', { className: 'ldw-write', 'aria-label': 'Write your own line', children: [
     jsxs('div', { className: 'hk-row', children: [jsx(FigurePicker, {}), jsx('span', { className: 'ldw-goal', children: f.definition })] }),
     f.example ? jsx('blockquote', { className: 'ldw-spot-q ldw-small', children: f.example.quote }) : null,
@@ -190,6 +192,7 @@ function WriteStage() {
     ] }),
     err ? jsx(Notice, { tone: 'bad', children: err }) : null,
     out ? jsx('div', { className: 'ldw-helper', children: renderText(out) }) : null,
+    out ? jsx(ThreeVersions, { figure: picked, line, figureName: f.name }) : null,
   ] })
 }
 
@@ -214,6 +217,7 @@ export function RhetoricView() {
   const stage = useValue($stage)
   const [err, setErr] = useState(null)
   useEffect(() => { if (!rh) rest('rhetoric').then(d => $rh.set(d), e => setErr(errText(e))) }, [])
+  useEffect(() => { if (stage !== 'write') $coachCtx.set({ floor: 'rhetoric', sees: ['the figures and the speeches'] }) }, [stage]) // Write says more
   if (err) return jsx(Notice, { tone: 'bad', children: err })
   if (!rh) return jsx(Thinking, { label: 'Opening rhetoric' })
   const idx = STAGES.findIndex(s => s[0] === stage)

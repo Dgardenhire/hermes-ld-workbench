@@ -60,6 +60,15 @@ Mark each line **Pass**, **Fail** (with the exact message on screen) or **Skip**
 - [ ] **Settings:** change an outlet's label, **Save outlets**, pull again: the new label shows. **Back to the defaults** restores. **Delete all recordings** asks first, then deletes; ballots stay.
 - [ ] **Case Workbench:** Save as Word into Documents (works); the old 0.1 cases are all there.
 
+## 6b. The coach (built Nov 8; every route tested with a fake model only)
+
+- [ ] **Chat.** On Extemp after a 60-second answer, press **Coach** in the rail and ask "Was my answer clear?". **Pass:** an answer about your own answer; any [S#] it used shows as "(Outlet, date)" from your file. Note the time it took: ____ s.
+- [ ] **Show me a strong answer** under that ballot. **Pass:** a dashed "Coach's example" box with the answer, three notes, and "Checked against your file: ...". Read every "Not a source in your file" or "Not in your sources or your words" mark and note whether it was right.
+- [ ] **Full round, prep:** write Your answer, press **Suggest areas**; type a point and press **Find me evidence**. **Pass:** three areas, each with a source that is in your file; picks only from your file.
+- [ ] **Lincoln-Douglas, Case Workbench:** **Suggest contentions** under Contention 1; **Add to Contention 1**. **Pass:** the draft lands in the section with "[Coach's suggestion: rewrite it in your own words]" in front; no evidence invented (look for [find a card: ...] instead).
+- [ ] **Rhetoric, Write:** Ask the coach, then **Show me three versions**. **Ballots:** open a ballot, **Show me**.
+- [ ] **Off switch.** Settings, Coach examples, Off. **Pass:** no example button on any floor; the chat footer says examples are off; ask the chat "write my answer for me" and it declines and explains. Turn it back on.
+
 ## 7. Look (polish judges will see)
 
 - [ ] Light and dark (Hermes Settings, Appearance): the ballot paper is white in light, a lit page in dark; no gray body text.

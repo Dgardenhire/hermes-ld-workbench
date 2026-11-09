@@ -166,6 +166,18 @@ def set_drill_done(index, done, at=None):
     return history()
 
 
+def set_show_me(at, show):
+    """Keep the coach's modeled redo with the ballot it was written for (the newest ballot with that time)."""
+    def edit(x):
+        h = x.get("history") or []
+        i = next((k for k in range(len(h) - 1, -1, -1) if h[k].get("at") == at), None)
+        if i is None:
+            raise ValueError("That ballot is no longer kept.")
+        h[i]["show_me"] = show
+        return x
+    store.update("ballots.json", edit)
+
+
 def result_word(b):
     if b.get("event") == "ld":
         return "W" if b.get("decision") == b.get("side") else "L"

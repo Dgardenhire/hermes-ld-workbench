@@ -355,4 +355,51 @@ button.ldw-brow-main:focus-visible{outline:2px solid var(--hk-accent);outline-of
 .ldw-print-sheet{display:grid;gap:8px;break-inside:avoid}
 @media print{.ldw-print-ballots .ldw-noprint,.ldw-rail{display:none !important}.ldw-print-sheet{break-inside:avoid;page-break-inside:avoid}
   .ldw-print-ballots .ldw-sheet{animation:none;box-shadow:none}.ldw-print-ballots h2,.ldw-print-ballots h3{break-after:avoid}.ldw-print-ballots p,.ldw-print-ballots li{orphans:3;widows:3}}
+/* The coach: its own box for everything it writes, dashed like an insert pinned to the page, with a label that
+   says whose words they are; the chat beside the floor. */
+.ldw-ev-coach{margin-top:16px}
+.ldw-ev-coach b{font-size:16px;display:inline-flex;align-items:center;gap:6px}.ldw-ev-coach b .codicon{font-size:16px !important}
+.ldw-ev-coach[aria-expanded=true]{background:color-mix(in srgb,var(--hk-accent) 9%,transparent)}
+.ldw-frame[data-chat]{grid-template-columns:184px minmax(0,1fr) minmax(300px,360px)}
+.ldw-frame[data-chat]>.ldw-inner{container-type:inline-size}
+.ldw-chat{position:sticky;top:0;align-self:start;height:calc(100vh - 60px);box-sizing:border-box;border-left:1px solid var(--hk-stroke);
+  padding:18px 18px 14px;display:grid;grid-template-rows:auto auto minmax(0,1fr) auto auto;gap:10px;background:var(--hk-bg)}
+.ldw-chat-head{display:flex;align-items:center;justify-content:space-between;gap:10px}.ldw-chat-head .ldw-h2{margin:0}
+.ldw-chat-sees{margin:0;font-size:13.5px;line-height:1.45;padding-bottom:10px;border-bottom:1px solid var(--hk-stroke)}
+.ldw-chat-thread{overflow:auto;display:grid;gap:12px;align-content:start;min-height:120px}
+.ldw-chat-thread .ldw-prose{font-family:inherit;font-size:14px;line-height:1.55}
+.ldw-chat-foot{margin:0;font-size:12.5px;line-height:1.45}
+@container (max-width:900px){.ldw-frame[data-chat]{grid-template-columns:1fr}
+  .ldw-chat{position:sticky;bottom:0;top:auto;height:auto;max-height:60vh;border-left:0;border-top:1px solid var(--hk-stroke-strong);box-shadow:0 -6px 18px color-mix(in srgb,var(--hk-ink) 12%,transparent)}
+  .ldw-ev-coach{margin-top:0}.ldw-ev-coach b{font-size:17px}}
+
+.ldw-coachbox{border:1.5px dashed var(--hk-stroke-strong);border-radius:var(--ldw-r);padding:14px 16px;display:grid;gap:9px;max-width:760px;box-sizing:border-box;min-width:0}
+.ldw-coachbox-head{display:flex;align-items:baseline;gap:4px 14px;flex-wrap:wrap}
+.ldw-coachbox-label{font-family:var(--hk-mono);font-size:12px;font-weight:800;letter-spacing:.12em;text-transform:uppercase}
+.ldw-coachbox-sub{font-size:13.5px}
+.ldw-coachbox-close{margin-left:auto}
+.ldw-coachbox-said{margin:2px 0}
+.ldw-coachbox-h{margin:4px 0 0;font-size:13px;font-weight:700}
+.ldw-coachbox-notes{margin:0;padding-left:20px;display:grid;gap:4px;font-size:14.5px;line-height:1.5}
+.ldw-coachbox-kept{margin:0;font-size:14px;line-height:1.5}
+.ldw-coachbox-check{margin:2px 0 0;padding-top:8px;border-top:1px dashed var(--hk-stroke);font-size:13px;line-height:1.45}
+.ldw-coachask{display:flex;align-items:center;gap:8px 14px;flex-wrap:wrap}.ldw-coachask .ldw-meta{font-size:13.5px}
+.ldw-coachask-row{margin-top:10px}
+.ldw-redo-row{display:grid;grid-template-columns:142px minmax(0,1fr);gap:12px;align-items:baseline}.ldw-redo-row p{margin:0}
+.ldw-redo-k{font-family:var(--hk-mono);font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase}
+@container (max-width:620px){.ldw-redo-row{grid-template-columns:1fr;gap:2px}}
+.ldw-prep-main{display:grid;gap:18px;min-width:0}
+.ldw-prepcoach{display:grid;gap:10px;padding-top:14px;border-top:1px solid var(--hk-stroke)}
+.ldw-prepcoach-row{display:flex;gap:8px 12px;align-items:center;flex-wrap:wrap}.ldw-prepcoach-row .ldw-why-off,.ldw-prepcoach-row .ldw-meta{margin:0;font-size:13.5px;flex:1;min-width:220px}
+.ldw-prepcoach-row .ldw-topic{flex:1;min-width:220px}
+.ldw-areas{margin:0;padding-left:22px;display:grid;gap:12px;list-style:decimal}.ldw-areas>li{display:list-item}.ldw-areas>li>*+*{margin-top:3px}.ldw-areas p{margin:0;font-size:14.5px;line-height:1.5}
+.ldw-areas b{font-size:15px}
+.ldw-areas-src{font-family:var(--ldw-serif)}
+.ldw-areas-cite{font-family:var(--hk-mono);font-size:12.5px;font-weight:700}
+.ldw-areas.ldw-picks{list-style:none;padding-left:0}
+.ldw-versions{margin:0;padding-left:22px;display:grid;gap:10px;list-style:decimal}.ldw-versions p{margin:0}
+.ldw-drafts{margin:0;padding:0;list-style:none;display:grid;gap:14px}.ldw-drafts>li{display:grid;gap:4px}.ldw-drafts b{font-size:14.5px}
+.ldw-draft-text .ldw-prose{font-size:14.5px;line-height:1.55}.ldw-draft-text ol{list-style:decimal}.ldw-draft-text ul{list-style:disc}
+.ldw-attackbox{display:grid;gap:8px;max-width:680px}
+.ldw-sheet .ldw-coachbox{margin-top:12px;max-width:none;border-color:var(--ldw-paper-rule)}.ldw-sheet .ldw-coachbox-check{border-top-color:var(--ldw-paper-rule)}
 `

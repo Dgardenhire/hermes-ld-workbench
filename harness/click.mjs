@@ -39,6 +39,7 @@ try {
     if (label.startsWith('eval:')) { // print the value of an expression (layout checks)
       const v = await send('Runtime.evaluate', { expression: label.slice(5), returnByValue: true })
       console.log(JSON.stringify(v.result.result.value))
+      await pause(400) // let a click made by the expression render
       continue
     }
     const r = await send('Runtime.evaluate', { expression: `(() => { const b = [...document.querySelectorAll('button')].find(x => x.textContent.trim().startsWith(${JSON.stringify(label)})); if (!b) return false; b.click(); return true })()`, returnByValue: true })
