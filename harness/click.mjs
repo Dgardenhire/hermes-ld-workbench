@@ -9,7 +9,7 @@ const CHROME = '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'
 const [query, out, ...labels] = process.argv.slice(2)
 const W = Number(process.env.W || 1440), H = Number(process.env.H || 1200), DBG = 9334
 const pause = ms => new Promise(r => setTimeout(r, ms))
-const chrome = spawn(CHROME, ['--headless=new', '--disable-gpu', `--remote-debugging-port=${DBG}`, '--hide-scrollbars', `--window-size=${W},${H}`,
+const chrome = spawn(CHROME, ['--headless=new', '--disable-gpu', '--mute-audio', `--remote-debugging-port=${DBG}`, '--hide-scrollbars', `--window-size=${W},${H}`,
   `--user-data-dir=${join(process.env.TMPDIR || '/tmp', 'ldw-click-chrome')}`, 'about:blank'], { stdio: 'ignore' })
 try {
   let target

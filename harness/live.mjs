@@ -14,7 +14,7 @@ mkdirSync(OUT, { recursive: true })
 // SPEECH_WAV: a WAV file to use as the fake microphone (shoot.sh makes one with macOS `say`, with a pause in it),
 // so the waveform shows a speaking voice and a pause mark instead of a steady tone.
 const WAV = process.env.SPEECH_WAV ? [`--use-file-for-fake-audio-capture=${process.env.SPEECH_WAV}`, "--disable-features=AudioServiceOutOfProcess,AudioServiceSandbox"] : []
-const chrome = spawn(CHROME, ['--headless=new', '--disable-gpu', `--remote-debugging-port=${PORT}`, '--use-fake-device-for-media-stream', ...WAV,
+const chrome = spawn(CHROME, ['--headless=new', '--disable-gpu', '--mute-audio', `--remote-debugging-port=${PORT}`, '--use-fake-device-for-media-stream', ...WAV,
   '--use-fake-ui-for-media-stream', '--hide-scrollbars', '--window-size=1440,900', `--user-data-dir=${join(process.env.TMPDIR || '/tmp', 'ldw-live-chrome')}`, 'about:blank'], { stdio: 'ignore' })
 let ws
 try {

@@ -135,7 +135,7 @@ import { join } from 'node:path'
 const CHROME = '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'
 const OUT = process.env.OUT, PORT = process.env.PORT, DBG = Number(process.env.DBG)
 const pause = ms => new Promise(r => setTimeout(r, ms))
-const chrome = spawn(CHROME, ['--headless=new', '--disable-gpu', '--hide-scrollbars', `--remote-debugging-port=${DBG}`, '--autoplay-policy=no-user-gesture-required',
+const chrome = spawn(CHROME, ['--headless=new', '--disable-gpu', '--mute-audio', '--hide-scrollbars', `--remote-debugging-port=${DBG}`, '--autoplay-policy=user-gesture-required',
   `--user-data-dir=${mkdtempSync(join(process.env.TMPDIR || '/private/tmp', 'ldw-player-chrome-'))}`, 'about:blank'], { stdio: 'ignore' })
 const log = []
 try {

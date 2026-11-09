@@ -9,7 +9,7 @@ ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 OUT="$ROOT/docs/shots/v02"
 mkdir -p "$OUT"
 BASE="http://127.0.0.1:${PORT:-8793}/harness/"
-shot() { "$CHROME" --headless=new --disable-gpu --hide-scrollbars --window-size="$3" --virtual-time-budget=9000 --screenshot="$OUT/$1.png" "$BASE?$2" 2>/dev/null; echo "$OUT/$1.png"; }
+shot() { "$CHROME" --headless=new --disable-gpu --mute-audio --hide-scrollbars --window-size="$3" --virtual-time-budget=9000 --screenshot="$OUT/$1.png" "$BASE?$2" 2>/dev/null; echo "$OUT/$1.png"; }
 shot extemp-ready-dark "view=extemp" 1440,900
 shot extemp-ready-light "view=extemp&theme=light" 1440,900
 shot extemp-ready-red-accent "view=extemp&accent=red" 1440,900
