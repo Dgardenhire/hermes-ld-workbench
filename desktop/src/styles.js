@@ -461,10 +461,11 @@ button.ldw-brow-main:focus-visible{outline:2px solid var(--hk-accent);outline-of
 .ldw-sample-lines .ldw-line:last-child{border-bottom:0}
 .ldw-sample-lines .ldw-qline-body{display:grid;grid-template-columns:minmax(0,1fr) minmax(220px,300px);gap:2px 22px;align-items:baseline}
 .ldw-sample-lines .ldw-qslice{grid-column:1}
+.ldw-sample-lines .ldw-line-effect{grid-column:2;grid-row:1 / span 2}
 .ldw-sample-lines .ldw-line-effect{font-size:13.5px;line-height:1.35}
 .ldw-sample-lines .ldw-line-said{line-height:1.35}
 .ldw-sample-more{justify-self:start;font-size:14px}
-@container (max-width:760px){.ldw-sample-lines .ldw-qline-body{grid-template-columns:1fr}}
+@container (max-width:760px){.ldw-sample-lines .ldw-qline-body{grid-template-columns:1fr}.ldw-sample-lines .ldw-line-effect{grid-column:1;grid-row:auto}}
 .ldw-sample-tag{font-family:var(--ldw-cond);font-weight:700;font-size:15px;text-transform:uppercase;letter-spacing:.08em;padding:2px 8px;border:1.5px solid currentColor;border-radius:var(--ldw-r);
   color:color-mix(in srgb,var(--hk-accent) 86%,var(--hk-ink));white-space:nowrap}
 .ldw-sample .ldw-sheet{max-width:none}
