@@ -1,4 +1,4 @@
-// The 0.2 frame: the event rail, the strip drawn to scale in time, the big clock with the time cards, the
+// The 0.2 frame: the header row of events, the coach margin, the strip drawn to scale in time, the big clock with the time cards, the
 // recorder, the waveform, the ballot sheet, headlines, rhetoric marks and the Ballots view.
 //
 // Colors come only from the app's theme (the kit's --hk-* tokens over --ui-* / --dt-*). Corners follow the
@@ -13,29 +13,8 @@ export const FRAME_CSS = `
   --ldw-paper:var(--ui-bg-elevated,var(--hk-surface));--ldw-paper-ink:var(--hk-ink);--ldw-paper-rule:color-mix(in srgb,var(--hk-ink) 24%,transparent)}
 :root.dark .ldw{--ldw-paper:color-mix(in srgb,var(--ui-base,#e6edf3) 90%,var(--ui-bg-chrome,#0d1015));--ldw-paper-ink:var(--ui-bg-chrome,#0d1015);
   --ldw-paper-rule:color-mix(in srgb,var(--ui-bg-chrome,#0d1015) 30%,transparent)}
-.ldw-frame{display:grid;grid-template-columns:184px minmax(0,1fr);min-height:100%;align-items:stretch}
 .ldw-frame>.ldw-inner{padding:20px 28px 44px;gap:18px;max-width:1240px;box-sizing:border-box;width:100%}
-.ldw-rail{border-right:1px solid var(--hk-stroke);padding:20px 0;display:flex;flex-direction:column;gap:2px;position:sticky;top:0;align-self:start;min-height:100%}
-.ldw-ev{display:grid;gap:3px;text-align:left;background:transparent;border:0;padding:11px 18px;color:var(--hk-ink);font:inherit;cursor:pointer}
-.ldw-ev b{font-family:var(--ldw-cond);font-weight:700;font-size:21px;line-height:1;text-transform:uppercase;letter-spacing:.02em}
-.ldw-ev span{font-size:13px}
-.ldw-ev:hover{background:var(--hk-hover)}
-.ldw-ev[aria-current=page]{box-shadow:inset 3px 0 0 var(--hk-accent);background:color-mix(in srgb,var(--hk-accent) 9%,transparent)}
-.ldw-ev-ballots{margin-top:16px}.ldw-ev-ballots b{font-size:18px}
-.ldw-ev:focus-visible{outline:2px solid var(--hk-accent);outline-offset:-2px}
 
-.ldw-strip{list-style:none;margin:0;padding:0;display:flex;gap:3px;min-height:46px}
-.ldw-seg{position:relative;flex-basis:0;border:1px solid var(--hk-stroke-strong);border-radius:var(--ldw-r);overflow:hidden;display:flex}
-.ldw-seg>b,.ldw-seg>span,.ldw-seg-btn{position:relative}
-.ldw-seg:not(:has(.ldw-seg-btn)){flex-direction:column;justify-content:center;padding:5px 10px}
-.ldw-seg-btn{all:unset;box-sizing:border-box;display:flex;flex-direction:column;justify-content:center;width:100%;padding:5px 10px;cursor:pointer}
-.ldw-seg-btn:focus-visible{outline:2px solid var(--hk-accent);outline-offset:-2px}
-.ldw-seg-btn:hover{background:var(--hk-hover)}
-.ldw-seg-code{font-family:var(--hk-mono);font-size:12.5px;font-weight:700;white-space:nowrap;position:relative}
-.ldw-seg-sub{font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;position:relative}
-.ldw-seg[data-state=done]{background:var(--hk-sunken)}
-.ldw-seg[data-state=now]{border-color:var(--hk-accent);box-shadow:inset 0 0 0 1px var(--hk-accent)}
-.ldw-seg-fill{position:absolute;left:0;top:0;bottom:0;background:color-mix(in srgb,var(--hk-accent) 16%,transparent);transition:width 200ms linear}
 
 .ldw-slip{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:22px;align-items:end;border-bottom:1px solid var(--hk-stroke);padding-bottom:14px}
 .ldw-kicker{font-family:var(--hk-mono);font-size:12px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;display:flex;align-items:center;gap:14px;flex-wrap:wrap}
@@ -229,10 +208,8 @@ export const FRAME_CSS = `
 .ldw-paper-top{letter-spacing:.1em}
 
 @container (max-width:1060px){.ldw-read{grid-template-columns:200px minmax(0,1fr)}.ldw-counts{grid-column:1/-1;position:static}.ldw-brow{grid-template-columns:1fr}}
-@container (max-width:900px){.ldw-frame{grid-template-columns:1fr;grid-template-rows:auto 1fr}.ldw-rail{flex-direction:row;flex-wrap:wrap;border-right:0;border-bottom:1px solid var(--hk-stroke);padding:0;position:static;min-height:0}
-  .ldw-ev{padding:12px 14px}.ldw-ev b,.ldw-ev-ballots b,.ldw-ev-settings b{font-size:17px;white-space:nowrap}.ldw-ev span{display:none}.ldw-ev-settings{margin-top:0}.ldw-ev[aria-current=page]{box-shadow:inset 0 -3px 0 var(--hk-accent)}
-  .ldw-sheet-fields>div:nth-child(odd){padding-left:0;border-left:0}.ldw-sheet-fields>div:nth-child(n+3){border-top:1px solid var(--ldw-paper-rule)}
-  .ldw-ev-ballots{margin-top:0}.ldw-stage2,.ldw-prep,.ldw-heads-grid,.ldw-drawn,.ldw-read,.ldw-patgrid,.ldw-slip{grid-template-columns:1fr}.ldw-sheet-dec,.ldw-sheet-fields{grid-template-columns:1fr 1fr}
+@container (max-width:900px){.ldw-sheet-fields>div:nth-child(odd){padding-left:0;border-left:0}.ldw-sheet-fields>div:nth-child(n+3){border-top:1px solid var(--ldw-paper-rule)}
+  .ldw-stage2,.ldw-prep,.ldw-heads-grid,.ldw-drawn,.ldw-read,.ldw-patgrid,.ldw-slip{grid-template-columns:1fr}.ldw-sheet-dec,.ldw-sheet-fields{grid-template-columns:1fr 1fr}
   .ldw-outline-side{text-align:left}}
 /* Lincoln-Douglas in the frame: the big clock and its actions on one row, the speech and last ballot under it */
 .ldw-floor{display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:var(--ldw-gap) 30px;align-items:start}
@@ -258,7 +235,6 @@ export const FRAME_CSS = `
 .ldw-live .ldw-wave-bar{fill:var(--hk-accent)}
 .ldw-live-wait{font-size:14px}
 @container (max-width:900px){.ldw-floor{grid-template-columns:1fr}}
-.ldw-ev-settings{margin-top:auto}.ldw-ev-settings b{font-size:16px}
 .ldw-settings{display:grid;gap:4px;max-width:880px}
 .ldw-set-h1{margin:0 0 10px;font-family:var(--ldw-cond);font-size:34px;font-weight:700;text-transform:uppercase;letter-spacing:.01em}
 .ldw-set{display:grid;grid-template-columns:200px minmax(0,1fr);gap:24px;padding:20px 0;border-top:1px solid var(--hk-stroke)}
@@ -293,9 +269,9 @@ export const FRAME_CSS = `
 
 /* 0.2.1: narrow windows (a 1024 x 720 laptop leaves about 790px): the strip stays on one row, drawn to scale,
    and the clock keeps its actions beside it so Speak is above the fold. Only a phone-narrow pane stacks. */
-@container (max-width:900px){.ldw-seg:not(:has(.ldw-seg-btn)),.ldw-seg-btn{padding:4px 6px}.ldw-seg-code{font-size:12px}
+@container (max-width:900px){
   .ldw-stage2{grid-template-columns:minmax(0,1fr) 230px;gap:18px}.ldw-bigclock{font-size:clamp(96px,13vw,150px)}.ldw-card{min-width:34px}}
-@container (max-width:620px){.ldw-strip{flex-wrap:wrap}.ldw-seg{min-width:96px !important}.ldw-stage2,.ldw-stage3{grid-template-columns:1fr}}
+@container (max-width:620px){.ldw-stage2,.ldw-stage3{grid-template-columns:1fr}}
 /* a choice of one: the picked option is outlined in the accent, checked and bold */
 .ldw-choices{display:inline-flex;flex-wrap:wrap;gap:4px;text-transform:none;letter-spacing:0;font-family:var(--font-sans,inherit);font-weight:400}
 .ldw-choice{all:unset;box-sizing:border-box;display:inline-flex;align-items:center;gap:5px;padding:5px 11px 5px 8px;border:1px solid var(--hk-stroke-strong);border-radius:var(--ldw-r);font-size:13px;line-height:1.2;color:var(--hk-ink);cursor:pointer;white-space:nowrap;transition:background var(--hk-dur,120ms) var(--hk-ease,ease),border-color var(--hk-dur,120ms) var(--hk-ease,ease)}
@@ -353,15 +329,10 @@ button.ldw-brow-main:focus-visible{outline:2px solid var(--hk-accent);outline-of
 .ldw-brow-sheet .ldw-sheet{max-width:900px}
 .ldw-print-ballots{display:grid;gap:18px}
 .ldw-print-sheet{display:grid;gap:8px;break-inside:avoid}
-@media print{.ldw-print-ballots .ldw-noprint,.ldw-rail{display:none !important}.ldw-print-sheet{break-inside:avoid;page-break-inside:avoid}
+@media print{.ldw-print-ballots .ldw-noprint{display:none !important}.ldw-print-sheet{break-inside:avoid;page-break-inside:avoid}
   .ldw-print-ballots .ldw-sheet{animation:none;box-shadow:none}.ldw-print-ballots h2,.ldw-print-ballots h3{break-after:avoid}.ldw-print-ballots p,.ldw-print-ballots li{orphans:3;widows:3}}
 /* The coach: its own box for everything it writes, dashed like an insert pinned to the page, with a label that
    says whose words they are; the chat beside the floor. */
-.ldw-ev-coach{margin-top:16px}
-.ldw-ev-coach b{font-size:16px;display:inline-flex;align-items:center;gap:6px}.ldw-ev-coach b .codicon{font-size:16px !important}
-.ldw-ev-coach[aria-expanded=true]{background:color-mix(in srgb,var(--hk-accent) 9%,transparent)}
-.ldw-frame[data-chat]{grid-template-columns:184px minmax(0,1fr) minmax(300px,360px)}
-.ldw-frame[data-chat]>.ldw-inner{container-type:inline-size}
 .ldw-chat{position:sticky;top:0;align-self:start;height:calc(100vh - 60px);box-sizing:border-box;border-left:1px solid var(--hk-stroke);
   padding:18px 18px 14px;display:grid;grid-template-rows:auto auto minmax(0,1fr) auto auto;gap:10px;background:var(--hk-bg)}
 .ldw-chat-head{display:flex;align-items:center;justify-content:space-between;gap:10px}.ldw-chat-head .ldw-h2{margin:0}
@@ -369,9 +340,6 @@ button.ldw-brow-main:focus-visible{outline:2px solid var(--hk-accent);outline-of
 .ldw-chat-thread{overflow:auto;display:grid;gap:12px;align-content:start;min-height:120px}
 .ldw-chat-thread .ldw-prose{font-family:inherit;font-size:14px;line-height:1.55}
 .ldw-chat-foot{margin:0;font-size:12.5px;line-height:1.45}
-@container (max-width:900px){.ldw-frame[data-chat]{grid-template-columns:1fr}
-  .ldw-chat{position:sticky;bottom:0;top:auto;height:auto;max-height:60vh;border-left:0;border-top:1px solid var(--hk-stroke-strong);box-shadow:0 -6px 18px color-mix(in srgb,var(--hk-ink) 12%,transparent)}
-  .ldw-ev-coach{margin-top:0}.ldw-ev-coach b{font-size:17px}}
 
 .ldw-coachbox{border:1.5px dashed var(--hk-stroke-strong);border-radius:var(--ldw-r);padding:14px 16px;display:grid;gap:9px;max-width:760px;box-sizing:border-box;min-width:0}
 .ldw-coachbox-head{display:flex;align-items:baseline;gap:4px 14px;flex-wrap:wrap}
@@ -402,4 +370,147 @@ button.ldw-brow-main:focus-visible{outline:2px solid var(--hk-accent);outline-of
 .ldw-draft-text .ldw-prose{font-size:14.5px;line-height:1.55}.ldw-draft-text ol{list-style:decimal}.ldw-draft-text ul{list-style:disc}
 .ldw-attackbox{display:grid;gap:8px;max-width:680px}
 .ldw-sheet .ldw-coachbox{margin-top:12px;max-width:none;border-color:var(--ldw-paper-rule)}.ldw-sheet .ldw-coachbox-check{border-top-color:var(--ldw-paper-rule)}
+
+/* ================= the 0.2 premium frame (Lane D) =================
+   One header row, the floor, and the coach margin at the right. Three voices: condensed caps for the clock,
+   time cards, event names and strip codes; serif for words said aloud; sans for the app, the judge and the
+   coach's commentary. */
+.ldw-frame{display:grid;grid-template-columns:minmax(0,1fr);grid-template-rows:auto 1fr;min-height:100%;align-items:start}
+.ldw-frame>.ldw-inner{padding:18px 32px 48px;gap:18px;max-width:1180px;box-sizing:border-box;width:100%;grid-column:1;grid-row:2}
+.ldw-frame[data-margin]>.ldw-inner{container-type:inline-size}
+.ldw-frame[data-margin=open]{grid-template-columns:minmax(0,1fr) clamp(280px,calc(280px + (100cqi - 1050px) * .38),340px)}
+.ldw-frame[data-margin=tab]{grid-template-columns:minmax(0,1fr) 44px}
+
+/* the header row */
+.ldw-top{grid-column:1/-1;grid-row:1;display:flex;align-items:center;justify-content:space-between;gap:12px 24px;padding:0 24px 0 32px;min-height:54px;
+  border-bottom:1px solid var(--hk-stroke);position:sticky;top:0;z-index:3;background:var(--hk-bg,var(--ui-bg-chrome))}
+.ldw-events{display:flex;align-items:center;gap:4px 22px;flex-wrap:wrap;min-width:0}
+.ldw-evt{all:unset;cursor:pointer;font-family:var(--ldw-cond);font-weight:700;font-size:18px;line-height:1;text-transform:uppercase;letter-spacing:.03em;
+  color:var(--hk-ink);padding:17px 0 15px;border-bottom:2px solid transparent;white-space:nowrap;transition:color 120ms ease,border-color 120ms ease}
+.ldw-evt:hover{border-bottom-color:var(--hk-stroke-strong)}
+.ldw-evt[aria-current=page]{color:color-mix(in srgb,var(--hk-accent) 86%,var(--hk-ink));border-bottom-color:var(--hk-accent)}
+.ldw-evt:focus-visible,.ldw-sub:focus-visible,.ldw-toptool:focus-visible,.ldw-margin-tab:focus-visible,.ldw-margin-handle:focus-visible,.ldw-tabs2-tab:focus-visible{outline:2px solid var(--hk-accent);outline-offset:3px}
+.ldw-subs{display:flex;align-items:center;gap:2px;margin-left:-10px;padding-left:12px;border-left:1px solid var(--hk-stroke)}
+.ldw-sub{all:unset;cursor:pointer;font-size:13.5px;font-weight:500;color:var(--hk-ink);padding:5px 9px;border-radius:var(--ldw-r);white-space:nowrap}
+.ldw-sub:hover{background:var(--hk-hover)}
+.ldw-sub[aria-current=page]{font-weight:700;box-shadow:inset 0 -2px 0 var(--hk-accent);border-radius:0}
+.ldw-top-tools{display:flex;align-items:center;gap:6px;margin-left:auto}
+.ldw-toptool{all:unset;cursor:pointer;display:inline-flex;align-items:center;gap:7px;font-size:13.5px;font-weight:600;color:var(--hk-ink);padding:7px 10px;border-radius:var(--ldw-r)}
+.ldw-toptool:hover{background:var(--hk-hover)}
+.ldw-toptool[aria-pressed=true],.ldw-toptool[aria-current=page]{color:color-mix(in srgb,var(--hk-accent) 86%,var(--hk-ink));box-shadow:inset 0 -2px 0 var(--hk-accent);border-radius:0}
+.ldw-gear{padding:7px}
+
+/* a page label: one sentence-case line, sans, 12 px, semibold, full ink (never grayed) */
+.ldw-eyebrow{font-size:12px;font-weight:600;letter-spacing:.01em;color:var(--hk-ink)}
+.ldw-kicker{font-family:var(--font-sans,inherit);font-size:12px;font-weight:600;letter-spacing:.01em;text-transform:none}
+.ldw-ldctx{display:grid;gap:3px}
+.ldw-ldctx .ldw-res{margin:0;font-family:var(--ldw-serif);font-style:normal;font-weight:600;font-size:21px;line-height:1.3;max-width:52ch}
+
+/* the strip, read as a timeline: proportional 6 px bars on a hairline track, labels under them */
+.ldw-strip{list-style:none;margin:0;padding:0;display:flex;gap:5px;position:relative}
+.ldw-strip::before{content:"";position:absolute;left:0;right:0;top:2.5px;height:1px;background:var(--hk-stroke)}
+.ldw-seg{position:relative;flex-basis:0;display:flex;min-width:0}
+.ldw-seg::before{content:"";position:absolute;left:0;right:0;top:0;height:6px;border-radius:3px;background:color-mix(in srgb,var(--hk-ink) 16%,var(--hk-bg,transparent))}
+.ldw-seg[data-state=done]::before{background:var(--hk-ink)}
+.ldw-seg[data-state=now]::before{background:color-mix(in srgb,var(--hk-accent) 32%,var(--hk-bg,transparent))}
+.ldw-seg-fill{position:absolute;left:0;top:0;height:6px;border-radius:3px;background:var(--hk-accent);z-index:1;transition:width 200ms linear}
+.ldw-seg>b,.ldw-seg>span{position:relative}
+.ldw-seg:not(:has(.ldw-seg-btn)){flex-direction:column;gap:2px;padding:14px 4px 0 0}
+.ldw-seg-btn{all:unset;box-sizing:border-box;display:flex;flex-direction:column;gap:2px;width:100%;padding:14px 4px 0 0;cursor:pointer}
+.ldw-seg-btn:hover .ldw-seg-code{text-decoration:underline;text-decoration-thickness:1.5px;text-underline-offset:3px}
+.ldw-seg-btn:focus-visible{outline:2px solid var(--hk-accent);outline-offset:3px}
+.ldw-seg-code{font-family:var(--ldw-cond);font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;white-space:nowrap;line-height:1.15}
+.ldw-seg-sub{font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;line-height:1.3}
+.ldw-seg[data-state=now] .ldw-seg-code{color:color-mix(in srgb,var(--hk-accent) 86%,var(--hk-ink))}
+
+/* fields: her words in serif, a hairline border, no resize grip, the field grows with what she writes */
+.ldw textarea{resize:none;field-sizing:content;min-height:3.2em;border:1px solid var(--hk-stroke-strong) !important;border-radius:var(--ldw-r);
+  background:var(--hk-surface);box-shadow:none !important;color:var(--hk-ink);padding:9px 11px;line-height:1.5}
+.ldw textarea:focus{outline:none;border-color:var(--hk-accent) !important;box-shadow:0 0 0 1px var(--hk-accent) !important}
+.ldw-ofield textarea,.ldw-speechbox textarea,textarea.ldw-speechbox,.ldw-section textarea{font-family:var(--ldw-serif) !important;font-size:15.5px !important}
+.ldw-ofield>span{font-size:13px;font-weight:600}
+.ldw-prep{gap:32px}
+.ldw-outline{gap:14px}
+
+/* first run: the promise, the three steps, the level row, then the Sample under the clock */
+.ldw-first{display:grid;gap:14px;padding:18px 0 4px;border-top:1px solid var(--hk-stroke)}
+.ldw-promise{margin:0;font-size:19px;font-weight:700;letter-spacing:-.01em;line-height:1.35;max-width:60ch}
+.ldw-steps{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:18px}
+.ldw-steps li{display:grid;grid-template-columns:auto minmax(0,1fr);gap:10px;align-items:start}
+.ldw-steps li>div{display:grid;gap:3px}
+.ldw-steps b{font-size:14.5px}
+.ldw-steps li span:not(.ldw-step-n){font-size:13.5px;line-height:1.45}
+.ldw-step-n{font-family:var(--ldw-cond);font-weight:700;font-size:22px;line-height:1;min-width:20px;color:color-mix(in srgb,var(--hk-accent) 86%,var(--hk-ink))}
+.ldw-levelrow{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.ldw-sample{display:grid;gap:14px;max-width:760px}
+.ldw-sample-head{display:flex;align-items:baseline;gap:12px}
+.ldw-sample-head p{margin:0;font-size:14px;line-height:1.45}
+.ldw-sample-tag{font-family:var(--ldw-cond);font-weight:700;font-size:15px;text-transform:uppercase;letter-spacing:.08em;padding:2px 8px;border:1.5px solid currentColor;border-radius:var(--ldw-r);
+  color:color-mix(in srgb,var(--hk-accent) 86%,var(--hk-ink));white-space:nowrap}
+.ldw-sample .ldw-sheet{max-width:none}
+
+/* the coach margin: a column beside the floor, like comments beside a document */
+.ldw-margin{grid-column:2;grid-row:2;position:sticky;top:55px;align-self:start;height:calc(100vh - 115px);box-sizing:border-box;border-left:1px solid var(--hk-stroke);
+  display:grid;grid-template-rows:auto auto minmax(0,1fr);background:var(--hk-bg,var(--ui-bg-chrome));min-width:0}
+.ldw-margin-handle{display:none}
+.ldw-margin-head{display:flex;align-items:center;gap:8px;padding:16px 16px 10px 18px}
+.ldw-margin-title{margin:0 auto 0 0;font-family:var(--ldw-cond);font-weight:700;font-size:18px;text-transform:uppercase;letter-spacing:.04em}
+.ldw-margin-body{min-height:0;overflow:auto;padding:0 16px 14px 18px;display:grid}
+.ldw-margin-body>*{min-width:0}
+.ldw-margin .ldw-chat{position:static;height:auto;border:0;padding:0;background:transparent;grid-template-rows:auto minmax(0,1fr) auto auto;min-height:0}
+.ldw-margin .ldw-chat-head{display:none}
+.ldw-margin .ldw-coach{position:static;max-height:none;border:0;padding:0;background:transparent;box-shadow:none}
+.ldw-margin[data-folded]{display:block;height:calc(100vh - 115px)}
+.ldw-margin-tab{all:unset;box-sizing:border-box;cursor:pointer;width:44px;height:100%;display:flex;flex-direction:column;align-items:center;gap:10px;padding-top:16px;color:var(--hk-ink)}
+.ldw-margin-tab:hover{background:var(--hk-hover)}
+.ldw-margin-tab span{writing-mode:vertical-rl;font-family:var(--ldw-cond);font-weight:700;font-size:15px;text-transform:uppercase;letter-spacing:.08em}
+
+/* two panes side by side; under 760 px, two tabs */
+.ldw-tabs2{display:grid;gap:10px;min-width:0}
+.ldw-tabs2-list{display:none;gap:4px;border-bottom:1px solid var(--hk-stroke)}
+.ldw-tabs2-tab{all:unset;cursor:pointer;font-size:14px;font-weight:600;padding:8px 12px}
+.ldw-tabs2-tab[aria-selected=true]{box-shadow:inset 0 -2px 0 var(--hk-accent)}
+.ldw-tabs2-panes{display:grid;grid-template-columns:repeat(var(--ldw-panes,2),minmax(0,1fr));gap:18px;min-width:0}
+.ldw-tabs2-pane{min-width:0}
+
+/* Settings: what leaves the computer first; the engine folded under Advanced */
+.ldw-advanced{border-top:1px solid var(--hk-stroke)}
+.ldw-advanced>summary{cursor:pointer;display:grid;grid-template-columns:200px minmax(0,1fr);gap:24px;padding:20px 0;list-style:none}
+.ldw-advanced>summary::-webkit-details-marker{display:none}
+.ldw-advanced>summary .ldw-set-title::after{content:" +";font-weight:400}
+.ldw-advanced[open]>summary .ldw-set-title::after{content:" −"}
+.ldw-advanced-sub{font-size:14px}
+.ldw-advanced>summary:focus-visible{outline:2px solid var(--hk-accent);outline-offset:2px}
+.ldw-advanced .ldw-set{border-top:1px dashed var(--hk-stroke);padding-top:16px}
+.ldw-set-h1{font-size:30px}
+
+/* motion: the ballot slides up 240 ms; the card flips 180 ms; reduced motion turns both off */
+@media (prefers-reduced-motion:no-preference){
+  .ldw-sheet{animation:ldw-up 240ms ease-out}@keyframes ldw-up{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
+  .ldw-card[data-up]{animation:ldw-flip 180ms ease-out}}
+@media (prefers-reduced-motion:reduce){.ldw-sheet,.ldw-card[data-up]{animation:none !important}}
+
+/* breakpoints by pane width (the Hermes sidebar takes about 232 px of the window) */
+@container (max-width:1039px){
+  .ldw-frame[data-margin]{grid-template-columns:minmax(0,1fr)}
+  .ldw-frame>.ldw-inner{padding:16px 22px 44px}
+  .ldw-top{padding:0 16px 0 22px}
+  .ldw-margin,.ldw-margin[data-folded]{grid-column:1;grid-row:3;position:sticky;bottom:0;top:auto;height:auto;max-height:46vh;border-left:0;border-top:1px solid var(--hk-stroke-strong);
+    box-shadow:0 -10px 24px -8px color-mix(in srgb,#000 30%,transparent);border-radius:var(--ldw-r) var(--ldw-r) 0 0;z-index:4}
+  .ldw-margin-handle{all:unset;display:block;cursor:pointer;padding:8px 0 0;justify-self:center;width:64px}
+  .ldw-margin-handle span{display:block;height:4px;border-radius:2px;background:var(--hk-stroke-strong)}
+  .ldw-margin-head{padding-top:6px}
+  .ldw-margin-tab{width:100%;height:auto;flex-direction:row;justify-content:center;padding:10px}
+  .ldw-margin-tab span{writing-mode:horizontal-tb}
+  .ldw-steps{grid-template-columns:1fr;gap:10px}
+  .ldw-subs{margin-left:0;padding-left:0;border-left:0;flex-basis:100%;order:9;padding-bottom:6px}}
+@container (max-width:759px){
+  .ldw-tabs2-list{display:flex}.ldw-tabs2-panes{grid-template-columns:1fr}.ldw-tabs2-pane:not([data-on]){display:none}
+  .ldw-evt{font-size:16px;padding:14px 0 12px}.ldw-events{gap:2px 16px}
+  .ldw-advanced>summary{grid-template-columns:1fr;gap:4px}}
+@container (max-width:620px){.ldw-strip{flex-wrap:wrap}
+  .ldw-strip{row-gap:12px}.ldw-seg{min-width:96px !important}
+  .ldw-bigclock{font-size:120px}
+  .ldw-toptool:not(.ldw-gear){font-size:0;gap:0}}
+@media print{.ldw-top,.ldw-margin{display:none !important}}
 `

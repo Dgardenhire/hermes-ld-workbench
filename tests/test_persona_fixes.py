@@ -92,8 +92,10 @@ class QuestionPool(unittest.TestCase):
         self.assertIn("Write your own", BUNDLE)
         self.assertIn("Ask only my questions", BUNDLE)
 
-    def test_the_rail_names_the_mode(self):
-        self.assertIn("xmode === 'openings' ? 'Openings' : xmode === 'round'", SRC["plugin.js"])
+    def test_the_floor_names_the_mode(self):
+        # 0.2 premium frame: the rail is gone; the extemp floor's own switch names the mode it is on.
+        self.assertNotIn("function Rail(", SRC["plugin.js"])
+        self.assertIn("options: [{ id: 'drill', label: '60-second answer' }, { id: 'openings', label: 'Openings' }, { id: 'round', label: 'Full round' }]", SRC["extemp.js"])
 
 
 class FallacyQuotes(unittest.TestCase):

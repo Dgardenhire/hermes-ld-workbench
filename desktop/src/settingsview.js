@@ -1,6 +1,6 @@
-// Settings: how transcripts are made (Hermes's own speech-to-text, or the workbench's own model and whether
-// it is already on this computer), the recordings, transcripts and ballots kept (each with a delete), the
-// outlets for the headline pull, and what leaves the computer.
+// Settings, in this order: what leaves your computer (disclosure.js), coach examples, the recordings, transcripts
+// and ballots kept (each with a delete), Advanced (folded: how transcripts are made, the speech model and its
+// download), then the outlets for the headline pull.
 
 import { useState } from 'react'
 import { Fragment, jsx, jsxs } from 'react/jsx-runtime'
@@ -10,6 +10,7 @@ import { Choices, Thinking, errText, post } from './core.js'
 import { $home, OutletEditor, loadHome } from './extemp.js'
 import { TRANSCRIPTS_OFF } from './floor.js'
 import { $coachOn } from './coach.js'
+import { DisclosureList } from './disclosure.js'
 
 const MODEL_TEXT = { 'base.en': 'Faster', 'small.en': 'More accurate, slower' }
 const mb = bytes => `${Math.max(0.1, bytes / 1048576).toFixed(bytes < 10485760 ? 1 : 0)} MB`
@@ -39,7 +40,7 @@ function Transcripts({ t }) {
   // The workbench's own model is in play when Hermes cannot run without a download, or when Hermes would
   // send takes away and one of the workbench's models is already here (so the choice can keep them here).
   const own = t.fallback && (!h.usable || (cloudish(h) && Object.values(t.cached || {}).some(Boolean)))
-  return jsxs(Section, { title: 'Transcripts', children: [
+  return jsxs(Section, { title: 'Transcript engine', children: [
     jsx('p', { className: 'ldw-set-status', 'data-ok': t.available ? '' : undefined, children: h.usable ? hermesLine(h, t)
       : own ? 'Made on this computer with faster-whisper. Your recordings stay on it.'
       : 'Not set up yet. Every take still gets real timing and pauses.' }),
@@ -120,40 +121,19 @@ function Outlets() {
   ] })
 }
 
-// The first two lines follow the speech-to-text Hermes uses, so they never promise more than is true.
-function voiceLines(t) {
-  const h = (t && t.hermes) || {}
-  const kept = 'Recorded only while you speak and kept on the computer that runs Hermes.'
-  if (cloudish(h) && t.own_ready) return [
-    ['Your voice', `${kept} It never goes to a model or a website.`],
-    ['Transcripts', "Made on this computer by the workbench's own speech model."]]
-  if (cloudish(h)) return [
-    ['Your voice', `${kept} A take goes to ${sendsTo(h)} only when you press Transcribe now on it. Every take asks first and says where it goes. It never goes to a model or a website otherwise.`],
-    ['Transcripts', h.local === false
-      ? `Made by ${h.label}, through Hermes, after you press. Change it in Hermes Settings, Voice; local keeps your voice on this computer.`
-      : 'Made by the speech-to-text set up in Hermes Settings, Voice, after you press.']]
-  return [
-    ['Your voice', `${kept} It never goes to a model or a website.`],
-    ['Transcripts', h.usable ? "Made on this computer by Hermes's own speech-to-text." : "Made on the computer that runs Hermes. The only download is the workbench's speech model, once, when you ask for it."]]
-}
-
-const LEAVES = [
-  ['Your words', 'The words of your speeches go to the model you chose in Hermes, for the opponent, the judge and the coach. When you ask the coach, the headlines and notes in your extemp file go with them, so it can cite them.'],
-  ['Headlines', 'A pull asks Google News, or the outlet’s own feed, for headlines on your topic. Only titles, dates and links come back.'],
-  ['Hear it', 'When you press it, the opponent’s speech goes to the voice you set up in Hermes to be read aloud.'],
-  ['Web search', 'Only in a round you set to internet allowed, when you press Search. Your search words go to the web search you set up in Hermes.'],
-  ['Saved links', 'When you save a link to your file or add one as a topic source, the page is read once to keep its text.'],
-]
-
 export function SettingsView() {
   const home = useValue($home)
   if (!home) return jsx(Thinking, { label: 'Opening Settings' })
+  // Settings open on what leaves the computer; the speech engine's details wait, folded, under Advanced.
   return jsxs('div', { className: 'ldw-settings', children: [
     jsx('h1', { className: 'ldw-set-h1', children: 'Settings' }),
+    jsx(Section, { title: 'What leaves your computer', children: jsx(DisclosureList, { transcripts: home.transcripts }) }),
     jsx(CoachExamples, { on: !home.settings || home.settings.coach_examples !== false }),
-    jsx(Transcripts, { t: home.transcripts || {} }),
     jsx(Recordings, { r: home.recordings || { count: 0, bytes: 0, keep: 20 }, kept: { transcripts: home.transcripts_kept || 0, ballots: home.ballots || 0 } }),
+    jsxs('details', { className: 'ldw-advanced', children: [
+      jsxs('summary', { children: [jsx('span', { className: 'ldw-set-title', children: 'Advanced' }), jsx('span', { className: 'ldw-advanced-sub', children: 'How transcripts are made on this computer' })] }),
+      jsx(Transcripts, { t: home.transcripts || {} }),
+    ] }),
     jsx(Outlets, {}),
-    jsx(Section, { title: 'What leaves your computer', children: jsx('dl', { className: 'ldw-leaves', children: voiceLines(home.transcripts).concat(LEAVES).map(([k, v]) => jsxs(Fragment, { children: [jsx('dt', { children: k }), jsx('dd', { children: v })] }, k)) }) }),
   ] })
 }

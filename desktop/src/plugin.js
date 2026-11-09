@@ -19,13 +19,15 @@ import { useEffect, useRef, useState } from 'react'
 import { Fragment, jsx, jsxs } from 'react/jsx-runtime'
 import { Button, Codicon, Input, Textarea, atom, host, useValue } from '@hermes/plugin-sdk'
 import { Empty, Failure, Notice, describeError, installStyles, registerPage } from 'hermes-ui-kit'
-import { Clock, LastTake, LdSheet, LiveWave, SpeakControls, Strip, sendTake, useRecorder, useTakePoll } from './floor.js'
+import { Clock, LdSheet, LiveWave, SpeakControls, Strip, sendTake, useRecorder, useTakePoll } from './floor.js'
+import { TakePlayer } from './player.js'
+import { $compareOpen, $marginSpot, CoachIcon, MARGIN_DEFAULT, Margin, marginState, useMarginSpot } from './margin.js'
 import { $extempMode, $home, ExtempView, loadHome } from './extemp.js'
 import { RhetoricView } from './rhetoric.js'
 import { BallotsView } from './ballotsview.js'
 import { SettingsView } from './settingsview.js'
 import { FRAME_CSS } from './styles.js'
-import { $chatOpen, $coachCtx, $coachOn, COACH_FLAG, ChatButton, CoachBox, CoachChat } from './coach.js'
+import { $chatOpen, $coachCtx, $coachOn, COACH_FLAG, CoachBox, CoachChat } from './coach.js'
 
 export { describeError }
 import { $cfg, $loadError, $state, $view, Choices, Label, MODEL_TIMEOUT, Menu, PLUGIN_ID, ROUTE, Thinking, WPM, api, clip, cls, errText, inline, load, mmss, notFoundCount, post, refreshState, renderChecked, renderText, rest, setApi, setRound, setWorkbench, sideName, sideShort, when, words } from './core.js'
@@ -229,7 +231,7 @@ function StudentSpeech({ r, stop, flowBeside, onHideFlow }) {
       jsx(StageHead, { title: `Your ${stop.id}`, sub: stop.name }),
       jsx('p', { className: 'ldw-goal', children: ($cfg.get().speech_goals || {})[stop.id] }),
       recording ? jsx(LiveWave, { rec, limit: target }) : null,
-      take && !recording ? jsx(LastTake, { take, limit: target, title: `Your ${stop.id}, spoken`, onChange: setTake, fastOk: fastJudge(r) }) : null,
+      take && !recording ? jsx(TakePlayer, { take, limit: target, title: `Your ${stop.id}, spoken`, onChange: setTake, fastOk: fastJudge(r) }) : null,
       undo !== null ? jsx(Notice, { tone: 'info', children: 'What you said is in the box. Fix any words the transcript got wrong.',
         action: jsx(Button, { size: 'sm', variant: 'secondary', onClick: () => { change(undo); setUndo(null) }, children: 'Bring back my typed draft' }) }) : null,
       jsx(Textarea, { className: 'ldw-speechbox', 'aria-label': `Your ${stop.id}`, value: text, onChange: e => change(e.target.value),
@@ -927,7 +929,7 @@ function CoachPanel({ c }) {
   useEffect(() => { if (box.current) box.current.scrollTop = box.current.scrollHeight }, [thread.length, coach.busy])
   const send = () => { const t = text.trim(); if (!t || coach.busy) return; setText(''); runTool(c, 'coach', coach.focus, t, false) }
   return jsxs('aside', { className: 'ldw-panel ldw-coach', 'aria-label': 'Coach', children: [
-    jsxs('div', { className: 'ldw-row-between', children: [jsx('h2', { className: 'ldw-h2', children: 'Coach' }),
+    jsxs('div', { className: 'ldw-row-between', children: [jsx('span', { className: 'ldw-eyebrow', children: 'Looking at' }),
       jsx('span', { className: 'ldw-focus', title: 'The section the coach is looking at. Click into a section to change it.', children: coach.focus || 'Whole case' })] }),
     jsxs('div', { className: 'ldw-thread', ref: box, 'aria-live': 'polite', children: [
       !thread.length && !coach.busy ? jsx('p', { className: 'ldw-meta', children: 'Click into a section and use the button under it, or ask the coach anything here. A rough draft gets better coaching than a blank page.' }) : null,
@@ -1034,6 +1036,7 @@ function Bench() {
       out => benchSet({ msg: { tone: 'good', text: `Saved ${out.name}.`, path: out.path } }))
   }
   const msg = bench.msg
+  useMarginSpot('ld-bench') // the case coach sits in the margin, open by default here
   useEffect(() => { runBriefing('auto', c.resolution) }, [c.id])
   return jsxs(Fragment, { children: [
     jsx(BriefingPanel, {}),
@@ -1058,13 +1061,11 @@ function Bench() {
       ? jsx(Button, { size: 'sm', variant: 'secondary', onClick: () => api.os.revealPath(msg.path), children: 'Show file' }) : null }) : null,
     bench.importOpen ? jsx(ImportPanel, { c }) : null,
     jsx(PathBar, { c }),
-    jsxs('div', { className: 'ldw-benchgrid', children: [
+    jsx('div', { className: 'ldw-benchgrid', children:
       jsxs('section', { className: 'ldw-case', 'aria-label': `Your ${sideName(c.side)} case`, children: [
         jsx(TimeBar, { c }),
         ...($cfg.get().sections || []).map(k => jsx(SectionCard, { c, k }, `${c.id}-${k}`)),
-      ] }),
-      jsx(CoachPanel, { c }),
-    ] }),
+      ] }) }),
   ] })
 }
 
@@ -1168,31 +1169,36 @@ function Fallacies() {
 
 /* ================================================================== page == */
 
-function Header() {
+// Lincoln-Douglas says where the student is (the round, or the case) in one quiet line over its floor. The
+// switch between Round, Case and Fallacies lives in the frame's header row, beside the event name.
+function LdContext() {
   const view = useValue($view)
   const st = useValue($state)
   const cfg = $cfg.get()
   const r = st && st.round
   const c = st && st.workbench && st.workbench.case
-  const eyebrow = view === 'fallacies' ? 'A guide, a practice drill and a checker' : view === 'room'
-    ? r ? `Practice round ${r.round_no} · ${sideShort(r.side)} · ${r.level === 'jv' ? 'JV' : r.level} · ${cfg.judges[r.judge].label}` : `${(st.history || {}).count || 0} ${((st.history || {}).count || 0) === 1 ? 'ballot' : 'ballots'} so far · NSDA Lincoln-Douglas`
-    : c ? `${c.side === 'aff' ? 'Affirmative' : 'Negative'} case · ${c.name}` : ''
-  const res = view === 'fallacies' ? null : view === 'room' ? (r ? r.resolution : c && c.resolution) : c && c.resolution
-  const tab = (id, label, icon) => jsxs('button', { type: 'button', role: 'tab', className: 'ldw-tab', 'aria-selected': view === id || (id === 'bench' && (view === 'print' || view === 'printbrief')),
-    onClick: () => $view.set(id), children: [jsx(Codicon, { name: icon }), label] })
-  return jsxs('header', { className: 'ldw-head ldw-noprint', children: [
-    jsxs('div', { className: 'ldw-head-title', children: [
-      jsx('h1', { className: 'ldw-h1', children: view === 'room' ? 'Tournament Room' : view === 'fallacies' ? 'Fallacies' : 'Case Workbench' }),
-      jsx('span', { className: 'ldw-meta', children: eyebrow }),
-      res ? jsx('span', { className: 'ldw-res', children: `"${res.replace(/^Resolved:\s*/i, '')}"` }) : null,
-    ] }),
-    jsxs('nav', { className: 'ldw-tabs', role: 'tablist', 'aria-label': 'Debate', children: [tab('room', 'Tournament Room', 'law'), tab('bench', 'Case Workbench', 'edit'), tab('fallacies', 'Fallacies', 'warning')] }),
+  if (view === 'print' || view === 'printbrief') return null
+  const line = view === 'fallacies' ? 'A guide, a practice drill and a checker' : view === 'room'
+    ? r ? `Practice round ${r.round_no}, ${sideShort(r.side)}, ${r.level === 'jv' ? 'JV' : r.level}, ${cfg.judges[r.judge].label}` : `${(st.history || {}).count || 0} ${((st.history || {}).count || 0) === 1 ? 'ballot' : 'ballots'} so far in NSDA Lincoln-Douglas`
+    : c ? `${c.side === 'aff' ? 'Affirmative' : 'Negative'} case: ${c.name}` : ''
+  // The Case Workbench edits its resolution in its own row, so only the round shows it here.
+  const res = view === 'room' ? (r ? r.resolution : c && c.resolution) : null
+  return jsxs('div', { className: 'ldw-ldctx ldw-noprint', children: [
+    line ? jsx('span', { className: 'ldw-eyebrow', children: line }) : null,
+    res ? jsx('p', { className: 'ldw-res', children: res.replace(/^Resolved:\s*/i, 'Resolved: ') }) : null,
   ] })
 }
 
-// The frame: a rail of events and the floor of the one chosen. Extemp opens first, loaded and ready to speak.
-const $event = atom(null) // ld | extemp | rhetoric | ballots (null: the one last chosen)
+/* ================================================================== the frame == */
+
+// One header row over the floor: the four events on the left (the current one in accent ink), and in
+// Lincoln-Douglas one sub-switch beside its name; the Coach toggle and Settings on the right. Navigation
+// never goes in the strip row under it.
+const $event = atom(null) // ld | extemp | rhetoric | ballots | settings (null: the one last chosen)
 const EVENT_IDS = ['ld', 'extemp', 'rhetoric', 'ballots']
+const EVENT_NAMES = { ld: 'Lincoln-Douglas', extemp: 'Extemp', rhetoric: 'Rhetoric', ballots: 'Ballots' }
+const LD_VIEWS = [['room', 'Round'], ['bench', 'Case'], ['fallacies', 'Fallacies']]
+const ldViewOf = v => (v === 'print' || v === 'printbrief' ? 'bench' : v)
 
 function chooseEvent(id) {
   $event.set(id)
@@ -1200,31 +1206,26 @@ function chooseEvent(id) {
   if (id === 'ballots' || id === 'extemp' || id === 'settings') loadHome()
 }
 
-function Rail({ event }) {
-  const st = useValue($state)
-  const home = useValue($home)
-  const r = st && st.round
-  const xr = home && home.extemp_round
-  const xmode = useValue($extempMode) || (xr ? 'round' : 'drill')
-  const sub = {
-    ld: r ? `Round ${r.round_no}, ${sideShort(r.side)}` : 'Cases and rounds',
-    extemp: xmode === 'openings' ? 'Openings' : xmode === 'round' ? (xr ? { prep: 'Full round, prep', speak: 'Full round, at the podium', ballot: 'Full round, ballot' }[xr.phase] || 'Full round' : 'Full round, the draw') : '60-second answer',
-    rhetoric: 'Figures and speeches',
-    ballots: home ? `${home.ballots} kept` : '',
-    settings: 'Transcripts, outlets',
-  }
-  const names = { ld: 'Lincoln-Douglas', extemp: 'Extemp', rhetoric: 'Rhetoric', ballots: 'Ballots', settings: 'Settings' }
+const GearIcon = () => jsxs('svg', { width: 18, height: 18, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 1.5,
+  strokeLinecap: 'round', strokeLinejoin: 'round', 'aria-hidden': 'true', focusable: 'false', children: [
+    jsx('path', { d: 'M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z' }),
+    jsx('circle', { cx: 12, cy: 12, r: 3 }),
+  ] })
+
+function FrameHeader({ event, coachOpen, coachable }) {
   const view = useValue($view)
-  // On the Case Workbench the coach already sits beside the case: the rail's button goes to it.
-  const toBench = event === 'ld' && view === 'bench' ? () => { const a = document.getElementById('ldw-ask'); if (a) { a.scrollIntoView({ block: 'center' }); a.focus() } } : null
-  const btn = id => jsxs('button', { type: 'button',
-    className: cls('ldw-ev', id === 'ballots' && 'ldw-ev-ballots', id === 'settings' && 'ldw-ev-settings'), 'aria-current': event === id ? 'page' : undefined, onClick: () => chooseEvent(id), children: [
-      jsx('b', { children: names[id] }), jsx('span', { children: sub[id] }),
-    ] }, id)
-  return jsxs('nav', { className: 'ldw-rail ldw-noprint', 'aria-label': 'Events', children: [
-    ...EVENT_IDS.map(btn),
-    event !== 'settings' ? jsx(ChatButton, { onOpen: toBench }, 'coach') : null,
-    btn('settings'),
+  const ev = id => jsx('button', { type: 'button', className: 'ldw-evt', 'aria-current': event === id ? 'page' : undefined,
+    onClick: () => chooseEvent(id), children: EVENT_NAMES[id] }, id)
+  const subs = event === 'ld' ? jsx('div', { className: 'ldw-subs', role: 'group', 'aria-label': 'Lincoln-Douglas', children: LD_VIEWS.map(([v, label]) =>
+    jsx('button', { type: 'button', className: 'ldw-sub', 'aria-current': ldViewOf(view) === v ? 'page' : undefined, onClick: () => $view.set(v), children: label }, v)) }, 'subs') : null
+  return jsxs('header', { className: 'ldw-top ldw-noprint', children: [
+    jsx('nav', { className: 'ldw-events', 'aria-label': 'Events', children: EVENT_IDS.flatMap(id => id === 'ld' ? [ev(id), subs] : [ev(id)]) }),
+    jsxs('div', { className: 'ldw-top-tools', children: [
+      coachable ? jsxs('button', { type: 'button', className: 'ldw-toptool', 'aria-pressed': coachOpen, onClick: () => $chatOpen.set(!coachOpen), children: [
+        jsx(CoachIcon, {}), 'Coach'] }) : null,
+      jsx('button', { type: 'button', className: 'ldw-toptool ldw-gear', 'aria-label': 'Settings', title: 'Settings',
+        'aria-current': event === 'settings' ? 'page' : undefined, onClick: () => chooseEvent('settings'), children: jsx(GearIcon, {}) }),
+    ] }),
   ] })
 }
 
@@ -1249,22 +1250,33 @@ function DebatePage() {
   const view = useValue($view)
   const home = useValue($home)
   const picked = useValue($event)
+  const spot = useValue($marginSpot)
+  const chatOpen = useValue($chatOpen)
+  const compare = useValue($compareOpen)
   useEffect(() => { load(); loadHome() }, [])
   const event = picked === 'settings' ? 'settings' : picked || (home && home.settings && EVENT_IDS.includes(home.settings.event) ? home.settings.event : 'extemp')
-  const chat = useValue($chatOpen) && event !== 'settings' && !(event === 'ld' && view === 'bench')
+  const ready = !!(st && cfg)
+  const coachable = ready && event !== 'settings' && view !== 'print' && view !== 'printbrief'
+  // The margin opens by itself only where the coach helps most (extemp prep, the Case Workbench), and
+  // starts closed everywhere else; the header's Coach toggle opens or closes it on any floor.
+  const place = `${event}/${event === 'ld' ? view : ''}/${spot || ''}`
+  useEffect(() => { $chatOpen.set(MARGIN_DEFAULT.has(spot)) }, [place])
+  const open = coachable && chatOpen
+  const bench = event === 'ld' && ldViewOf(view) === 'bench' && st && st.workbench
   useLdCoachContext(event)
   let body
   if (err && !st) body = jsx(Failure, { title: 'The workbench could not load', body: `${errText(err)} Check that Debate Workbench is turned on in Capabilities, Plugins, then try again.`, error: err, onRetry: () => { load(); loadHome() } })
-  else if (!st || !cfg) body = jsx(Thinking, { label: 'Opening the workbench' })
+  else if (!ready) body = jsx(Thinking, { label: 'Opening the workbench' })
   else if (event === 'extemp') body = jsx(ExtempView, {})
   else if (event === 'rhetoric') body = jsx(RhetoricView, {})
   else if (event === 'ballots') body = jsx(BallotsView, {})
   else if (event === 'settings') body = jsx(SettingsView, {})
-  else body = jsxs(Fragment, { children: [jsx(Header, {}), view === 'room' ? jsx(Room, {}) : view === 'fallacies' ? jsx(Fallacies, {}) : view === 'printbrief' ? jsx(PrintBriefing, {}) : view === 'print' ? jsx(PrintView, {}) : jsx(Bench, {})] })
-  return jsx('div', { className: 'hk hk-page ldw', role: 'region', 'aria-label': 'Debate Workbench', children: jsxs('div', { className: 'ldw-frame', 'data-chat': chat ? '' : undefined, children: [
-    jsx(Rail, { event }),
+  else body = jsxs(Fragment, { children: [jsx(LdContext, {}), view === 'room' ? jsx(Room, {}) : view === 'fallacies' ? jsx(Fallacies, {}) : view === 'printbrief' ? jsx(PrintBriefing, {}) : view === 'print' ? jsx(PrintView, {}) : jsx(Bench, {})] })
+  return jsx('div', { className: 'hk hk-page ldw', role: 'region', 'aria-label': 'Debate Workbench', children: jsxs('div', { className: 'ldw-frame', 'data-margin': marginState(open, compare), children: [
+    jsx(FrameHeader, { event, coachOpen: open, coachable }),
     jsx('main', { className: 'ldw-inner', 'data-event': event, children: body }),
-    chat && st && cfg ? jsx(CoachChat, { floor: event }) : null,
+    open ? jsx(Margin, { open, onToggle: () => $chatOpen.set(false), title: 'Coach',
+      children: bench ? jsx(CoachPanel, { c: st.workbench.case }) : jsx(CoachChat, { floor: event }) }) : null,
   ] }) })
 }
 

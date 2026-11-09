@@ -21,6 +21,7 @@ import { jsx, jsxs } from 'react/jsx-runtime'
 import { BRIEFING, CONFIG, DRILL, SPOT, SPOT_INPUT, STATE } from './fixtures.js'
 import { BALLOT, BALLOTS, DRAW, HOME, JUDGES, MARKS, OUTLETS, PULL, RHETORIC, SPEECHES, SPOT as FIGSPOT, SPOT_NR, SPOT_NR_MISS, TAKE } from './fixtures02.js'
 import { COACH } from './fixtures_coach.js'
+const LANES = (await Promise.all(['./fixtures_frame.js', './fixtures_player.js', './fixtures_evidence.js', './fixtures_hermes.js'].map(f => import(f).catch(() => null)))).filter(m => m && m.answer) // each lane's fixtures: export async function answer(path, options, { params, clone, home }); undefined when not theirs
 
 const params = new URLSearchParams(location.search)
 const dark = params.get('theme') !== 'light'
@@ -116,6 +117,7 @@ function silentWav(seconds) {
 
 async function rest(path, options = {}) {
   await pause(30)
+  for (const lane of LANES) { const out = await lane.answer(path, options, { params, clone, home }); if (out !== undefined) return out } // lanes answer first
   if (path === 'home') return home()
   if (path === 'settings') return { event: 'extemp' }
   if (path === 'rhetoric') return clone(RHETORIC)

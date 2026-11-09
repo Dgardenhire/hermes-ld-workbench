@@ -6,8 +6,12 @@ import { Fragment, jsx, jsxs } from 'react/jsx-runtime'
 import { Button, Codicon, Input, Textarea, atom, useValue } from '@hermes/plugin-sdk'
 import { Notice } from 'hermes-ui-kit'
 import { Choices, Thinking, api, cls, errText, mmss, post, rest } from './core.js'
-import { Clock, ExtempSheet, FILE_EMPTY_NOTE, LastTake, LiveWave, SpeakControls, Strip, mentionsFile, sendTake, takeSettled, useRecorder, useTakePoll } from './floor.js'
+import { Clock, ExtempSheet, FILE_EMPTY_NOTE, LiveWave, SpeakControls, Strip, mentionsFile, sendTake, takeSettled, useRecorder, useTakePoll } from './floor.js'
 import { $coachOn, PrepCoach, StrongExample, useCoachContext } from './coach.js'
+import { TakePlayer } from './player.js'
+import { PrimerButton, PrimerCards } from './primer.js'
+import { FirstRun, SampleBallot, isFirstRun } from './firstrun.js'
+import { useMarginSpot } from './margin.js'
 
 export const $home = atom(null)
 export const $extempMode = atom(null) // drill | openings | round (null: decide from the saved round)
@@ -197,7 +201,7 @@ function Floor({ limit, label, jt, startLabel, extra }) {
     live ? jsx(LiveWave, { rec: jt.recorder, limit }) : null,
     jt.busy === 'sending' ? jsx(Thinking, { label: 'Saving your take' }) : null,
     jt.err ? jsx(Notice, { tone: 'bad', children: jt.err, action: jt.take && !jt.ballot ? jsx(Button, { size: 'sm', variant: 'secondary', onClick: () => jt.judge(jt.take), children: 'Ask for the ballot again' }) : null }) : null,
-    jt.take && !live ? jsx(LastTake, { take: jt.take, limit, title: jt.ballot ? 'Your take' : 'Your take, just now', onChange: jt.setTake }) : null,
+    jt.take && !live ? jsx(TakePlayer, { take: jt.take, limit, title: jt.ballot ? 'Your take' : 'Your take, just now', onChange: jt.setTake }) : null,
     jt.busy === 'judging' ? jsx(Thinking, { label: 'The judge is writing the ballot' }) : null,
   ] })
 }
@@ -224,6 +228,7 @@ function DrillFloor({ home, modeSwitch }) {
   useEffect(() => { if (shown.current !== q.text) { shown.current = q.text; jt.reset() } }, [q.text]) // a new question, a clean floor
   const fileEmpty = !home.file_count
   const phase = jt.ballot ? 'ballot' : live ? 'live' : jt.take ? 'taken' : 'ready'
+  const first = isFirstRun(home)
   useCoachContext({ floor: 'extemp', question: q.text, take_id: jt.take ? jt.take.id : null, ballot_at: jt.ballot ? jt.ballot.at : null,
     sees: ['the question', jt.take && 'your answer', jt.ballot && 'the ballot', !fileEmpty && 'your file'] }, [q.text, jt.take && jt.take.id, jt.ballot && jt.ballot.at, fileEmpty])
   return jsxs(Fragment, { children: [
@@ -232,10 +237,13 @@ function DrillFloor({ home, modeSwitch }) {
         state: phase === 'ballot' ? 'done' : 'now', fill: live ? jt.recorder.elapsed / DRILL : 0 },
       { key: 'ballot', code: 'Ballot', sub: jt.busy === 'judging' ? 'Writing' : jt.ballot ? `${jt.ballot.points ?? ''} points` : '', minutes: 0.45, min: 120, state: phase === 'ballot' ? 'now' : 'later' },
     ] }),
-    jsx(Slip, { kicker: [`60-second answer · ${AREAS[q.area] || 'United States'}`, modeSwitch], question: q.text, tools: jsx(QuestionTools, { home, disabled: live }) }),
-    jt.ballot ? jsx(ExtempSheet, { b: jt.ballot, drillLabel: 'Try it again', onDrill: () => jt.reset(), fileEmpty, showMe: false }) : null,
+    jsx(Slip, { kicker: [`60-second answer, ${AREAS[q.area] || 'United States'}`, modeSwitch], question: q.text, tools: jsx(QuestionTools, { home, disabled: live }) }),
+    jsx(PrimerCards, { question: q.text }),
+    jt.ballot ? jsx(ExtempSheet, { b: jt.ballot, take: jt.take, drillLabel: 'Try it again', onDrill: () => jt.reset(), fileEmpty, showMe: false }) : null,
     jt.ballot && jt.take ? jsx(StrongExample, { kind: 'answer', question: q.text, takeIds: [jt.take.id], onAgain: () => jt.reset() }) : null,
-    jsx(Floor, { limit: DRILL, label: null, jt, startLabel: 'Start speaking' }),
+    jsx(Floor, { limit: DRILL, label: null, jt, startLabel: 'Start speaking', extra: jsx(PrimerButton, { question: q.text }) }),
+    first && phase === 'ready' ? jsx(FirstRun, {}) : null,
+    first && phase === 'ready' ? jsx(SampleBallot, {}) : null,
     !jt.take && !live && home.next_drill ? jsxs('div', { className: 'ldw-upnext', children: [
       jsx('span', { className: 'ldw-stamp2 ldw-stamp-sm', children: 'Drill' }),
       jsxs('p', { children: [jsx('strong', { children: home.next_drill.name }), `. ${home.next_drill.how}`,
@@ -263,7 +271,7 @@ function OpeningCard({ n, take, setTake, best, note, active, onRedo }) {
     ] }),
     take && (st === 'done' || st === 'typed') ? jsx('p', { className: 'ldw-spoken ldw-ocard-said', children: take.transcript.text || 'No words were caught.' }) : null,
     take && (st === 'waiting' || st === 'working') ? jsx(Thinking, { label: 'Making the transcript' }) : null,
-    take && ['unavailable', 'failed', 'cancelled'].includes(st) ? jsx(LastTake, { take, limit: OPENING, title: 'Timing only', onChange: setTake }) : null,
+    take && ['unavailable', 'failed', 'cancelled'].includes(st) ? jsx(TakePlayer, { take, limit: OPENING, title: 'Timing only', onChange: setTake }) : null,
     note ? jsxs('div', { className: 'ldw-onote', children: [
       note.worked ? jsxs('p', { children: [jsx('b', { children: 'Worked: ' }), note.worked] }) : null,
       note.fix ? jsxs('p', { children: [jsx('b', { children: 'Fix: ' }), note.fix] }) : null,
@@ -561,6 +569,7 @@ function PrepStage({ round, setRound, modeSwitch }) {
     setRound(await post('extemp/round', { outline, phase: 'speak', prep_left: prep.left }))
   }
   const chosen = file.filter(i => outline.sources.includes(i.id))
+  useMarginSpot('extemp-prep') // the coach margin opens by itself on prep
   useCoachContext({ floor: 'extemp', round: true, sees: ['the question', 'your outline', file.length && 'your file'] }, [round.id, file.length])
   const useArea = (i, title) => { const k = `area${i + 1}`; change(k, outline[k] && outline[k].trim() ? `${outline[k].trim()}\n${title}` : title) }
   const [removing, setRemoving] = useState(null)

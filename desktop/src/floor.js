@@ -11,6 +11,7 @@ import { Button, Codicon, Textarea } from '@hermes/plugin-sdk'
 import { Notice } from 'hermes-ui-kit'
 import { Thinking, cls, errText, mmss, post, rest, words } from './core.js'
 import { ShowMe } from './coach.js'
+import { QuoteLine } from './player.js'
 
 /* ------------------------------------------------------------------ the strip -- */
 
@@ -404,12 +405,12 @@ export const FILE_EMPTY_NOTE = 'Your file is empty for now: in Full round, pull 
 
 // The extemp ballot: read in ten seconds, the full reason folded. fileEmpty: the student has no saved sources,
 // so a drill that sends them to "your file" says how to start one.
-export function ExtempSheet({ b, onDrill, drillLabel = 'Run the drill', defaultOpen = false, fileEmpty = false, showMe = true }) {
+export function ExtempSheet({ b, take, onDrill, drillLabel = 'Run the drill', defaultOpen = false, fileEmpty = false, showMe = true, label = 'Practice ballot' }) {
   const [open, setOpen] = useState(defaultOpen)
   const m = b.measured || {}
   const verdictWord = { yes: 'You answered the question', partly: 'You partly answered the question', no: 'You did not answer the question' }[b.answered]
   return jsxs('article', { className: 'ldw-sheet', 'aria-label': 'Ballot', children: [
-    jsxs('div', { className: 'ldw-sheet-head', children: [jsx('b', { children: b.event === 'drill' ? '60-second answer' : 'Extemporaneous speaking' }), jsx('span', { children: 'Practice ballot' })] }),
+    jsxs('div', { className: 'ldw-sheet-head', children: [jsx('b', { children: b.event === 'drill' ? '60-second answer' : 'Extemporaneous speaking' }), jsx('span', { children: label })] }),
     jsxs('div', { className: 'ldw-sheet-fields', children: [
       jsxs('div', { children: [jsx('i', { children: 'Judge' }), 'Extemp judge'] }),
       jsxs('div', { children: [jsx('i', { children: 'Time' }), m.typed ? 'typed' : `${mmss(m.speaking || 0)} of ${mmss(m.limit || 0)}`] }),
@@ -430,7 +431,7 @@ export function ExtempSheet({ b, onDrill, drillLabel = 'Run the drill', defaultO
     b.decisive && b.decisive.length ? jsxs('div', { className: 'ldw-declines', children: [
       jsx('h4', { children: 'The lines that decided it' }),
       ...b.decisive.map((d, i) => jsxs('div', { className: 'ldw-line', children: [
-        jsx('span', { className: 'ldw-line-said', children: `"${d.line}"` }),
+        jsx(QuoteLine, { take: take || null, line: d, index: i, children: jsx('span', { className: 'ldw-line-said', children: `"${d.line}"` }) }),
         jsx('span', { className: 'ldw-line-effect', children: d.effect }),
         d.checked === false ? jsx('span', { className: 'ldw-line-flag', children: 'Not found in your transcript. Check it.' }) : null,
       ] }, i)),
@@ -466,7 +467,8 @@ export function LdSheet({ b, onLine, onDrill, defaultOpen = false }) {
   const more = (b.decisive || []).slice(3)
   const [drill, ...drills] = b.drills || []
   const line = (d, i) => {
-    const said = jsxs(Fragment, { children: [jsx('span', { className: 'ldw-line-code', children: d.speech }), jsx('span', { className: 'ldw-line-said', children: `"${d.line}"` })] })
+    const said = jsxs(Fragment, { children: [jsx('span', { className: 'ldw-line-code', children: d.speech }),
+      jsx(QuoteLine, { take: null, line: d, index: i, children: jsx('span', { className: 'ldw-line-said', children: `"${d.line}"` }) })] })
     return jsxs('div', { className: 'ldw-line', children: [
       onLine ? jsx('button', { type: 'button', className: 'ldw-line-btn', onClick: () => onLine(d.speech), title: `Find the ${d.speech} on the flow`, children: said }) : jsx('div', { children: said }),
       jsx('span', { className: 'ldw-line-effect', children: d.effect }),
