@@ -1500,16 +1500,51 @@ def _lane(name):
 #
 
 # ===== Lane C: evidence routes =====
-#
-#
-#
-#
-#
-#
-#
-#
-#
-#
+# Get up to speed (evidence.py): one press, three dated facts, each an exact page sentence picked by number.
+def _evidence():
+    return _lane("evidence")
+
+
+def _files_only():
+    """True while an extemp round is in prep with "files only": Get up to speed stays off."""
+    r = store.read("extemp_round.json")
+    return bool(r) and r.get("phase") == "prep" and r.get("mode") != "internet"
+
+
+@router.post("/evidence/primer")
+async def post_evidence_primer(body: dict):
+    """Start Get up to speed on a question; answers at once with the first stage, then the page polls."""
+    try:
+        return _evidence().start(_body(body).get("question"), lambda q: WEB_SEARCH(q), MODEL, files_only=_files_only())
+    except Exception as e:
+        _fail(e)
+
+
+@router.get("/evidence/primer/{job_id}")
+async def get_evidence_primer(job_id: str):
+    try:
+        return _evidence().poll(job_id)
+    except Exception as e:
+        _fail(e)
+
+
+@router.post("/evidence/primer/{job_id}/cancel")
+async def post_evidence_primer_cancel(job_id: str):
+    try:
+        return _evidence().cancel(job_id)
+    except Exception as e:
+        _fail(e)
+
+
+@router.post("/evidence/save")
+async def post_evidence_save(body: dict):
+    """Save to my file: one fact card's page and its sentence, on the student's press only."""
+    try:
+        return _evidence().save(_body(body).get("card_id"))
+    except Exception as e:
+        _fail(e)
+
+
 
 # ===== Lane E: hermes routes =====
 #

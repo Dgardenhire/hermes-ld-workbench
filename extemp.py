@@ -199,9 +199,15 @@ def clean_item(b):
     except (TypeError, ValueError):
         at = None
     topics = [t for t in (_s(x, 40).lower() for x in (b.get("topics") or []) if isinstance(x, str)) if t][:8]
-    return {"title": title, "outlet": _s(b.get("outlet"), 80), "lean": _s(b.get("lean"), 20), "url": url, "at": at,
+    item = {"title": title, "outlet": _s(b.get("outlet"), 80), "lean": _s(b.get("lean"), 20), "url": url, "at": at,
             "note": str(b.get("note") or "").strip()[:2000], "topics": topics, "text": str(b.get("text") or "")[:30000],
             "area": b.get("area") if b.get("area") in AREAS else "us"}
+    # Key sentences, only when a fact card from Get up to speed was saved (evidence.save): the page's own words.
+    sentences = [x for x in (_s(v, 600) for v in (b.get("sentences") or [])[:12] if isinstance(v, str)) if x] \
+        if isinstance(b.get("sentences"), list) else []
+    if sentences:
+        item["sentences"] = sentences
+    return item
 
 
 def file_items():
