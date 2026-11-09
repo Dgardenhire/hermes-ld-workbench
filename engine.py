@@ -49,14 +49,49 @@ def _is_timeout(e):
         or "timed out" in str(e).lower()
 
 
+# The three model rows the workbench registers (``register_auxiliary_task`` in ``__init__.py``). Each shows in
+# Hermes Settings, Models, Auxiliary, so a student or teacher can route the judge, the opponent and the coach
+# to different models. Unset, each runs on the main model (provider "auto").
+TASK_JUDGE = "debate_judge"
+TASK_OPPONENT = "debate_opponent"
+TASK_COACH = "debate_coach"
+TASKS = {
+    TASK_JUDGE: ("Debate judge", "Writes the judge's ballot after every Lincoln-Douglas round, extemp speech and 60-second answer."),
+    TASK_OPPONENT: ("Debate opponent", "Gives the AI opponent's speeches and cross-examination in a Lincoln-Douglas round."),
+    TASK_COACH: ("Debate coach", "The coach: strong examples, prep questions, briefings, the coach chat and other help."),
+}
+# Purposes already in use, mapped to a row, for call sites that do not name one. A call site that passes
+# ``task=`` wins over this map.
+_OPPONENT_PURPOSES = ("ld-workbench.speech", "ld-workbench.cx")
+
+
+def task_for(purpose):
+    """The model row for a call's purpose: judges to Debate judge, the opponent to Debate opponent, the rest to
+    Debate coach. The judge's flow of a speech counts as the judge's work."""
+    p = str(purpose or "")
+    if p in _OPPONENT_PURPOSES:
+        return TASK_OPPONENT
+    if p.endswith(".judge") or p == "ld-workbench.flow":
+        return TASK_JUDGE
+    return TASK_COACH
+
+
 class Model:
     """The two shapes of call the workbench makes, over Hermes's plugin LLM facade.
 
-    ``llm`` is a PluginLlm (or a stand-in with the same async methods, in tests)."""
+    ``llm`` is a PluginLlm (or a stand-in with the same async methods, in tests).
+
+    Every call names a model row (``task``). Hermes accepts a row only in a process where ``register()`` ran
+    and only on a Hermes that knows the ``task`` argument. Not verified yet: whether the dashboard process,
+    where these calls run, sees the rows ``register()`` added. So when Hermes refuses the row (a trust error
+    that names the task) or does not know the argument (TypeError), the call runs again without it, on the
+    main model, exactly as 0.2 did before the rows. ``last_route`` and the log say which path ran."""
 
     def __init__(self, llm=None, timeout=CALL_TIMEOUT):
         self._llm = llm
         self.timeout = timeout
+        self.last_route = None  # (task or None, "task" | "no-task: <reason>"), for the log and the tests
+        self._said = set()
 
     async def _guarded(self, coro):
         try:
@@ -71,10 +106,43 @@ class Model:
             self._llm = PluginLlm(plugin_id=PLUGIN_ID)
         return self._llm
 
-    async def text(self, system, messages, max_tokens=16000, purpose="ld-workbench"):
+    @staticmethod
+    def _task_refused(e):
+        """Hermes said no to the row itself, not to the call: retry with no row."""
+        msg = str(e)
+        if isinstance(e, TypeError):
+            return "task" in msg and ("unexpected keyword" in msg or "argument" in msg)
+        return type(e).__name__ == "PluginLlmTrustError" and "auxiliary task" in msg
+
+    def _note(self, task, how):
+        self.last_route = (task, how)
+        key = (task, how)
+        if key not in self._said:  # once per row and path, so the log shows which path ran without repeating
+            self._said.add(key)
+            _log.info("ld-workbench: model row %s: %s", task, how)
+
+    async def _call(self, method, task, **kw):
+        """One facade call with the row; the same call without it when Hermes refuses the row."""
+        fn = getattr(self.llm, method)
+        if task:
+            try:
+                out = await self._guarded(fn(**kw, task=task))
+            except Exception as e:
+                if not self._task_refused(e):
+                    raise
+                self._note(task, f"no-task: {type(e).__name__}")
+            else:
+                self._note(task, "task")
+                return out
+        else:
+            self._note(None, "no-task: none named")
+        return await self._guarded(fn(**kw))
+
+    async def text(self, system, messages, max_tokens=16000, purpose="ld-workbench", task=None):
+        task = task or task_for(purpose)
         try:
-            result = await self._guarded(self.llm.acomplete([{"role": "system", "content": system}, *messages],
-                                                            max_tokens=max_tokens, timeout=self.timeout, purpose=purpose))
+            result = await self._call("acomplete", task, messages=[{"role": "system", "content": system}, *messages],
+                                      max_tokens=max_tokens, timeout=self.timeout, purpose=purpose)
         except RuntimeError as e:
             if str(e) == SLOW:
                 raise
@@ -86,12 +154,13 @@ class Model:
             raise RuntimeError("The model sent back an empty answer. Try again.")
         return text
 
-    async def json(self, system, header, body, max_tokens=16000, purpose="ld-workbench"):
+    async def json(self, system, header, body, max_tokens=16000, purpose="ld-workbench", task=None):
         """A JSON answer: Hermes's structured lane first, then a plain call parsed the web app's way."""
+        task = task or task_for(purpose)
         try:
-            result = await self._guarded(self.llm.acomplete_structured(
-                instructions=header, input=[{"type": "text", "text": body}], system_prompt=system,
-                json_mode=True, max_tokens=max_tokens, timeout=self.timeout, purpose=purpose))
+            result = await self._call("acomplete_structured", task,
+                                      instructions=header, input=[{"type": "text", "text": body}], system_prompt=system,
+                                      json_mode=True, max_tokens=max_tokens, timeout=self.timeout, purpose=purpose)
         except Exception as e:  # includes a reply that misses the schema (ValueError); retried plainly below
             if type(e).__name__ == "PluginLlmTrustError":
                 raise _model_error(e)
@@ -103,7 +172,7 @@ class Model:
                 return result.parsed
             return parse_json(result.text or "")
         return parse_json(await self.text(system, [{"role": "user", "content": f"{header}\n{body}"}],
-                                          max_tokens=max_tokens, purpose=purpose))
+                                          max_tokens=max_tokens, purpose=purpose, task=task))
 
 
 def _model_error(e):
