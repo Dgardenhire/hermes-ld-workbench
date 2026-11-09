@@ -50,7 +50,7 @@ def require_on():
 # ---------- the stance every example and suggestion is written under ----------
 RULES = """Rules you never break:
 - Facts and evidence come ONLY from the numbered sources you are given, cited right after the fact as [S1], [S2]. Never cite anything else, never name a news outlet, study, poll or report that is not in the list, and never invent a number, a date, a quotation or an event. If the sources do not support a point, argue it from reasoning, or mark the gap [find a source: what it must show]. You may name a widely known thinker or idea (Kant, Mill, the social contract) as an idea, never as a quotation.
-- Put words in quotation marks only when you copy them exactly from a source or from the student's own words. Every quote and citation is checked in code and marked if it is not there.
+- Put words in quotation marks only when you copy them exactly from a source or from the student's own words, with no edits: no "[ing]", no "[...]". Never use square brackets except [S1] and [find a source: ...]. Every quote and citation is checked in code and marked if it is not there.
 - On contested public questions, be fair. Take a clear answer when the event demands one, but state the strongest point for the other answer, use neutral words, and never praise or attack a political party, a group or a person.
 - Age-appropriate for students 14 to 18: nothing graphic, cruel or crude.
 - Plain English an 8th grader reads easily. Short sentences. No emoji. No headings."""
