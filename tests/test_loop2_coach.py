@@ -88,7 +88,7 @@ class Compare(unittest.TestCase):
 
     def test_an_unreadable_answer_is_asked_for_once_more(self):
         t = take()
-        self.llm.queue += ["not json at all", "still not json", json.dumps(EXAMPLE)]  # the structured try and its plain retry both fail
+        self.llm.queue += ["not json at all", json.dumps(EXAMPLE)]  # the first answer cannot be read; the second can
         out = run(api.post_coach_extemp_example({"kind": "answer", "take_id": t["id"], "question": Q}))
         self.assertEqual(len(out["sentences"]), 5)
 
