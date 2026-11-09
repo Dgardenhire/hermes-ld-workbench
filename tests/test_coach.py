@@ -119,6 +119,25 @@ class Citations(unittest.TestCase):
         self.assertIn(f"Reuters reported that the Fed may act ({date}).", text)
         self.assertIn(f"Hiring is up ({extemp.citation(self.items[1])}).", text)
 
+    def test_a_sentence_about_the_students_citing_gets_no_date(self):
+        # From docs/shots/v02/coach-chat-dark.png at 55b9b32: the stamp contradicted the sentence it sat in.
+        said = 'You named Reuters [S1] but not the date; say "on November 6". Try it again and start with your answer.'
+        for stamp in (True, False):
+            text, c = coach.check(said, self.items, stamp=stamp)
+            self.assertEqual(text, 'You named Reuters but not the date; say "on November 6". Try it again and start with your answer.')
+            self.assertEqual(c["citations"], 1)
+        for line in ("Yours named Reuters [S1] without a date.", "Your source [S1] had no date.", "You said NPR [S2], but it was undated."):
+            text, _ = coach.check(line, self.items)
+            self.assertNotIn(", 2026)", text, line)
+            self.assertNotIn("[S", text, line)
+
+    def test_feedback_names_the_source_without_a_date(self):
+        text, c = coach.check("Hiring is up [S2]. Reuters says a hike is near [S1].", self.items, stamp=False)
+        self.assertEqual(text, "Hiring is up (NPR). Reuters says a hike is near.")
+        self.assertEqual(c["citations"], 2)
+        text, _ = coach.check("Hiring is up [S2].", self.items)  # the coach's own example text keeps its stamp
+        self.assertEqual(text, f"Hiring is up ({extemp.citation(self.items[1])}).")
+
     def test_a_number_not_in_the_file_is_marked(self):
         text, c = coach.check("A study found it [S9].", self.items)
         self.assertIn(coach.NOT_IN_FILE, text)
@@ -197,6 +216,15 @@ class ExtempExamples(unittest.TestCase):
         body = call["input"][0]["text"]
         self.assertIn(ANSWER, body)  # built on the student's attempt
         self.assertIn(FED, body)  # grounded in their file
+
+    def test_notes_about_the_students_sourcing_get_no_date(self):
+        t = drill_take()
+        self.llm.queue.append(json.dumps(dict(EXAMPLE, notes=["Yours named Reuters [S1] without a date.", "It cites NPR [S2] for the jobs number."],
+                                              kept="Your source, Reuters [S1].")))
+        out = run(api.post_coach_extemp_example({"kind": "answer", "take_id": t["id"]}))
+        self.assertEqual(out["notes"], ["Yours named Reuters without a date.", "It cites NPR for the jobs number."])
+        self.assertEqual(out["kept"], "Your source, Reuters.")
+        self.assertIn(", 2026)", out["example"])  # the example itself is stamped
 
     def test_no_attempt_no_example(self):
         t = drill_take("   ")
@@ -401,6 +429,18 @@ class ShowMe(unittest.TestCase):
         self.assertEqual(run(api.post_coach_ballot_show({"at": 1700000001}))["redo"], out["redo"])  # kept: no second call
         self.assertEqual(len(self.llm.calls), n)
 
+    def test_why_and_practice_get_no_date_but_the_redo_does(self):
+        t = drill_take()
+        ballots.add({"event": "drill", "answered": "partly", "points": 27, "question": Q, "take_id": t["id"], "at": 1700000006, "decisive": []})
+        self.llm.queue.append(json.dumps({"moment": "families feel it at the store every week", "why": "You named Reuters [S1] but no date.",
+                                          "redo": "Reuters reported a hike is on the table [S1], so prices come first.",
+                                          "practice": "Say Reuters [S1] and the date in one breath."}))
+        out = run(api.post_coach_ballot_show({"at": 1700000006}))
+        self.assertEqual(out["why"], "You named Reuters but no date.")
+        self.assertEqual(out["practice"], "Say Reuters and the date in one breath.")
+        self.assertIn("on the table (", out["redo"])
+        self.assertIn(", 2026)", out["redo"])
+
     def test_a_moment_the_student_never_said_is_flagged(self):
         t = drill_take()
         ballots.add({"event": "drill", "answered": "no", "points": 25, "question": Q, "take_id": t["id"], "at": 1700000002, "decisive": []})
@@ -457,6 +497,15 @@ class Chat(unittest.TestCase):
                      "decisive": [], "drill": {"name": "Answer first", "how": "Say it."}})
         run(api.post_coach_chat({"floor": "ballots", "ballot_at": 1700000005, "message": "Why did I lose points?"}))
         self.assertIn("You answered late.", self.context())
+
+    def test_chat_about_a_missing_date_keeps_its_meaning(self):
+        self.llm.queue.append('Mostly. Your three reasons were clear and in order: the law, the jobs side, the cost of waiting. '
+                              'You named Reuters [S1] but not the date; say "on November 6". Try it again and start with your answer.')
+        out = run(api.post_coach_chat({"floor": "extemp", "question": Q, "message": "Was my answer clear?"}))
+        self.assertIn('You named Reuters but not the date; say "on November 6".', out["text"])
+        self.assertNotIn("(Reuters", out["text"])
+        self.assertNotIn("2026)", out["text"])
+        self.assertEqual(out["checks"]["citations"], 1)
 
     def test_chat_answer_is_checked(self):
         self.llm.queue.append("CNN says prices will fall [S4].")

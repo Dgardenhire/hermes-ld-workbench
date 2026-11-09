@@ -110,6 +110,11 @@ def source_block(items):
 
 # ---------- the check, in code ----------
 _CITE = re.compile(r"\[\s*S\s*(\d{1,3})\s*\]", re.I)
+_CITE_SUB = re.compile(r"[ \t]*\[\s*S\s*(\d{1,3})\s*\]", re.I)  # with the space before it, so a dropped token leaves none
+# A sentence about the student's own citing ("You named Reuters [S1] but not the date"). A date stamped into it would
+# contradict it, so such a sentence never gets one, even in the coach's own example text.
+_ABOUT_THEIR_CITING = re.compile(r"\byou (?:named|said|cited|mentioned|quoted|gave|used|read|forgot|left)\b|\byours?\b|"
+                                 r"without (?:a|the|any) date|\bno date\b|not the date|\bundated\b|missing (?:a|the) date", re.I)
 _QUOTE = re.compile(r"“([^”]+)”|\"([^\"]+)\"")
 # Outlets a model reaches for from memory. A name here that no source in the file carries is marked.
 KNOWN_OUTLETS = ("Reuters", "Associated Press", "NPR", "New York Times", "Washington Post", "Wall Street Journal", "The Atlantic",
@@ -156,10 +161,14 @@ def _fold(s):
     return re.sub(r"^the\s+", "", " ".join(str(s or "").lower().split()))
 
 
-def check(text, items, own=()):
+def check(text, items, own=(), stamp=True):
     """Mark what the model may not say. Returns (text, checks).
 
-    - [S#] that names a source in ``items`` becomes "(Outlet, date)"; any other number becomes the not-in-file mark.
+    - [S#] that names a source in ``items`` becomes "(Outlet, date)" in the coach's own example text (``stamp``), or
+      just its date when the sentence already names the outlet. Any other number becomes the not-in-file mark.
+      Chat and feedback that talk about the student's sourcing (``stamp=False``), and any sentence about the
+      student's own citing ("You named Reuters [S1] but not the date"), get no date: the token is dropped when the
+      outlet is already named, or becomes "(Outlet)".
     - A line quoting four or more words that are in no source and not in ``own`` (the student's words, the
       question, the case) gets the not-found mark.
     - A line with a figure (two or more digits, or a percent) that is in no source and not in ``own`` gets the
@@ -197,20 +206,26 @@ def check(text, items, own=()):
     text = "\n".join(lines)
 
     def cite(m):
+        lead = m.group(0)[:len(m.group(0)) - len(m.group(0).lstrip(" \t"))]
         n = int(m.group(1))
-        if 1 <= n <= len(items):
-            c["citations"] += 1
-            i = items[n - 1]
-            whole = extemp.citation(i)
-            # "Reuters reported ... [S1]" reads "Reuters reported ... (Nov 6, 2026)": the outlet is already said.
-            sentence = re.split(r"[.!?]\s", m.string[:m.start()])[-1].lower()
-            outlet = str(i.get("outlet") or "").lower()
-            if outlet and _fold(outlet) in sentence and whole.lower().startswith(outlet + ", "):
-                return f"({whole[len(outlet) + 2:]})"
-            return f"({whole})"
-        c["not_in_file"] += 1
-        return NOT_IN_FILE
-    return _CITE.sub(cite, text), c
+        if not 1 <= n <= len(items):
+            c["not_in_file"] += 1
+            return lead + NOT_IN_FILE
+        c["citations"] += 1
+        i = items[n - 1]
+        whole = extemp.citation(i)
+        before = re.split(r"[.!?](?:\s|$)|\n", m.string[:m.start()])[-1]
+        after = re.split(r"[.!?](?:\s|$)|\n", m.string[m.end():])[0]
+        sentence = f"{before} {after}".lower()
+        outlet = str(i.get("outlet") or "")
+        named = bool(outlet) and _fold(outlet) in sentence
+        if not stamp or _ABOUT_THEIR_CITING.search(sentence):
+            return "" if named or not outlet else f"{lead}({outlet})"
+        # "Reuters reported ... [S1]" reads "Reuters reported ... (Nov 6, 2026)": the outlet is already said.
+        if named and whole.lower().startswith(outlet.lower() + ", "):
+            return f"{lead}({whole[len(outlet) + 2:]})"
+        return f"{lead}({whole})"
+    return _CITE_SUB.sub(cite, text), c
 
 
 def _merge(*checks):
@@ -291,9 +306,10 @@ async def extemp_example(kind, question, takes, best, model):
     out = tidy_example(raw)
     own = [question] + [_said(t) for t in takes]
     out["example"], c1 = check(out["example"], items, own)
-    checked = [check(n, items, own) for n in out["notes"]]
+    checked = [check(n, items, own, stamp=False) for n in out["notes"]]  # notes talk about the student's attempt
     out["notes"] = [t for t, _ in checked]
-    out["checks"] = _merge(c1, *[c for _, c in checked])
+    out["kept"], c2 = check(out["kept"], items, own, stamp=False)
+    out["checks"] = _merge(c1, c2, *[c for _, c in checked])
     out["kind"] = kind
     out["sources"] = len(items)
     return out
@@ -590,8 +606,8 @@ async def show_me(b, said, model):
         raise _unreadable()
     own = [said, b.get("question") or "", b.get("resolution") or ""]
     redo, c1 = check(redo, items, own)
-    why, c2 = check(_s(raw.get("why"), 500), items, own)
-    practice, c3 = check(_s(raw.get("practice"), 400), items, own)
+    why, c2 = check(_s(raw.get("why"), 500), items, own, stamp=False)  # about what the student said: no stamp
+    practice, c3 = check(_s(raw.get("practice"), 400), items, own, stamp=False)
     return {"moment": moment.strip("\"“” "), "moment_checked": engine.quote_found(said, moment), "why": why, "redo": redo,
             "practice": practice, "checks": _merge(c1, c2, c3), "at": b.get("at")}
 
@@ -660,5 +676,5 @@ async def chat(floor, screen, thread, message, model):
     s = screen or {}
     own = [s.get("question"), s.get("outline"), s.get("case"), s.get("round"), s.get("ballot"), s.get("line"), s.get("critique"), message,
            *[t for _, t in (s.get("attempts") or [])]]
-    text, checks = check(text, s.get("items") or [], own)
+    text, checks = check(text, s.get("items") or [], own, stamp=False)  # a chat talks about the student's work: no stamp
     return {"text": text, "checks": checks, "examples": on}

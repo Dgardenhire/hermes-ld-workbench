@@ -216,7 +216,7 @@ export const COACH = {
   "at": 1762418400
  },
  "chat_extemp": {
-  "text": "Mostly. Your answer, prices for now, came in your second sentence, after you restated the question, so a judge hears it about five seconds in. Your three reasons were clear and in order: the law, the jobs side, the cost of waiting. You named Reuters (Nov 6, 2026) but not the date; say \"on November 6\". Try it again and start with your answer.",
+  "text": "Mostly. Your answer, prices for now, came in your second sentence, after you restated the question, so a judge hears it about five seconds in. Your three reasons were clear and in order: the law, the jobs side, the cost of waiting. You named Reuters but not the date; say \"on November 6\". Try it again and start with your answer.",
   "checks": {
    "citations": 1,
    "not_in_file": 0,
