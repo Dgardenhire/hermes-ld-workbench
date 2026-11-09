@@ -896,7 +896,9 @@ async def post_take_judge(take_id: str, body: dict):
         cited = extemp.cited_sources(take["transcript"].get("text") or "", items)
         ballot = await _once(("judge", take_id), lambda: engine.run_extemp_judge(take, question, outline, cited, MODEL, event, len(items)))
         ballot.update({"at": int(time.time()), "question": question, "take_id": take_id,
-                       "drill_segment": "answer" if event == "drill" else "speak"})
+                       "drill_segment": "answer" if event == "drill" else "speak",
+                       # Help labels: a take given after the coach showed an example says so, on the ballot and in the export.
+                       "help": "after the coach's example" if coach.kept_example(b.get("after_example")) else "unaided"})
         ballots.add(ballot)
         r = store.read("extemp_round.json")
         if r and r.get("take") == take_id:
@@ -1382,6 +1384,42 @@ async def post_coach_extemp_example(body: dict):
         question = b.get("question") or takes[0].get("prompt") or ""
         return await _once(("coach-example", kind, best) + tuple(ids),
                            lambda: coach.extemp_example(kind, question, takes, best, MODEL))
+    except Exception as e:
+        _fail(e)
+
+
+@router.post("/coach/speak")
+async def post_coach_speak(body: dict):
+    """Hear it: the coach's kept example read aloud by the user's own Hermes voice (text_to_speech), at most
+    1,500 characters, with the marks and the written date stamps left out."""
+    try:
+        coach.require_on()
+        ex = coach.kept_example(_body(body).get("example_id"))
+        if not ex:
+            raise ValueError("That example is not kept any more. Ask for a strong answer again.")
+        text = coach.speakable(ex["text"])
+        try:
+            return await asyncio.wait_for(asyncio.to_thread(speech.opponent_audio, text, SPEAK), timeout=120)
+        except asyncio.TimeoutError:
+            raise ValueError("The voice took too long. Read the example, or try again.")
+    except Exception as e:
+        _fail(e)
+
+
+@router.post("/coach/extemp/take2")
+async def post_coach_extemp_take2(body: dict):
+    """Take 1 against Take 2: the numbers and each of the example's moves, met or not met, measured in code."""
+    try:
+        b = _body(body)
+        t1, t2 = (speech.settle(speech.get_take(str(b.get(k) or ""))) for k in ("take1", "take2"))
+        if t1.get("event") != "drill" or t2.get("event") != "drill":
+            raise ValueError("Take 2 is measured on the 60-second answer.")
+        out = coach.take2(t1, t2, coach.kept_example(b.get("example_id")))
+        pts = {x.get("take_id"): x.get("points") for x in ballots.history() if x.get("take_id") in (t1["id"], t2["id"])}
+        out["rows"].append({"key": "points", "label": "Points", "take1": pts.get(t1["id"]), "take2": pts.get(t2["id"]),
+                            "change": "not measured" if pts.get(t1["id"]) is None or pts.get(t2["id"]) is None else
+                            "the same" if pts[t1["id"]] == pts[t2["id"]] else "better" if pts[t2["id"]] > pts[t1["id"]] else "worse"})
+        return out
     except Exception as e:
         _fail(e)
 

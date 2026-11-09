@@ -299,6 +299,8 @@ def as_text(items=None, student=""):
                 bits.append(f"{int(m['speaking']) // 60}:{int(m['speaking']) % 60:02d} spoken of {int(m.get('limit') or 0) // 60}:{int(m.get('limit') or 0) % 60:02d}")
             if m.get("wpm"):
                 bits.append(f"{m['wpm']} words a minute")
+            if b.get("help"):
+                bits.append("Given " + b["help"])
             out.append(". ".join(x for x in bits if x) + ".")
         tags = [tag_text(t) for t in (b.get("tags") or []) + (b.get("measured_tags") or [])]
         if tags:

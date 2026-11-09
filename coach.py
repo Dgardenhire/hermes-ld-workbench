@@ -20,11 +20,12 @@ import hashlib
 import re
 
 try:
-    from . import engine, extemp, store
+    from . import engine, extemp, player, store
     from . import rhetoric_method as R
 except ImportError:  # loose modules (tests)
     import engine  # type: ignore
     import extemp  # type: ignore
+    import player  # type: ignore
     import rhetoric_method as R  # type: ignore
     import store  # type: ignore
 
@@ -221,6 +222,9 @@ def check(text, items, own=(), stamp=True):
         named = bool(outlet) and _fold(outlet) in sentence
         if not stamp or _ABOUT_THEIR_CITING.search(sentence):
             return "" if named or not outlet else f"{lead}({outlet})"
+        # "Reuters reported on November 6 that ... [S1]": the outlet and the day are already said aloud, so no stamp.
+        if named and _item_date(i) and _item_date(i) in _dates(sentence):
+            return ""
         # "Reuters reported ... [S1]" reads "Reuters reported ... (Nov 6, 2026)": the outlet is already said.
         if named and whole.lower().startswith(outlet.lower() + ", "):
             return f"{lead}({whole[len(outlet) + 2:]})"
@@ -249,7 +253,7 @@ def _said(take):
 
 
 # ---------- extemp: a strong answer or opening, after the student's own ----------
-ANSWER_TASK = """Task: the student just gave a 60-second answer to the extemp question below. Show them a strong 60-second answer to the SAME question, then say why it works.
+ANSWER_TASK = """Task: the student just gave a 60-second answer to the extemp question below. Their answer is given line by line, numbered [L1], [L2] and so on. Show them a strong 60-second answer to the SAME question, then say why it works.
 
 The example:
 - About 130 to 150 words: one minute at a normal pace. Written to be spoken: short sentences, no lists.
@@ -257,12 +261,14 @@ The example:
 - Then two reasons, each with a "because". Use one source from the list if one fits, said the extemp way, outlet and date aloud ("Reuters reported on November 7 that..."), with its [S#] after it.
 - Then one sentence on the strongest point for the other answer, and why this answer still holds.
 - End by saying the answer again in new words.
-- Build on the student's attempt below: keep their answer if it can be defended and their best line if they had one; fix what it missed.
+- Build on the student's attempt: keep their answer if it can be defended and their best line if they had one; fix what it missed.
+- It must show the three moves listed under MOVES TO SHOW, because the student practices exactly those next.
 
-"notes": three short notes. Each names one move the example makes and why a judge rewards it, tied to the student's attempt where you can (for example: "You started with background; this starts with the answer.").
+"sentences": the example, one sentence per item, in order. "from" is the number of the student's line that sentence builds on (2 for [L2]), when it keeps or rewrites that line's idea or words; 0 when the sentence is new. Never give a number that is not one of the student's lines.
+"notes": three notes. Each is {"yours": what the student's attempt did, starting with "You", from their lines only; "this": what this version does instead and why a judge rewards it, starting with "This version"}. Never say the student did something only the example does.
 "kept": one sentence on what the example kept from the student's attempt, or "" if nothing could be kept.
 
-Return JSON only: {"example": "...", "notes": ["...", "...", "..."], "kept": "..."}"""
+Return JSON only: {"sentences": [{"text": "...", "from": 2}], "notes": [{"yours": "...", "this": "..."}], "kept": "..."}"""
 
 OPENING_TASK = """Task: the student gave openings for the extemp question below, out loud, 45 seconds each. Show them one strong opening for the SAME question, then say why it works.
 
@@ -272,19 +278,128 @@ The example:
 - A link from the attention-getter to the question in one sentence, then the question word for word, then the student's answer in one sentence, then a one-line preview of three areas.
 - Build on the student's strongest opening (named below when the coach picked one): keep its idea if it was good and fix its weak spot.
 
-"notes": three short notes. Each names one move the example makes and why it works, tied to the student's openings where you can.
+"notes": three notes. Each is {"yours": what the student's openings did, starting with "You", from their words only; "this": what this version does instead and why it works, starting with "This version"}. Never say the student did something only the example does.
 "kept": one sentence on what the example kept from the student's openings, or "".
 
-Return JSON only: {"example": "...", "notes": ["...", "...", "..."], "kept": "..."}"""
+Return JSON only: {"example": "...", "notes": [{"yours": "...", "this": "..."}], "kept": "..."}"""
+
+
+def take_lines(take):
+    """The student's answer as numbered lines (sentences), the same split the page shows under "Your take"."""
+    words = player.split_words(_said(take))
+    return [" ".join(words[a:b + 1]) for a, b in player._sentences(words)]
+
+
+def link(sentence, n, lines):
+    """The student's line a coach sentence builds on, checked in code: a number that is one of their lines and
+    a sentence that shares a word with it. Anything else is not a link (None), and the page says "new"."""
+    try:
+        k = int(str(n).strip().lstrip("[Ll").rstrip("]"))
+    except (TypeError, ValueError):
+        return None
+    if not 1 <= k <= len(lines) or not (_words(sentence) & _words(lines[k - 1])):
+        return None
+    return k
+
+
+def _note(x):
+    """A note as {"yours", "this"} (the two halves labeled on the page), or a plain string from an older answer."""
+    if isinstance(x, dict):
+        yours, this = _s(x.get("yours"), 400), _s(x.get("this"), 400)
+        return {"yours": yours, "this": this} if yours or this else None
+    return _s(x, 400) if isinstance(x, str) and x.strip() else None
 
 
 def tidy_example(raw):
     raw = raw if isinstance(raw, dict) else {}
-    ex = str(raw.get("example") or "").strip()[:2400]
+    sentences = []
+    if isinstance(raw.get("sentences"), list):
+        for x in raw["sentences"][:24]:
+            text = _s(x.get("text") if isinstance(x, dict) else x, 600)
+            if text:
+                sentences.append({"text": text, "from": x.get("from") if isinstance(x, dict) else None})
+    ex = " ".join(x["text"] for x in sentences) if sentences else str(raw.get("example") or "").strip()[:2400]
     if len(ex.split()) < 20:
         raise _unreadable()
-    notes = [_s(x, 400) for x in (raw.get("notes") or []) if isinstance(x, str) and x.strip()][:4] if isinstance(raw.get("notes"), list) else []
-    return {"example": ex, "notes": notes, "kept": _s(raw.get("kept"), 400)}
+    notes = [n for n in (_note(x) for x in raw["notes"]) if n][:4] if isinstance(raw.get("notes"), list) else []
+    return {"example": ex, "sentences": sentences, "notes": notes, "kept": _s(raw.get("kept"), 400)}
+
+
+# ---------- the moves Take 2 is measured on: a fixed list, measured in code, never by the model ----------
+MOVES = (
+    ("answer_early", "Answer before 0:10"),
+    ("cite_early", "An outlet and its month in the first 30 seconds"),
+    ("fillers", "2 fillers or fewer"),
+    ("pace", "130 to 170 words a minute"),
+)
+_MONTH_WORD = re.compile(r"^(jan(uary)?|feb(ruary)?|march|april|may|june|july|aug(ust)?|sept?(ember)?|oct(ober)?|nov(ember)?|dec(ember)?)$")
+
+
+def _outlet_names():
+    return {_fold(i.get("outlet")) for i in extemp.file_items() if i.get("outlet")} | {_fold(n) for n in KNOWN_OUTLETS}
+
+
+def cite_time(take):
+    """Seconds into the answer when the student first said an outlet with a month in the same sentence, or None.
+    Word times come from the transcript; without them, from the word's place at the take's measured pace."""
+    tr = (take or {}).get("transcript") or {}
+    words = player.split_words(tr.get("text") or "")
+    if not words:
+        return None
+    timed = [w for w in tr.get("words") or [] if isinstance(w, dict) and "start" in w]
+    stats = take.get("stats") or {}
+    start = stats.get("starts_at") or 0
+    wpm = stats.get("wpm") or 140
+    names = _outlet_names()
+    for a, b in player._sentences(words):
+        sent = [player.norm(w) for w in words[a:b + 1]]
+        text = " ".join(sent)
+        if not any(_MONTH_WORD.match(w) for w in sent):
+            continue
+        hits = [k for k, w in enumerate(sent) if any(n and (text.find(n) >= 0 and n.split()[0] == w) for n in names)]
+        if hits:
+            i = a + hits[0]
+            t = timed[i]["start"] - start if len(timed) == len(words) else i / wpm * 60
+            return round(max(0.0, t), 1)
+    return None
+
+
+def measure(take):
+    """Each move for one take: its value said plainly and whether it is met, all from code."""
+    s = (take or {}).get("stats") or {}
+    out = {}
+    at = s.get("answer_at")
+    out["answer_early"] = {"value": "no answer heard" if at is None else f"answer at {int(at) // 60}:{int(at) % 60:02d}", "met": at is not None and at < 10}
+    ct = cite_time(take)
+    out["cite_early"] = {"value": "no outlet with a month" if ct is None else f"outlet and month at {int(ct) // 60}:{int(ct) % 60:02d}", "met": ct is not None and ct <= 30}
+    f = s.get("fillers")
+    out["fillers"] = {"value": "no transcript" if f is None else f"{f} filler{'' if f == 1 else 's'}", "met": f is not None and f <= 2}
+    w = s.get("wpm")
+    out["pace"] = {"value": "no pace measured" if not w else f"{w} words a minute", "met": bool(w) and 130 <= w <= 170}
+    return out
+
+
+def pick_moves(take):
+    """Three moves to model and practice: the ones this take missed first, in the list's order, then the rest."""
+    m = measure(take)
+    order = [k for k, _ in MOVES if not m[k]["met"]] + [k for k, _ in MOVES if m[k]["met"]]
+    return [{"id": k, "label": dict(MOVES)[k], "take1": m[k]} for k in order[:3]]
+
+
+def _keep_example(out, question, take_id):
+    """Keep the example so Hear it can read it and Take 2 can be measured on its moves. The last 30 stay."""
+    eid = hashlib.sha256(f"{take_id}|{out['example']}".encode("utf-8")).hexdigest()[:16]
+    rec = {"id": eid, "question": question, "take_id": take_id, "text": out["example"], "moves": [m["id"] for m in out.get("moves") or []]}
+
+    def put(c):
+        c["examples"] = ([rec] + [x for x in (c.get("examples") or []) if x.get("id") != eid])[:30]
+        return c
+    store.update("coach.json", put)
+    return eid
+
+
+def kept_example(eid):
+    return next((x for x in store.read("coach.json").get("examples") or [] if x.get("id") == str(eid or "")), None)
 
 
 async def extemp_example(kind, question, takes, best, model):
@@ -296,23 +411,87 @@ async def extemp_example(kind, question, takes, best, model):
         raise ValueError("Give your answer first, out loud or typed. Then the coach shows a strong one."
                          if kind == "answer" else "Give an opening first. Then the coach shows a strong one.")
     items = numbered(question)
-    attempts = "\n\n".join(
-        f"THE STUDENT'S {'ANSWER' if kind == 'answer' else f'OPENING {n}'}:\n<<<\n{engine.fenced(_said(t)[:3000])}\n>>>"
-        for n, t in enumerate(takes, 1) if _said(t).strip())
+    lines = take_lines(tries[0]) if kind == "answer" else []
+    moves = pick_moves(tries[0]) if kind == "answer" else []
+    if kind == "answer":
+        attempts = "THE STUDENT'S ANSWER, line by line:\n<<<\n" + engine.fenced("\n".join(f"[L{n}] {x}" for n, x in enumerate(lines, 1))[:3200]) + "\n>>>"
+        attempts += "\n\nMOVES TO SHOW (the student practices these next; measured in code on their next take):\n" + "\n".join(f"- {m['label']}" for m in moves)
+    else:
+        attempts = "\n\n".join(
+            f"THE STUDENT'S OPENING {n}:\n<<<\n{engine.fenced(_said(t)[:3000])}\n>>>" for n, t in enumerate(takes, 1) if _said(t).strip())
     pick = f"\nThe coach picked opening {best} as the strongest." if kind == "opening" and best in (1, 2, 3) else ""
     body = f"Question: {question}{pick}\n\n{attempts}\n\n{source_block(items)}"
     raw = await model.json(STANCE + "\n\n" + (ANSWER_TASK if kind == "answer" else OPENING_TASK), "", body,
                            max_tokens=3000, purpose=f"ld-workbench.coach.extemp.{kind}")
     out = tidy_example(raw)
     own = [question] + [_said(t) for t in takes]
-    out["example"], c1 = check(out["example"], items, own)
-    checked = [check(n, items, own, stamp=False) for n in out["notes"]]  # notes talk about the student's attempt
-    out["notes"] = [t for t, _ in checked]
+    checks = []
+    if out["sentences"]:
+        links = {"linked": 0, "new": 0, "links_dropped": 0}
+        for x in out["sentences"]:
+            given = x.pop("from", None)
+            k = link(x["text"], given, lines)
+            if k is None and given not in (None, 0, "0", ""):
+                links["links_dropped"] += 1  # a line that is not theirs, or that shares no word with it
+            x["line"] = k
+            links["linked" if k else "new"] += 1
+            x["text"], c = check(x["text"], items, own)
+            checks.append(c)
+        out["example"] = " ".join(x["text"] for x in out["sentences"])
+        out["links"] = links
+    else:
+        out["example"], c = check(out["example"], items, own)
+        checks.append(c)
+
+    def note(n):  # notes talk about the student's attempt: no stamp
+        if isinstance(n, dict):
+            (y, c1), (t, c2) = check(n["yours"], items, own, stamp=False), check(n["this"], items, own, stamp=False)
+            checks.extend([c1, c2])
+            return {"yours": y, "this": t}
+        t, c = check(n, items, own, stamp=False)
+        checks.append(c)
+        return t
+    out["notes"] = [note(n) for n in out["notes"]]
     out["kept"], c2 = check(out["kept"], items, own, stamp=False)
-    out["checks"] = _merge(c1, c2, *[c for _, c in checked])
+    out["checks"] = _merge(c2, *checks)
     out["kind"] = kind
     out["sources"] = len(items)
+    out["lines"] = lines
+    out["moves"] = moves
+    out["cited"] = [extemp.citation(i) for n, i in enumerate(items, 1) if f"({extemp.citation(i)})" in out["example"] or extemp.citation(i).split(", ", 1)[-1] in out["example"]]
+    out["id"] = _keep_example(out, question, tries[0].get("id"))
     return out
+
+
+def speakable(text):
+    """The example as it should sound: no marks, no written date stamps, no "[find a source: ...]" brackets."""
+    t = str(text or "").replace(NOT_FOUND, "").replace(NOT_IN_FILE, "")
+    t = re.sub(r"\s*\((?:[A-Z][\w .&'-]*, )?[A-Z][a-z]{2} \d{1,2}, \d{4}\)", "", t)
+    t = re.sub(r"\[find a (?:source|card):[^\]]*\]", "", t, flags=re.I)
+    return " ".join(t.split())[:1500]
+
+
+def take2(take1, take2_, example):
+    """Take 1 against Take 2 on the numbers, and each of the example's moves met or not met, all from code."""
+    m1, m2 = measure(take1), measure(take2_)
+    s1, s2 = take1.get("stats") or {}, take2_.get("stats") or {}
+
+    def row(key, label, v1, v2, better):
+        if v1 is None or v2 is None:
+            change = "not measured"
+        elif v1 == v2:
+            change = "the same"
+        else:
+            change = "better" if better(v1, v2) else "worse"
+        return {"key": key, "label": label, "take1": v1, "take2": v2, "change": change}
+    rows = [
+        row("answer_at", "Answer at", s1.get("answer_at"), s2.get("answer_at"), lambda a, b: b < a),
+        row("fillers", "Fillers", s1.get("fillers"), s2.get("fillers"), lambda a, b: b < a),
+        row("wpm", "Words a minute", s1.get("wpm"), s2.get("wpm"), lambda a, b: abs(b - 150) < abs(a - 150)),
+    ]
+    ids = (example or {}).get("moves") or [m["id"] for m in pick_moves(take1)]
+    moves = [{"id": k, "label": dict(MOVES)[k], "take1": m1[k], "take2": m2[k]} for k in ids if k in m1]
+    return {"rows": rows, "moves": moves}
 
 
 # ---------- extemp prep: three areas, each with a source from the file; evidence from the file ----------

@@ -214,7 +214,8 @@ class ExtempExamples(unittest.TestCase):
         self.assertTrue(call["system_prompt"].startswith(coach.STANCE))
         self.assertIn(coach.ANSWER_TASK, call["system_prompt"])
         body = call["input"][0]["text"]
-        self.assertIn(ANSWER, body)  # built on the student's attempt
+        self.assertIn("[L1] My answer is prices.", body)  # built on the student's attempt, line by line
+        self.assertIn("[L2] Prices are still rising", body)
         self.assertIn(FED, body)  # grounded in their file
 
     def test_notes_about_the_students_sourcing_get_no_date(self):

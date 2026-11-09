@@ -943,6 +943,95 @@ def check_ld_lines(transcript, lines):
     return lines
 
 
+# ---------- the judge's notes, held to the words they quote ----------
+# A note may say a line "names a source with a date" only when the quoted words have a date. Checked in code:
+# a claim of a date, a figure or a source with no "no", "not" or "without" just before it needs support in the
+# quoted line (a strength or the summary: in the whole transcript).
+_CLAIMS = {
+    "date": re.compile(r"\b(?:dated|dates?|the day it ran|month and day)\b", re.I),
+    "figure": re.compile(r"\b(?:figures?|statistics?|stats?|percent(?:age)?s?|data points?|hard numbers?|real numbers?|specific numbers?|concrete numbers?|an? numbers?)\b", re.I),
+    "source": re.compile(r"\b(?:names?|named|naming|cites?|cited|citing|uses?|used|gives?|gave|quotes?|quoted|with|has|offers?)\s+(?:a|an|one|the|its|real|specific|named|credible|current|recent)?\s*(?:\w+\s)?(?:sources?|outlets?)\b", re.I),
+}
+_NEG = re.compile(r"\b(?:no|not|without|never|missing|lacks?|lacking|nor|zero|any)\b[^.;,]{0,24}$", re.I)
+_NUMBER_SAID = re.compile(r"\d|\b(?:one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|twenty|thirty|forty|fifty|hundred|thousand|million|billion|trillion|percent|half|quarter)\b", re.I)
+
+
+def note_claims(note):
+    """The positive claims a judge's note makes: {"date", "figure", "source"} that are not negated."""
+    out = set()
+    for kind, rx in _CLAIMS.items():
+        for m in rx.finditer(str(note or "")):
+            if not _NEG.search(str(note)[max(0, m.start() - 40):m.start()]):
+                out.add(kind)
+    return out
+
+
+def unsupported(note, words, outlets=()):
+    """What ``note`` claims that ``words`` (the quoted line, or the transcript) do not show."""
+    E = _mod("extemp")
+    words = str(words or "")
+    have = {"date": E.says_a_date(words), "figure": bool(_NUMBER_SAID.search(words)),
+            "source": bool(re.search(r"\baccording to\b|\breported\b", words, re.I)) or any(o and re.sub(r"^the ", "", o.lower()) in words.lower() for o in outlets)}
+    return sorted(k for k in note_claims(note) if not have[k])
+
+
+FIX_NOTES = """You wrote a practice ballot for a high school extemp speech. Some of your notes say a line has something its quoted words do not have. Rewrite each listed note so it says only what the quoted words show, keeping the rest of your point. One sentence each, plain words. If the line names a source with no date, say it names the source without a date.
+
+Return JSON only: {"notes": [{"n": 1, "text": "..."}]}"""
+
+
+async def fix_notes(ballot, said, outlets, model, event="drill"):
+    """Hold every note to what it quotes. A note that claims a date, a figure or a source its line does not have
+    is sent back to the model once to rewrite; one that still claims it is removed, and the ballot says so
+    (``notes_removed``). A strength or summary that claims one the whole transcript lacks is treated the same."""
+    def problems():
+        out = []
+        for k, d in enumerate(ballot.get("decisive") or []):
+            bad = unsupported(d.get("effect"), d.get("line"), outlets)
+            if bad:
+                out.append(("decisive", k, d.get("effect"), d.get("line"), bad))
+        for k, x in enumerate(ballot.get("strengths") or []):
+            bad = unsupported(x, said, outlets)
+            if bad:
+                out.append(("strengths", k, x, None, bad))
+        bad = unsupported(ballot.get("summary"), said, outlets)
+        if bad:
+            out.append(("summary", 0, ballot.get("summary"), None, bad))
+        return out
+    first = problems()
+    ballot["notes_checked"] = len(ballot.get("decisive") or []) + len(ballot.get("strengths") or []) + 1
+    ballot["notes_fixed"], ballot["notes_removed"] = 0, 0
+    if not first:
+        return ballot
+    listing = "\n".join(
+        f"{n}. Note: {text}\n   " + (f"Quoted line: \"{line}\"" if line else "Checked against the whole speech") + f"\n   Not in those words: {', '.join(bad)}"
+        for n, (_, _, text, line, bad) in enumerate(first, 1))
+    try:
+        raw = await model.json(FIX_NOTES, "", f"THE NOTES TO FIX:\n<<<\n{fenced(listing)}\n>>>", max_tokens=1200, purpose=f"ld-workbench.{event}.judge")
+        fixed = {int(x.get("n")): str(x.get("text") or "")[:400] for x in (raw or {}).get("notes") or [] if isinstance(x, dict) and str(x.get("n", "")).isdigit()}
+    except Exception:
+        fixed = {}
+    for n, (where, k, _, _, _) in enumerate(first, 1):
+        if fixed.get(n, "").strip():
+            if where == "decisive":
+                ballot["decisive"][k]["effect"] = fixed[n].strip()
+            elif where == "strengths":
+                ballot["strengths"][k] = fixed[n].strip()
+            else:
+                ballot["summary"] = fixed[n].strip()[:200]
+            ballot["notes_fixed"] += 1
+    still = problems()
+    drop = {(w, k) for w, k, _, _, _ in still}
+    if drop:
+        ballot["decisive"] = [d for k, d in enumerate(ballot.get("decisive") or []) if ("decisive", k) not in drop]
+        ballot["strengths"] = [x for k, x in enumerate(ballot.get("strengths") or []) if ("strengths", k) not in drop]
+        if ("summary", 0) in drop:
+            ballot["summary"] = ""
+        ballot["notes_removed"] = len(drop)
+        ballot["notes_fixed"] = max(0, ballot["notes_fixed"] - len(drop))
+    return ballot
+
+
 async def run_extemp_judge(take, question, outline, sources_cited, model, event="extemp", file_count=None):
     E, B = _mod("extemp"), _mod("ballots")
     system = E.JUDGE_PROMPT.format(tags=", ".join(B.JUDGE_TAGS["extemp"]), points=E.POINTS_SCALE)
@@ -958,12 +1047,13 @@ async def run_extemp_judge(take, question, outline, sources_cited, model, event=
     header = f"Question: {question}\nEvent: {'a 60-second answer drill' if event == 'drill' else 'a 7-minute extemp speech'}\n"
     body = (f"OUTLINE (the student's own notes):\n" + "\n".join(f"{k}: {v}" for k, v in (outline or {}).items() if v and k != "sources")
             + f"\n\nSOURCES NAMED ALOUD (found in the transcript by code): "
-            + (", ".join(f"{s['outlet']} ({time.strftime('%b %d, %Y', time.localtime(s['at'])) if s.get('at') else 'no date'})" for s in sources_cited) or "none")
+            + (", ".join(f"{s['outlet']} ({'said with a date' if s.get('date_said') else 'named WITHOUT a date; the saved headline is from ' + (time.strftime('%b %d, %Y', time.localtime(s['at'])) if s.get('at') else 'no date')})" for s in sources_cited) or "none")
             + ("" if file_count is None else f"\n\nSOURCES SAVED IN THE STUDENT'S EXTEMP FILE: {int(file_count)}")
             + f"\n\nMEASURED NUMBERS: {json.dumps(numbers)}\n\nWHAT THE STUDENT SAID:\n<<<\n{said[:12000] or '(no transcript; judge from the outline and the numbers, and say so)'}\n>>>")
     raw = await model.json(system, header, body, max_tokens=6000, purpose=f"ld-workbench.{event}.judge")
     ballot = B.tidy_extemp(raw if isinstance(raw, dict) else {}, event)
     check_lines(said, ballot["decisive"])
+    await fix_notes(ballot, said, [s["outlet"] for s in sources_cited], model, event)
     ballot["measured_tags"] = B.measured_tags(stats, limit, event)
     ballot["measured"] = {k: stats.get(k) for k in ("speaking", "wpm", "fillers", "answer_at", "duration")} | {
         "pauses": len(stats.get("pauses") or []), "limit": limit, "typed": bool(take.get("typed")),

@@ -399,17 +399,32 @@ def new_round(question, area, mode="files"):
             "outline": clean_outline({}), "take": None, "ballot": None}
 
 
+# A date said aloud: a month (May and March only with a day after them), a year, a weekday, or "today",
+# "yesterday", "this week", "last month" and the like. Shared with the judge's truth check (engine.check_notes).
+DATE_SAID = re.compile(r"\b(?:jan(?:uary)?|feb(?:ruary)?|april|june|july|aug(?:ust)?|sept?(?:ember)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)\b"
+                       r"|\b(?:may|march)\s+\d{1,2}\b|\b(?:19|20)\d\d\b|\b(?:monday|tuesday|wednesday|thursday|friday|saturday|sunday)\b"
+                       r"|\b(?:today|yesterday|tonight|this (?:morning|week|month|year)|last (?:week|month|year|night))\b", re.I)
+
+
+def says_a_date(text):
+    return bool(DATE_SAID.search(str(text or "")))
+
+
 def cited_sources(text, items):
     """Which saved sources the student named aloud: an outlet's name in the transcript counts once.
-    Recency is each cited item's own date."""
+    Recency is each cited item's own date. ``date_said``: a date was said in a sentence that names the outlet
+    (the saved headline's date is not proof the student said it)."""
     t = (text or "").lower()
+    sentences = re.split(r"(?<=[.!?])\s+", t)
     out, seen = [], set()
     for i in items:
         name = (i.get("outlet") or "").lower()
         short = re.sub(r"^the ", "", name)
         if short and short not in seen and (short in t or (len(short) > 6 and short.split()[0] in t.split())):
             seen.add(short)
-            out.append({"outlet": i["outlet"], "at": i.get("at"), "title": i["title"]})
+            key = short if short in t else short.split()[0]
+            said = any(says_a_date(x) for x in sentences if key in x)
+            out.append({"outlet": i["outlet"], "at": i.get("at"), "title": i["title"], "date_said": said})
     return out
 
 
@@ -426,6 +441,7 @@ Judge: did they answer the question, and how early; the analysis (cause, effect,
 
 Rules:
 - Quote the student's own words when you point at something. Never invent a quote.
+- Say a line has a date, a number or a source only when its quoted words have one. A source named aloud without a date is "named without a date": the date of the saved headline is not something the student said.
 - Write at an 8th-grade level, plainly, like a fair judge. No headings.
 - "decisive" is the three lines from the speech that most decided your rating, each with one sentence on why.
 - "drill" is ONE concrete practice task that fixes the biggest problem, doable in under 15 minutes.
