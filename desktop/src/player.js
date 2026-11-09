@@ -264,7 +264,7 @@ function PlayerWave({ take, tl, view, marks, headRef, playedRef, onSeek }) {
           ...marks.map(m => jsx('line', { className: 'ldw-pwave-q', 'data-on': m.on ? '' : undefined, x1: x(m.at), x2: x(m.at), y1: 0, y2: H }, `q${m.n}`)),
           jsx('line', { className: 'ldw-pwave-head', ref: headRef.line, x1: 0, x2: 0, y1: 0, y2: H }),
         ] }),
-        answer !== null ? jsx('span', { className: 'ldw-pwave-tag', style: { left: `${(x(answer) / W) * 100}%` }, children: `Answer ${mmss(s.answer_at)}` }) : null,
+        answer !== null ? jsx('span', { className: 'ldw-pwave-tag', 'data-left': x(answer) < 0.06 * W ? '' : undefined, style: { left: `${(x(answer) / W) * 100}%` }, children: `Answer ${mmss(s.answer_at)}` }) : null,
         ...marks.map(m => jsx('span', { className: 'ldw-pwave-qn', 'data-on': m.on ? '' : undefined, style: { left: `${(x(m.at) / W) * 100}%` }, children: m.n }, `n${m.n}`)),
       ] }),
     jsx('div', { className: 'ldw-pwave-ticks', 'aria-hidden': 'true', children: ticks.map(t => jsx('span', { style: { left: `${(x(t + view.zero) / W) * 100}%` }, children: mmss(t) }, t)) }),
@@ -423,10 +423,10 @@ export function TakePlayer({ take, audioSrc, startAt, onTime }) {
     ] }),
     !gone ? jsx(PlayerWave, { take, tl, view, marks: tlMarks, headRef: head, playedRef: played, onSeek: seek }) : null,
     tl.tokens.length ? jsx(Transcript, { tl, now, live: !gone && tl.method !== 'none', onWord: t => seek(Math.max(0, t - 0.05)) }) : null,
-    ['failed', 'unavailable', 'cancelled'].includes(st) && !gone ? jsx('p', { className: 'ldw-pnote', children: 'No transcript for this take, so the quoted lines cannot be played from the ballot. The recording still plays.' }) : null,
+    ['failed', 'unavailable', 'cancelled'].includes(st) && !gone ? jsx('p', { className: 'ldw-pnote', children: 'The recording still plays. Its words light up once there is a transcript.' }) : null,
     tl.method === 'pauses' && !gone ? jsx('p', { className: 'ldw-pnote', children: textOnlyOff
-      ? 'This transcript has no word times, so the quoted lines cannot be played from the ballot. The recording still plays.'
-      : 'This transcript has no word times. Each sentence is matched to the pauses in your recording, so a line may start a moment early or late.' }) : null,
+      ? 'This transcript has no word times, so the quoted lines do not play from the ballot. The recording still plays.'
+      : 'On this transcript, each sentence is placed by the pauses in your recording, so a line may start a moment early or late.' }) : null,
   ] })
 }
 
@@ -436,8 +436,10 @@ const $lineOn = atom(null) // `${takeId}:${index}` of the quoted line playing
 
 // One quoted line on a ballot. line: the decisive entry ({ line, checked }) or the quote itself. With a
 // player for this take on the page and the line found in its words, a play mark and the line's time sit at
-// the left; otherwise the line keeps its place with no mark (the ballot's own "not found" flag stays).
-export function QuoteLine({ take, line, index = 0, children }) {
+// the left; a line not found keeps its place with no mark (the ballot's own "not found" flag stays). With no
+// player on the page (an old ballot on the Ballots page), the line renders as it always did.
+// className: the line's own class on the sheet (ldw-line).
+export function QuoteLine({ take, line, index = 0, className, children }) {
   useValue($players)
   const on = useValue($lineOn)
   const id = take && (take.id || take.take_id)
@@ -445,16 +447,17 @@ export function QuoteLine({ take, line, index = 0, children }) {
   const quote = typeof line === 'string' ? line : line && line.line
   const checked = !(line && typeof line === 'object' && line.checked === false)
   const tl = p ? p.timeline : take && take.transcript ? timelineOf(take) : null
-  const span = p && checked && quoteClickOn(tl) ? lineSpan(tl, quote) : null
+  const span = p && p.live && checked && quoteClickOn(tl) ? lineSpan(tl, quote) : null // no recording, no mark: never a dead button
   useEffect(() => { if (p && span) p.mark(index, span.at) }, [p, span && span.at, index])
   const playing = on === `${id}:${index}`
+  if (!p || !p.live) return jsx('div', { className, children }) // no player here, or no recording: the line as it always was
   const mark = span ? jsxs('button', { type: 'button', className: 'ldw-quote-mark', 'data-on': playing ? '' : undefined,
     'aria-label': playing ? `Stop line ${index + 1}` : `Play line ${index + 1}, at ${mmss(Math.max(0, span.at - p.startsAt))}`,
     onClick: () => (playing ? p.stop() : p.playLine(span, index)), children: [
       jsx(Codicon, { name: playing ? 'debug-pause' : 'play' }),
       jsx('span', { children: mmss(Math.max(0, span.at - p.startsAt)) }),
     ] }) : jsx('span', { className: 'ldw-quote-mark ldw-quote-none', 'aria-hidden': 'true' })
-  return jsxs('div', { className: 'ldw-qline', 'data-on': playing ? '' : undefined, children: [mark, jsx('div', { className: 'ldw-qline-body', children })] })
+  return jsxs('div', { className: ['ldw-qline', className].filter(Boolean).join(' '), 'data-on': playing ? '' : undefined, children: [mark, jsx('div', { className: 'ldw-qline-body', children })] })
 }
 
 /* ------------------------------------------------------------------ styles -- */
@@ -468,7 +471,7 @@ export const PLAYER_CSS = `
 .ldw-play{all:unset;box-sizing:border-box;width:36px;height:36px;display:grid;place-items:center;border-radius:var(--hk-radius);cursor:pointer;
   background:var(--hk-sunken);color:var(--hk-ink);transition:background 120ms ease,color 120ms ease}
 .ldw-play:hover{background:var(--hk-hover);color:var(--hk-accent)}
-.ldw-play[aria-pressed=true]{color:var(--hk-accent);box-shadow:inset 0 0 0 1.5px var(--hk-accent)}
+.ldw-play[aria-pressed=true]{color:var(--hk-accent);background:color-mix(in srgb,var(--hk-accent) 16%,transparent)}
 .ldw-play:disabled{cursor:default;color:color-mix(in srgb,var(--hk-ink) 45%,transparent)}
 .ldw-play:focus-visible,.ldw-pwave-track:focus-visible,.ldw-quote-mark:focus-visible{outline:2px solid var(--hk-accent);outline-offset:2px}
 .ldw-play .codicon{font-size:16px}
@@ -485,9 +488,10 @@ export const PLAYER_CSS = `
 .ldw-pwave-q{stroke:color-mix(in srgb,var(--hk-ink) 55%,transparent);stroke-width:1;vector-effect:non-scaling-stroke}
 .ldw-pwave-q[data-on]{stroke:var(--hk-accent);stroke-width:2}
 .ldw-pwave-head{stroke:var(--hk-accent);stroke-width:2;vector-effect:non-scaling-stroke}
-.ldw-pwave-tag,.ldw-pwave-qn{position:absolute;top:-17px;transform:translateX(-50%);font-family:var(--hk-mono);font-size:12px;line-height:14px;font-weight:700;white-space:nowrap;pointer-events:none}
-.ldw-pwave-tag{text-transform:uppercase}
-.ldw-pwave-qn{min-width:16px;text-align:center;padding:0 3px;border-radius:var(--hk-radius-sm);background:var(--hk-sunken)}
+.ldw-pwave-tag,.ldw-pwave-qn{position:absolute;top:-17px;font-family:var(--hk-mono);font-size:12px;line-height:14px;font-weight:700;white-space:nowrap;pointer-events:none}
+.ldw-pwave-tag{text-transform:uppercase;transform:translateX(calc(-100% - 4px))}
+.ldw-pwave-tag[data-left]{transform:translateX(4px)}
+.ldw-pwave-qn{transform:translateX(-1px);min-width:16px;text-align:center;padding:0 3px;border-radius:var(--hk-radius-sm);background:var(--hk-sunken)}
 .ldw-pwave-qn[data-on]{background:var(--hk-accent);color:var(--ui-bg-chrome,var(--hk-bg))}
 .ldw-pwave-ticks{position:relative;height:18px;margin-top:4px}
 .ldw-pwave-ticks span{position:absolute;transform:translateX(-50%);font-family:var(--hk-mono);font-size:12px}
@@ -504,7 +508,7 @@ export const PLAYER_CSS = `
   color:var(--hk-warn);border:1px dashed color-mix(in srgb,var(--hk-warn-fill) 60%,transparent);border-radius:var(--hk-radius-sm)}
 .ldw-pnote{margin:0;font-size:13px;max-width:70ch}
 .ldw-qline{display:grid;grid-template-columns:62px minmax(0,1fr);gap:10px;align-items:start}
-.ldw-qline-body{min-width:0}
+.ldw-qline-body{min-width:0;display:grid;gap:2px}
 .ldw-quote-mark{all:unset;box-sizing:border-box;display:inline-flex;align-items:center;gap:4px;height:24px;padding:0 6px 0 4px;margin-top:6px;
   border-radius:var(--hk-radius);cursor:pointer;font-family:var(--hk-mono);font-size:12px;font-weight:700;font-variant-numeric:tabular-nums;
   color:inherit;background:color-mix(in srgb,currentColor 9%,transparent);transition:background 120ms ease,color 120ms ease}

@@ -332,3 +332,28 @@ def text_only_report(take, lines=()):
            f"lines {', '.join('not found' if e is None else f'{e:.2f} s' for e in line_errs) or 'none'}; "
            f"{'within' if ok else 'over'} 1.5 s")
     return {"ok": ok, "sentence_errors": errs, "line_errors": line_errs, "worst": worst, "log": log}
+
+
+def report_saved(take_ids=None):
+    """The text-only check over the takes kept in this plugin's data folder (LDW_DATA_DIR, or Hermes's
+    profile folder): each take with word times, against the lines its own ballot quoted. One log line each."""
+    try:
+        from . import store
+    except ImportError:  # loose module
+        import store  # type: ignore
+    takes = [t for t in store.read("practice.json").get("takes", []) if not take_ids or t["id"] in take_ids]
+    lines_for = {}
+    for b in store.read("ballots.json").get("history") or []:
+        if b.get("take_id"):
+            lines_for.setdefault(b["take_id"], []).extend(d.get("line", "") for d in b.get("decisive") or [])
+    out = []
+    for t in takes:
+        rep = text_only_report(t, lines_for.get(t["id"], []))
+        out.append(rep.get("log") or f"quote-click text-only check, take {t['id']}: skipped, {rep.get('reason')}")
+    return out
+
+
+if __name__ == "__main__":  # /usr/bin/python3 player.py [take id ...]   (run from the plugin folder)
+    import sys
+    for line in report_saved(sys.argv[1:] or None):
+        print(line)

@@ -9,7 +9,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from _load import ROOT, api, reset, run, speech, store  # noqa: F401
+from _load import ROOT, api, ballots, reset, run, speech, store  # noqa: F401
 
 player = importlib.import_module("ld_workbench_dashboard_package.player")
 
@@ -191,6 +191,24 @@ class PublicTake(unittest.TestCase):
         self.assertFalse(pub["has_audio"])
         self.assertEqual(pub["timeline"]["method"], "words")  # the transcript and its times stay with the ballot
         self.assertNotIn("timeline", speech.public(speech.get_take(t["id"]), with_levels=False))
+
+    def test_saved_report_reads_the_takes_and_their_ballots(self):
+        words, lv, dur = spoken(SPEECH)
+        t = speech.new_take({"event": "drill", "segment": "answer", "limit": 60, "duration": dur, "levels": lv})
+
+        def done(p):
+            for x in p["takes"]:
+                if x["id"] == t["id"]:
+                    x["transcript"] = {"status": "done", "text": SPEECH, "words": words}
+                    x["stats"] = speech.measure(x, x["transcript"])
+            return p
+        store.update("practice.json", done)
+        ballots.add({"event": "drill", "take_id": t["id"], "decisive": [{"line": "My answer is prices, for now.", "effect": "e"}]})
+        out = player.report_saved([t["id"]])
+        self.assertEqual(len(out), 1)
+        self.assertIn(f"take {t['id']}", out[0])
+        self.assertIn("lines 0.", out[0])
+        self.assertIn("within 1.5 s", out[0])
 
     def test_a_broken_timeline_never_breaks_the_take(self):
         old = player.timeline
