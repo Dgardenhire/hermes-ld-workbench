@@ -11,7 +11,7 @@ import { Button, Codicon, Textarea } from '@hermes/plugin-sdk'
 import { Notice } from 'hermes-ui-kit'
 import { Thinking, cls, errText, mmss, post, rest, words } from './core.js'
 import { ShowMe } from './coach.js'
-import { QuoteLine } from './player.js'
+import { QuoteLine, TakePlayer } from './player.js'
 
 /* ------------------------------------------------------------------ the strip -- */
 
@@ -325,8 +325,8 @@ export function LastTake({ take, limit, title, onChange, children, fastOk }) {
   const s = take.stats || {}
   return jsxs('section', { className: 'ldw-last', 'aria-label': title || 'Your last take', children: [
     jsxs('div', { className: 'ldw-last-head', children: [jsx('h3', { className: 'ldw-h3', children: title || 'Your take' }), jsx('span', { className: 'ldw-prov', children: transcriptLine(take) })] }),
-    !take.typed ? jsx(Wave, { levels: take.levels || [], duration: take.duration, pauses: s.pauses || [], answerAt: s.answer_at, startsAt: s.starts_at || 0, limit }) : null,
     jsx(Stats, { take, limit, fastOk }),
+    jsx(TakePlayer, { take }),
     WAITING.has(st) ? jsxs('div', { className: 'hk-row', children: [jsx(Thinking, { label: 'Making the transcript' }),
       jsx('button', { type: 'button', className: 'hk-link', onClick: () => call(() => post(`speech/${take.id}/cancel`)), children: 'Stop' })] }) : null,
     // A take that waits for the press says where it would go; nothing has left the computer, so it is not a warning.
@@ -341,9 +341,6 @@ export function LastTake({ take, limit, title, onChange, children, fastOk }) {
         jsx(Button, { size: 'sm', loading: busy, disabled: !words(text), onClick: () => call(() => post(`speech/${take.id}/text`, { text })).then(() => setTyping(false)), children: 'Use these words' }),
         jsx(Button, { size: 'sm', variant: 'secondary', onClick: () => setTyping(false), children: 'Cancel' }),
       ] }),
-    ] }) : null,
-    (st === 'done' || st === 'typed') && take.transcript.text ? jsxs('details', { className: 'ldw-said', children: [
-      jsx('summary', { children: `What you said · ${words(take.transcript.text)} words` }), jsx('p', { className: 'ldw-spoken', children: take.transcript.text }),
     ] }) : null,
     err ? jsx(Notice, { tone: 'bad', children: err }) : null,
     children || null,
@@ -430,8 +427,8 @@ export function ExtempSheet({ b, take, onDrill, drillLabel = 'Run the drill', de
     ] }),
     b.decisive && b.decisive.length ? jsxs('div', { className: 'ldw-declines', children: [
       jsx('h4', { children: 'The lines that decided it' }),
-      ...b.decisive.map((d, i) => jsxs('div', { className: 'ldw-line', children: [
-        jsx(QuoteLine, { take: take || null, line: d, index: i, children: jsx('span', { className: 'ldw-line-said', children: `"${d.line}"` }) }),
+      ...b.decisive.map((d, i) => jsxs(QuoteLine, { take: take || (b.take_id ? { id: b.take_id } : null), line: d, index: i, className: 'ldw-line', children: [
+        jsx('span', { className: 'ldw-line-said', children: `"${d.line}"` }),
         jsx('span', { className: 'ldw-line-effect', children: d.effect }),
         d.checked === false ? jsx('span', { className: 'ldw-line-flag', children: 'Not found in your transcript. Check it.' }) : null,
       ] }, i)),

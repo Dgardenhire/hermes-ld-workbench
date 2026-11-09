@@ -26,9 +26,11 @@ export function voiceLines(t) {
 export const DISCLOSURE = [
   ['Your words', 'The words of your speeches go to the model you chose in Hermes, for the opponent, the judge and the coach. When you ask the coach, the headlines and notes in your extemp file go with them, so it can cite them.'],
   ['Headlines', 'A pull asks Google News, or the outlet’s own feed, for headlines on your topic. Only titles, dates and links come back.'],
-  ['Hear it', 'When you press it, the opponent’s speech goes to the voice you set up in Hermes to be read aloud.'],
+  ['Hear it', 'When you press it, the text being read, the opponent’s speech or the coach’s example, goes to the voice you set up in Hermes.'],
+  ['Get up to speed', 'When you press it, your question goes to your Hermes web search, and up to 4 public pages are read.'],
   ['Web search', 'Only in a round you set to internet allowed, when you press Search. Your search words go to the web search you set up in Hermes.'],
   ['Saved links', 'When you save a link to your file or add one as a topic source, the page is read once to keep its text.'],
+  ['Your Hermes chats', '/debate and the two debate tools read counts, tags, dates and question text only, never what you said or what a judge wrote. They write nothing.'],
 ]
 
 export function DisclosureList({ transcripts }) {

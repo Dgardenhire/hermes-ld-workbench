@@ -55,6 +55,6 @@ export function SampleBallot() {
       jsx('p', { children: 'What you get after one minute: a ballot on the words you said, quoting your own lines. This one judged a sample answer.' }),
     ] }),
     jsx(ExtempSheet, { b: SAMPLE_BALLOT, take: SAMPLE_TAKE, showMe: false, label: 'Sample ballot' }),
-    jsx(TakePlayer, { take: SAMPLE_TAKE, limit: 60, title: 'The sample answer', onChange: () => {} }),
+    jsx(TakePlayer, { take: SAMPLE_TAKE }),
   ] })
 }

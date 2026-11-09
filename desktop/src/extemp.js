@@ -6,9 +6,8 @@ import { Fragment, jsx, jsxs } from 'react/jsx-runtime'
 import { Button, Codicon, Input, Textarea, atom, useValue } from '@hermes/plugin-sdk'
 import { Notice } from 'hermes-ui-kit'
 import { Choices, Thinking, api, cls, errText, mmss, post, rest } from './core.js'
-import { Clock, ExtempSheet, FILE_EMPTY_NOTE, LiveWave, SpeakControls, Strip, mentionsFile, sendTake, takeSettled, useRecorder, useTakePoll } from './floor.js'
+import { Clock, ExtempSheet, FILE_EMPTY_NOTE, LastTake, LiveWave, SpeakControls, Strip, mentionsFile, sendTake, takeSettled, useRecorder, useTakePoll } from './floor.js'
 import { $coachOn, PrepCoach, StrongExample, useCoachContext } from './coach.js'
-import { TakePlayer } from './player.js'
 import { PrimerButton, PrimerCards } from './primer.js'
 import { FirstRun, SampleBallot, isFirstRun } from './firstrun.js'
 import { useMarginSpot } from './margin.js'
@@ -201,7 +200,7 @@ function Floor({ limit, label, jt, startLabel, extra }) {
     live ? jsx(LiveWave, { rec: jt.recorder, limit }) : null,
     jt.busy === 'sending' ? jsx(Thinking, { label: 'Saving your take' }) : null,
     jt.err ? jsx(Notice, { tone: 'bad', children: jt.err, action: jt.take && !jt.ballot ? jsx(Button, { size: 'sm', variant: 'secondary', onClick: () => jt.judge(jt.take), children: 'Ask for the ballot again' }) : null }) : null,
-    jt.take && !live ? jsx(TakePlayer, { take: jt.take, limit, title: jt.ballot ? 'Your take' : 'Your take, just now', onChange: jt.setTake }) : null,
+    jt.take && !live ? jsx(LastTake, { take: jt.take, limit, title: jt.ballot ? 'Your take' : 'Your take, just now', onChange: jt.setTake }) : null,
     jt.busy === 'judging' ? jsx(Thinking, { label: 'The judge is writing the ballot' }) : null,
   ] })
 }
@@ -271,7 +270,7 @@ function OpeningCard({ n, take, setTake, best, note, active, onRedo }) {
     ] }),
     take && (st === 'done' || st === 'typed') ? jsx('p', { className: 'ldw-spoken ldw-ocard-said', children: take.transcript.text || 'No words were caught.' }) : null,
     take && (st === 'waiting' || st === 'working') ? jsx(Thinking, { label: 'Making the transcript' }) : null,
-    take && ['unavailable', 'failed', 'cancelled'].includes(st) ? jsx(TakePlayer, { take, limit: OPENING, title: 'Timing only', onChange: setTake }) : null,
+    take && ['unavailable', 'failed', 'cancelled'].includes(st) ? jsx(LastTake, { take, limit: OPENING, title: 'Timing only', onChange: setTake }) : null,
     note ? jsxs('div', { className: 'ldw-onote', children: [
       note.worked ? jsxs('p', { children: [jsx('b', { children: 'Worked: ' }), note.worked] }) : null,
       note.fix ? jsxs('p', { children: [jsx('b', { children: 'Fix: ' }), note.fix] }) : null,

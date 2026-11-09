@@ -25,6 +25,7 @@ export const QUOTE_CLICK_TEXT_ONLY = true
 const LEAD = 0.3   // a line starts playing this long before its first word
 const TAIL = 0.35  // and stops this long after its last
 export const DELETED = 'This recording was deleted. The ballot and transcript are still here.'
+export const SAMPLE_SILENT = 'The sample answer has no sound yet. Its words and their times are here.'
 
 /* ------------------------------------------------------------------ matching (mirrors player.py) -- */
 
@@ -413,7 +414,7 @@ export function TakePlayer({ take, audioSrc, startAt, onTime }) {
       onPlay: () => setPlaying(true), onPause: () => { setPlaying(false); setLineOn(null) },
       onEnded: () => { setPlaying(false); setLineOn(null); releasePlayback(key) },
       onError: () => setErr('This recording could not be played here.') }) : null,
-    gone ? jsx('p', { className: 'ldw-pnote', role: 'status', children: DELETED }) : jsxs('div', { className: 'ldw-pbar', children: [
+    gone ? jsx('p', { className: 'ldw-pnote', role: 'status', children: take.sample ? SAMPLE_SILENT : DELETED }) : jsxs('div', { className: 'ldw-pbar', children: [
       jsx('button', { type: 'button', className: 'ldw-play', disabled: audio.state !== 'ready', 'aria-label': playing ? 'Pause' : 'Play your take',
         'aria-pressed': playing, onClick: toggle, children: jsx(Codicon, { name: playing ? 'debug-pause' : 'play' }) }),
       jsxs('span', { className: 'ldw-ptime', children: [jsx('b', { ref: timeRef, children: '0:00' }), ` / ${mmss(Math.max(0, dur - startsAt))}`] }),

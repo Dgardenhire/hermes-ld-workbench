@@ -17,9 +17,13 @@ class Seams(unittest.TestCase):
         at = [API.index(f"# ===== {n} =====\n") for n in names]
         self.assertEqual(at, sorted(at))
         self.assertGreater(at[0], API.index("def _lane(name):"))
-        for n in names:  # ten comment lines after each marker, so git keeps the hunks apart
+        landed = {"Lane C: evidence routes": '@router.post("/evidence/primer")'}  # a lane's routes, once merged
+        for n in names:  # ten comment lines after each empty marker, so git keeps the hunks apart
             block = API.split(f"# ===== {n} =====\n", 1)[1]
-            self.assertTrue(block.startswith("#\n" * 10), n)
+            if n in landed:
+                self.assertIn(landed[n], block.split("# ===== ", 1)[0], n)
+            else:
+                self.assertTrue(block.startswith("#\n" * 10), n)
         self.assertTrue(API.endswith("# ===== spare =====\n" + "#\n" * 10))  # nothing after the spare block
 
     def test_lane_imports_a_package_module_on_first_use(self):
@@ -31,11 +35,11 @@ class Seams(unittest.TestCase):
     def test_load_package_is_unchanged(self):
         self.assertIn('("engine", "store", "room", "ld_method", "library", "speech", "headlines", "extemp", "ballots", "rhetoric_method", "coach"))', API)
 
-    def test_stub_modules_keep_their_contracts(self):
-        self.assertIn("export { LastTake as TakePlayer } from './floor.js'", SRC["player.js"])
-        self.assertIn("export const QuoteLine = ({ children }) => children", SRC["player.js"])
-        self.assertIn("export function PrimerButton() { return null }", SRC["primer.js"])
-        self.assertIn("export function PrimerCards() { return null }", SRC["primer.js"])
+    def test_lane_modules_keep_their_contracts(self):  # the stubs, now replaced by Lane B's and Lane C's modules
+        self.assertIn("export function TakePlayer({ take, audioSrc, startAt, onTime })", SRC["player.js"])
+        self.assertIn("export function QuoteLine({ take, line, index = 0, className, children })", SRC["player.js"])
+        self.assertIn("export function PrimerButton({ question })", SRC["primer.js"])
+        self.assertIn("export function PrimerCards({ question })", SRC["primer.js"])
         self.assertIn("export const DISCLOSURE = [", SRC["disclosure.js"])
         self.assertIn("export function DisclosureList(", SRC["disclosure.js"])
         m = SRC["margin.js"]
@@ -47,8 +51,9 @@ class Seams(unittest.TestCase):
         x = SRC["extemp.js"]
         self.assertIn("extra: jsx(PrimerButton, { question: q.text })", x)  # beside Start speaking
         self.assertIn("jsx(PrimerCards, { question: q.text })", x)  # directly under the question
-        self.assertNotIn("jsx(LastTake", x + SRC["plugin.js"])  # every take goes through the player
-        self.assertGreaterEqual(SRC["floor.js"].count("jsx(QuoteLine"), 2)  # each quoted line, extemp and LD
+        self.assertIn("jsx(TakePlayer, { take }),", SRC["floor.js"].split("export function LastTake(", 1)[1].split("\nexport ", 1)[0])  # every take goes through the player
+        self.assertNotIn("jsx(Wave, { levels: take.levels", SRC["floor.js"])  # the player's waveform replaces the old one
+        self.assertGreaterEqual(SRC["floor.js"].count("jsx(QuoteLine") + SRC["floor.js"].count("jsxs(QuoteLine"), 2)  # each quoted line, extemp and LD
         self.assertIn("jsx(DisclosureList, { transcripts: home.transcripts })", SRC["settingsview.js"])
         self.assertIn("jsx(Margin, {", SRC["plugin.js"])
 
