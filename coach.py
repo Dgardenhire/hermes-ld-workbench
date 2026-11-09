@@ -381,14 +381,20 @@ def cite_time(take):
     return None
 
 
+def _mmss(t):
+    """Seconds as the page shows them (mmss in core.js rounds the same way)."""
+    n = int(float(t) + 0.5)  # half up, like Math.round
+    return f"{n // 60}:{n % 60:02d}"
+
+
 def measure(take):
     """Each move for one take: its value said plainly and whether it is met, all from code."""
     s = (take or {}).get("stats") or {}
     out = {}
     at = s.get("answer_at")
-    out["answer_early"] = {"value": "no answer heard" if at is None else f"answer at {int(at) // 60}:{int(at) % 60:02d}", "met": at is not None and at < 10}
+    out["answer_early"] = {"value": "no answer heard" if at is None else f"answer at {_mmss(at)}", "met": at is not None and at < 10}
     ct = cite_time(take)
-    out["cite_early"] = {"value": "no outlet with a month" if ct is None else f"outlet and month at {int(ct) // 60}:{int(ct) % 60:02d}", "met": ct is not None and ct <= 30}
+    out["cite_early"] = {"value": "no outlet with a month" if ct is None else f"outlet and month at {_mmss(ct)}", "met": ct is not None and ct <= 30}
     f = s.get("fillers")
     out["fillers"] = {"value": "no transcript" if f is None else f"{f} filler{'' if f == 1 else 's'}", "met": f is not None and f <= 2}
     w = s.get("wpm")

@@ -246,6 +246,7 @@ export function TakeTwo({ take1, take2, exampleId, ready }) {
   if (err) return jsx(Notice, { tone: 'warn', children: err })
   if (!out) return ready ? jsx(Thinking, { label: 'Measuring Take 2 against Take 1' }) : null
   return jsxs('section', { className: 'ldw-take2', 'aria-label': 'Take 2 against Take 1', children: [
+    jsx('h3', { className: 'ldw-take2-h', children: "Take 2, after the coach's example" }),
     jsxs('table', { className: 'ldw-take2-t', children: [
       jsx('thead', { children: jsxs('tr', { children: [jsx('th', { scope: 'col', children: '' }), jsx('th', { scope: 'col', children: 'Take 1' }), jsx('th', { scope: 'col', children: 'Take 2' }), jsx('th', { scope: 'col', children: 'Change' })] }) }),
       jsx('tbody', { children: out.rows.map(r => jsxs('tr', { 'data-change': r.change, children: [
@@ -285,6 +286,7 @@ export const COACH_CSS = `
 .ldw-half{display:block}.ldw-half+.ldw-half{margin-top:1px}
 .ldw-moves{margin:0;padding-left:18px;display:grid;gap:3px;font-size:14.5px}
 .ldw-take2{max-width:760px;display:grid;gap:10px;margin:0 0 14px}
+.ldw-take2-h{margin:0;font-size:17px;font-weight:700}
 .ldw-take2-t{border-collapse:collapse;width:100%;font-size:14.5px;font-variant-numeric:tabular-nums}
 .ldw-take2-t th,.ldw-take2-t td{text-align:left;padding:6px 10px 6px 0;border-bottom:1px solid var(--hk-stroke)}
 .ldw-take2-t thead th{font-family:var(--ldw-cond);font-weight:700;text-transform:uppercase;letter-spacing:.05em;font-size:13px;border-bottom:2px solid currentColor}
