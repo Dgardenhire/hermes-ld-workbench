@@ -225,6 +225,19 @@ def next_drill(items=None, events=None):
     return None
 
 
+def _verdict(v, n=280):
+    """The one-sentence verdict, never cut mid-word: a long one ends at its last full clause or word."""
+    t = " ".join(str(v or "").split())
+    if len(t) <= n:
+        return t
+    cut = t[:n]
+    for mark in (". ", "; ", ", "):
+        k = cut.rfind(mark)
+        if k > n // 2:
+            return cut[:k].rstrip(",;") + "."
+    return cut[:cut.rfind(" ")].rstrip(",;") + "."
+
+
 def tidy_extemp(b, event):
     """An extemp or drill ballot as the page may show it."""
     def s(v, n=2000):
@@ -238,7 +251,7 @@ def tidy_extemp(b, event):
         raise RuntimeError("The judge did not say whether you answered the question. Ask for the ballot again.")
     d = b.get("drill") if isinstance(b.get("drill"), dict) else {}
     return {
-        "event": event, "answered": answered, "points": pts, "summary": s(b.get("summary"), 200),
+        "event": event, "answered": answered, "points": pts, "summary": _verdict(b.get("summary")),
         "decisive": [{"line": s(x.get("line"), 400), "effect": s(x.get("effect"), 400)}
                      for x in (b.get("decisive") or []) if isinstance(x, dict) and x.get("line")][:3],
         "reason": s(b.get("reason"), 4000),

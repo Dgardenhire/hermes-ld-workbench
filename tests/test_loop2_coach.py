@@ -165,6 +165,16 @@ class TakeTwo(unittest.TestCase):
         self.assertIn("Given after the coach's example", ballots.as_text())
 
 
+class Verdict(unittest.TestCase):
+    def test_a_long_verdict_is_never_cut_mid_word(self):
+        long = "A clear, well-organized answer given in under 5 seconds, with a real argument in each area, but the sourcing is thin: Reuters is named without a date and the other two areas have no outside evidence at all, so the prices side rests on reasoning alone and a judge cannot check it."
+        v = ballots._verdict(long)
+        self.assertTrue(v.endswith("."), v)
+        self.assertLessEqual(len(v), 281)
+        self.assertTrue(long.startswith(v[:-1]))
+        self.assertEqual(ballots._verdict("Short."), "Short.")
+
+
 class JudgeNotesTruth(unittest.TestCase):
     def setUp(self):
         reset()

@@ -1019,7 +1019,7 @@ async def fix_notes(ballot, said, outlets, model, event="drill"):
             elif where == "strengths":
                 ballot["strengths"][k] = fixed[n].strip()
             else:
-                ballot["summary"] = fixed[n].strip()[:200]
+                ballot["summary"] = _mod("ballots")._verdict(fixed[n])
             ballot["notes_fixed"] += 1
     still = problems()
     drop = {(w, k) for w, k, _, _, _ in still}
