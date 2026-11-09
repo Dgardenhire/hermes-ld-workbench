@@ -2,9 +2,9 @@
 // row (until the first take), and a Sample ballot under the clock: a real drill ballot's shape, with its three
 // quoted lines wrapped in the player's QuoteLine and the sample take given to the player.
 //
-// The sample (data/sample_take.json) is a written adult answer, timed word by word, bundled with the page: it
-// needs no model call and no route. No sample voice is cleared to ship yet, so the take has no audio and the
-// player hides its play marks (the brief's Monday 6 PM rule).
+// The sample (data/sample_take.json) is a written adult answer read by Arthur, an ElevenLabs voice Damon picked at
+// CP1 (data/sample_voice.webm, served by GET speech/sample/audio), timed word by word by the plugin's own
+// speech-to-text. Its words need no model call. The voice is credited wherever the Sample shows.
 
 import { useState } from 'react'
 import { jsx, jsxs } from 'react/jsx-runtime'
@@ -51,6 +51,7 @@ export function SampleBallot() {
     jsxs('div', { className: 'ldw-sample-head', children: [
       jsx('span', { className: 'ldw-sample-tag', children: 'Sample' }),
       jsx('p', { className: 'ldw-promise', children: SAMPLE_LINE }),
+      SAMPLE_TAKE.voice ? jsx('span', { className: 'ldw-sample-credit', children: `Sample voice: ${SAMPLE_TAKE.voice}` }) : null,
     ] }),
     !whole ? jsx(SampleLines, {}) : null,
     jsx('button', { type: 'button', className: 'hk-link ldw-sample-more', 'aria-expanded': whole, onClick: () => setWhole(v => !v), children: whole ? 'Show only the lines' : 'See the whole sample ballot' }),

@@ -4,7 +4,7 @@ import json
 import re
 import unittest
 
-from _load import ROOT, api
+from _load import ROOT, api, run
 
 SRC = {p.name: p.read_text(encoding="utf-8") for p in (ROOT / "desktop" / "src").glob("*.js")}
 BUNDLE = (ROOT / "desktop" / "plugin.js").read_text(encoding="utf-8")
@@ -114,8 +114,10 @@ class FirstRun(unittest.TestCase):
         starts = [w["start"] for w in t["transcript"]["words"]]
         self.assertEqual(starts, sorted(starts))
         self.assertTrue(t["levels"])
-        self.assertGreater(t["duration"], 50)
-        self.assertFalse(t["has_audio"])  # no sample voice is cleared to ship yet: play marks stay hidden
+        self.assertGreater(t["duration"], 40)
+        self.assertTrue(t["has_audio"])  # Arthur's reading (CP1): the play marks show
+        self.assertEqual(t["voice"], "Arthur, an ElevenLabs voice")
+        self.assertLess((ROOT / "data" / "sample_voice.webm").stat().st_size, 400_000)
 
     def test_each_quoted_line_is_in_the_transcript_at_its_times(self):
         words = self.s["take"]["transcript"]["words"]
@@ -125,7 +127,7 @@ class FirstRun(unittest.TestCase):
         for d in b["decisive"]:
             said = " ".join(w["word"] for w in words if d["start"] <= w["start"] and w["end"] <= d["end"])
             self.assertEqual(norm(said), norm(d["line"]))
-        self.assertTrue(any(p["length"] == 2.4 for p in self.s["take"]["stats"]["pauses"]))
+        self.assertAlmostEqual(self.s["take"]["duration"], 45.3, places=1)  # the reading's own length
 
     def test_sample_is_labeled_sample_and_mounted_on_a_first_open(self):
         f = SRC["firstrun.js"]
@@ -135,6 +137,14 @@ class FirstRun(unittest.TestCase):
         self.assertIn("A judge’s ballot on a sample one-minute answer to this question", f)  # one plain line, no tagline
         self.assertIn("first && phase === 'ready' ? jsx(SampleBallot, {}) : null", SRC["extemp.js"])
         self.assertNotIn("decided it", BUNDLE)  # Damon, Nov 9: no tagline anywhere on the page
+
+
+class SampleVoice(unittest.TestCase):
+    def test_the_sample_audio_route_serves_the_bundled_reading(self):
+        import base64
+        out = run(api.get_take_audio("sample"))
+        self.assertEqual(out["mime"], "audio/webm")
+        self.assertEqual(base64.b64decode(out["b64"])[:4], bytes.fromhex("1a45dfa3"))  # a WebM (EBML) file
 
 
 class Settings(unittest.TestCase):

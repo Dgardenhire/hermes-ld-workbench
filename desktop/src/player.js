@@ -425,7 +425,7 @@ export function TakePlayer({ take, audioSrc, startAt, onTime }) {
       err ? jsx('span', { className: 'ldw-pstate', role: 'alert', children: err }) : null,
     ] }),
     !gone ? jsx(PlayerWave, { take, tl, view, marks: tlMarks, headRef: head, playedRef: played, onSeek: seek }) : null,
-    tl.tokens.length ? jsx(Transcript, { tl, now, live: !gone && tl.method !== 'none', title: take.sample ? 'The sample answer' : 'What you said', onWord: t => seek(Math.max(0, t - 0.05)) }) : null,
+    tl.tokens.length ? jsx(Transcript, { tl, now, live: !gone && tl.method !== 'none', title: take.sample ? (take.voice ? `The sample answer · Sample voice: ${take.voice}` : 'The sample answer') : 'What you said', onWord: t => seek(Math.max(0, t - 0.05)) }) : null,
     ['failed', 'unavailable', 'cancelled'].includes(st) && !gone ? jsx('p', { className: 'ldw-pnote', children: 'The recording still plays. Its words light up once there is a transcript.' }) : null,
     tl.method === 'pauses' && !gone ? jsx('p', { className: 'ldw-pnote', children: textOnlyOff
       ? 'This transcript has no word times, so the quoted lines do not play from the ballot. The recording still plays.'

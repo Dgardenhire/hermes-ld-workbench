@@ -819,10 +819,17 @@ async def get_take(take_id: str):
         _fail(e)
 
 
+SAMPLE_VOICE = Path(__file__).resolve().parent.parent / "data" / "sample_voice.webm"
+
+
 @router.get("/speech/{take_id}/audio")
 async def get_take_audio(take_id: str):
-    """The recording as base64, for playback on the page (ctx.rest answers JSON only)."""
+    """The recording as base64, for playback on the page (ctx.rest answers JSON only). "sample" is the first
+    open's Sample: Arthur's reading of the sample answer, bundled in data/sample_voice.webm."""
     try:
+        if take_id == "sample":
+            import base64
+            return {"b64": base64.b64encode(SAMPLE_VOICE.read_bytes()).decode("ascii"), "mime": "audio/webm"}
         t = speech.get_take(take_id)
         p = speech.audio_path(t)
         if not p:
