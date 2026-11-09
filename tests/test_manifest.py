@@ -1,9 +1,8 @@
 """The manifest, register(), and the built desktop bundle match what the catalog entry will claim."""
-import importlib.util
 import re
 import unittest
 
-from _load import ROOT
+from _load import ROOT  # noqa: F401  (loads the package the way the dashboard does)
 
 
 def manifest():
@@ -22,21 +21,27 @@ class Manifest(unittest.TestCase):
         self.assertEqual(m["name"], "ld-workbench")
         self.assertEqual(m["version"], "0.2.0")
         self.assertEqual(m["requires_hermes"], ">=0.22.0")  # nothing newer than v0.22.0 is used (DOCS-DIGEST floor table)
-        self.assertEqual((m["provides_tools"], m["provides_hooks"]), ("[]", "[]"))
+        self.assertEqual((m["provides_tools"], m["provides_hooks"]), ("[debate_record, debate_today]", "[]"))
         self.assertNotIn("capabilities", m)  # no LLM overrides, no tool overrides: nothing to consent to
+        self.assertIn("/debate", m["description"])
+        self.assertLess(len(m["description"]), 500)
 
-    def test_register_adds_nothing(self):
-        spec = importlib.util.spec_from_file_location("ldw_init", ROOT / "__init__.py")
-        mod = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(mod)
+    def test_register_matches_the_manifest(self):
+        """register() adds exactly the declared tools, no hooks and no middleware (test_agent.py has the rest)."""
+        import sys
+        pkg = sys.modules["ld_workbench_dashboard_package"]
         calls = []
 
         class Ctx:
             def __getattr__(self, name):
-                return lambda *a, **k: calls.append(name)
-        mod.register(Ctx())
-        self.assertEqual(calls, [])
-        self.assertEqual((mod.TOOLS, mod.HOOKS), ((), ()))
+                return lambda *a, **k: calls.append((name, a[0] if a else k.get("name")))
+        pkg.register(Ctx())
+        tools = sorted(n for kind, n in calls if kind == "register_tool")
+        self.assertEqual(tools, ["debate_record", "debate_today"])
+        self.assertEqual(tuple(sorted(pkg.TOOLS)), tuple(tools))
+        self.assertEqual(pkg.HOOKS, ())
+        self.assertFalse(any(kind in ("register_hook", "register_middleware") for kind, _ in calls))
+        self.assertIn(("register_command", "debate"), calls)
 
 
 class Bundle(unittest.TestCase):

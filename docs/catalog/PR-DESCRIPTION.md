@@ -45,7 +45,7 @@ Full list: `CHANGELOG.md`. Manual: `docs/MANUAL.md`.
 - **Hermes tools, each only on a button press, through the public `tools.registry`:** `web_search` (extemp prep, only in rounds started with internet allowed) and `text_to_speech` (Hear it, the AI opponent's speech). The plugin holds no keys.
 - **Model calls:** through `PluginLlm` to the user's own model; each call has a 180-second limit.
 - **Never:** credentials, telemetry, shell commands, cron or blueprints, self-updates, compiled binaries. Separate processes only as listed above (the model download; ffmpeg when PyAV is missing). One private Hermes import, listed above.
-- **Registers:** no tools, hooks or middleware; a Desktop page and a dashboard API only.
+- **Registers:** a Desktop page, a dashboard API, the `/debate` command, two read-only agent tools (`debate_record`, `debate_today`: counts, tags, dates and question text only; both refuse in cron runs), three model rows (Debate judge, Debate opponent, Debate coach, timeout 180 s) and the bundled `debate-coach` skill. No hooks or middleware.
 - **Files:** reads a .docx, .txt or backup file only when the user picks one; writes exports only to a save-dialog path (never a hidden folder or ~/Library) or its own exports folder.
 - **Not affiliated** with Nous Research, the National Speech & Debate Association, AllSides or any news outlet.
 
