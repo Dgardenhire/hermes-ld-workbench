@@ -86,6 +86,12 @@ class Compare(unittest.TestCase):
         self.assertTrue(text.startswith("Fed policymakers weigh a hike (Reuters, Nov "), text)
         self.assertIn(", 2026). So prices come first.", text)
 
+    def test_an_unreadable_answer_is_asked_for_once_more(self):
+        t = take()
+        self.llm.queue += ["not json at all", "still not json", json.dumps(EXAMPLE)]  # the structured try and its plain retry both fail
+        out = run(api.post_coach_extemp_example({"kind": "answer", "take_id": t["id"], "question": Q}))
+        self.assertEqual(len(out["sentences"]), 5)
+
     def test_coaching_lengths_are_not_evidence(self):
         items = extemp.file_items()
         for t in ("Say it by about the 20-second mark.", "Keep a steady pace of about 130 to 170 words a minute.", "Answer in the first 10 seconds."):

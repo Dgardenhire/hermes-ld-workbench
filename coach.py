@@ -448,9 +448,17 @@ async def extemp_example(kind, question, takes, best, model):
             f"THE STUDENT'S OPENING {n}:\n<<<\n{engine.fenced(_said(t)[:3000])}\n>>>" for n, t in enumerate(takes, 1) if _said(t).strip())
     pick = f"\nThe coach picked opening {best} as the strongest." if kind == "opening" and best in (1, 2, 3) else ""
     body = f"Question: {question}{pick}\n\n{attempts}\n\n{source_block(items)}"
-    raw = await model.json(STANCE + "\n\n" + (ANSWER_TASK if kind == "answer" else OPENING_TASK), "", body,
-                           max_tokens=3000, purpose=f"ld-workbench.coach.extemp.{kind}")
-    out = tidy_example(raw)
+    for attempt in (1, 2):  # an answer that cannot be read is asked for once more before the page shows an error
+        try:
+            raw = await model.json(STANCE + "\n\n" + (ANSWER_TASK if kind == "answer" else OPENING_TASK), "", body,
+                                   max_tokens=3000, purpose=f"ld-workbench.coach.extemp.{kind}")
+            out = tidy_example(raw)
+            break
+        except RuntimeError as e:
+            if "could not be read" not in str(e):
+                raise
+            if attempt == 2:
+                raise _unreadable()
     own = [question] + [_said(t) for t in takes]
     cited = []  # the file sources the example cites, by its [S#] tokens, before the check turns them into stamps
     for n in _CITE.findall(" ".join(x["text"] for x in out["sentences"]) if out["sentences"] else out["example"]):
