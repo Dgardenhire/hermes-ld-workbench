@@ -952,7 +952,8 @@ _CLAIMS = {
     "figure": re.compile(r"\b(?:figures?|statistics?|stats?|percent(?:age)?s?|data points?|hard numbers?|real numbers?|specific numbers?|concrete numbers?|an? numbers?)\b", re.I),
     "source": re.compile(r"\b(?:names?|named|naming|cites?|cited|citing|uses?|used|gives?|gave|quotes?|quoted|with|has|offers?)\s+(?:a|an|one|the|its|real|specific|named|credible|current|recent)?\s*(?:\w+\s)?(?:sources?|outlets?)\b", re.I),
 }
-_NEG = re.compile(r"\b(?:no|not|without|never|missing|lacks?|lacking|nor|zero|any)\b[^.;,]{0,24}$", re.I)
+# A negation reaches across a list ("no number, source or date") but stops at a turn ("no outlet, but it gives a date").
+_NEG = re.compile(r"\b(?:no|not|without|never|missing|lacks?|lacking|nor|zero|any)\b(?:(?!\b(?:but|yet|though|although|while|however|and it|and the)\b)[^.;]){0,40}$", re.I)
 _NUMBER_SAID = re.compile(r"\d|\b(?:one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|twenty|thirty|forty|fifty|hundred|thousand|million|billion|trillion|percent|half|quarter)\b", re.I)
 
 
@@ -961,7 +962,7 @@ def note_claims(note):
     out = set()
     for kind, rx in _CLAIMS.items():
         for m in rx.finditer(str(note or "")):
-            if not _NEG.search(str(note)[max(0, m.start() - 40):m.start()]):
+            if not _NEG.search(str(note)[max(0, m.start() - 40):m.start()]) and not re.search(r"\b(?:no|not|without|never|zero)\b", m.group(0), re.I):
                 out.add(kind)
     return out
 

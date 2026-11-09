@@ -199,6 +199,9 @@ class JudgeNotesTruth(unittest.TestCase):
         self.assertEqual(engine.unsupported("It uses a real number.", line, ["Reuters"]), ["figure"])
         self.assertEqual(engine.unsupported("It names a source.", "Prices hurt workers.", ["Reuters"]), ["source"])
         self.assertEqual(engine.unsupported("It cites NPR with the date.", "NPR reported on November 6 that 165,000 jobs were added.", ["NPR"]), [])
+        # a negation reaches across a list, and stops at a turn (both seen in real runs)
+        self.assertEqual(engine.unsupported("A sensible point, but it comes with no number, source or date, so it sounds like opinion.", line, ["Reuters"]), [])
+        self.assertEqual(engine.unsupported("It names no outlet, but it gives a date.", "Prices rose fast.", ["Reuters"]), ["date"])
 
 
 if __name__ == "__main__":
