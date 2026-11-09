@@ -134,7 +134,8 @@ def _numbers_missed(line, hay):
     bad = 0
     for m in _NUMBER.finditer(line):
         num, tail = m.group(1).rstrip(","), m.group(2)
-        timing = not tail and re.match(r"\s+(?:seconds?|minutes?|words?|sentences?)\b", line[m.end():], re.I)
+        # coaching lengths, not evidence: "20 seconds", "the 20-second mark", "130 to 170 words a minute"
+        timing = not tail and re.match(r"(?:\s*(?:to|-|–)\s*\d[\d,]*)?[\s-]+(?:seconds?|minutes?|words?|sentences?|second mark)\b", line[m.end():], re.I)
         if timing or (not tail and len(num.replace(",", "")) < 2):
             continue
         if not any(re.search(r"(?<![\d,])" + re.escape(num) + r"(?![\d])", h) for h in hay):
@@ -473,7 +474,7 @@ async def extemp_example(kind, question, takes, best, model):
         out["example"], c = check(out["example"], items, own)
         checks.append(c)
 
-    own_notes = own + [out["example"]]  # a note may quote the example it explains
+    own_notes = own + [out["example"]] + [m["label"] for m in moves]  # a note may quote the example and name the moves
 
     def note(n):  # notes talk about the student's attempt: no stamp
         if isinstance(n, dict):

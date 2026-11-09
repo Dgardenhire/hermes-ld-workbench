@@ -86,6 +86,12 @@ class Compare(unittest.TestCase):
         self.assertTrue(text.startswith("Fed policymakers weigh a hike (Reuters, Nov "), text)
         self.assertIn(", 2026). So prices come first.", text)
 
+    def test_coaching_lengths_are_not_evidence(self):
+        items = extemp.file_items()
+        for t in ("Say it by about the 20-second mark.", "Keep a steady pace of about 130 to 170 words a minute.", "Answer in the first 10 seconds."):
+            self.assertNotIn(coach.NOT_FOUND, coach.check(t, items, stamp=False)[0], t)
+        self.assertIn(coach.NOT_FOUND, coach.check("Inflation hit 4.2 percent.", items, stamp=False)[0])
+
     def test_notes_keep_their_two_halves_and_no_stamp(self):
         _, out = self.example()
         self.assertEqual(out["notes"][0], {"yours": "You opened by saying the question back.", "this": "This version starts with the answer."})
