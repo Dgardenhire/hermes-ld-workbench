@@ -106,8 +106,8 @@ function CoachExamples({ on }) {
   return jsxs(Section, { title: 'Coach examples', children: [
     jsx(Choices, { label: 'Coach examples', value: on ? 'on' : 'off', onChange: pick, disabled: busy, options: [{ id: 'on', label: 'On' }, { id: 'off', label: 'Off' }] }),
     jsx('p', { className: 'ldw-set-line', children: on
-      ? "After you try something yourself, the coach can show a strong version and make suggestions: a model answer or opening, areas and evidence from your own file, contentions, a value and criterion, a block, a stronger card, three versions of your line, and a redo of the weakest moment on a ballot. Each one is marked as the coach's, and every citation, quote and number in it is checked against your file and your words."
-      : 'The coach asks questions, explains and critiques, and writes nothing for you to say. For a room where students write every word. The coach chat still works.' }),
+      ? "After the student tries first, the coach can show a strong version, marked as the coach's, with every citation, quote and number checked."
+      : 'The coach asks, explains and critiques, and writes nothing for you to say.' }),
     err ? jsx(Notice, { tone: 'bad', children: err }) : null,
   ] })
 }

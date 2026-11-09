@@ -2313,6 +2313,13 @@ var POINTS_KEY = {
   extemp: "Points run 20 to 30. 29 to 30 is excellent; 28 is strong; 27 is a solid speech with one clear problem; 26 has several problems; 25 or lower means the question was not really answered.",
   ld: "Speaker points run 20 to 30; most rounds land between 26 and 30. 28.0 is a typical good round, 29.0 and up is excellent, and below 27.0 means serious problems."
 };
+function PointsKey({ text }) {
+  const [open, setOpen2] = useState7(false);
+  return jsxs7("div", { className: "ldw-pts-key", children: [
+    jsx7("button", { type: "button", className: "hk-link ldw-pts-how", "aria-expanded": open, onClick: () => setOpen2((v) => !v), children: open ? "Hide how points work" : "How points work" }),
+    open ? jsx7("p", { children: text }) : null
+  ] });
+}
 function PointsScale({ points }) {
   const marks = [20, 22, 24, 26, 28, 30];
   const pos = points === null || points === void 0 ? null : (points - 20) / 10 * 100;
@@ -2353,7 +2360,7 @@ function ExtempSheet({ b, take, onDrill, drillLabel = "Run the drill", drillLink
       ] }),
       jsx7("div", { className: "ldw-verdict", children: b.summary || verdictWord }),
       jsx7(PointsScale, { points: b.points }),
-      jsx7("p", { className: "ldw-pts-key", children: POINTS_KEY.extemp })
+      jsx7(PointsKey, { text: POINTS_KEY.extemp })
     ] }),
     b.decisive && b.decisive.length ? jsxs7("div", { className: "ldw-declines", children: [
       jsx7("h4", { children: "The lines that decided it" }),
@@ -2429,7 +2436,7 @@ function LdSheet({ b, onLine, onDrill, defaultOpen = false }) {
       ] }, k)) }),
       jsx7("div", { className: "ldw-verdict ldw-ldverdict", children: won ? "You won" : "You lost" }),
       jsx7(PointsScale, { points: pts.student }),
-      jsx7("p", { className: "ldw-pts-key", children: POINTS_KEY.ld })
+      jsx7(PointsKey, { text: POINTS_KEY.ld })
     ] }),
     b.reason ? jsx7("p", { className: "ldw-sheet-why", children: firstSentence(b.reason) }) : null,
     lines.length ? jsxs7("div", { className: "ldw-declines", children: [jsx7("h4", { children: "The lines that decided it" }), ...lines.map(line)] }) : null,
@@ -5601,7 +5608,7 @@ function CoachExamples({ on }) {
   };
   return jsxs14(Section2, { title: "Coach examples", children: [
     jsx14(Choices, { label: "Coach examples", value: on ? "on" : "off", onChange: pick, disabled: busy, options: [{ id: "on", label: "On" }, { id: "off", label: "Off" }] }),
-    jsx14("p", { className: "ldw-set-line", children: on ? "After you try something yourself, the coach can show a strong version and make suggestions: a model answer or opening, areas and evidence from your own file, contentions, a value and criterion, a block, a stronger card, three versions of your line, and a redo of the weakest moment on a ballot. Each one is marked as the coach's, and every citation, quote and number in it is checked against your file and your words." : "The coach asks questions, explains and critiques, and writes nothing for you to say. For a room where students write every word. The coach chat still works." }),
+    jsx14("p", { className: "ldw-set-line", children: on ? "After the student tries first, the coach can show a strong version, marked as the coach's, with every citation, quote and number checked." : "The coach asks, explains and critiques, and writes nothing for you to say." }),
     err ? jsx14(Notice, { tone: "bad", children: err }) : null
   ] });
 }
@@ -5637,8 +5644,12 @@ var FRAME_CSS = `
 .ldw{--ldw-cond:"Avenir Next Condensed","DIN Condensed","Bahnschrift Condensed","Bahnschrift","Roboto Condensed","Arial Narrow",sans-serif;
   --ldw-serif:"Iowan Old Style","Charter","Georgia",serif;--ldw-r:var(--hk-radius);
   --ldw-paper:var(--ui-bg-elevated,var(--hk-surface));--ldw-paper-ink:var(--hk-ink);--ldw-paper-rule:color-mix(in srgb,var(--hk-ink) 24%,transparent)}
-:root.dark .ldw{--ldw-paper:color-mix(in srgb,var(--ui-base,#e6edf3) 90%,var(--ui-bg-chrome,#0d1015));--ldw-paper-ink:var(--ui-bg-chrome,#0d1015);
-  --ldw-paper-rule:color-mix(in srgb,var(--ui-bg-chrome,#0d1015) 30%,transparent)}
+:root.dark .ldw{--ldw-paper:#e8e3d8;--ldw-paper-ink:#1c1a16;
+  --ldw-paper-rule:color-mix(in srgb,#1c1a16 26%,transparent)}
+:root.dark .ldw .ldw-sheet{box-shadow:0 1px 0 rgba(255,255,255,.06),0 10px 30px rgba(0,0,0,.45);border-color:transparent}
+/* On the light paper in dark mode, the accent darkens so links, marks and the playing word keep their contrast. */
+:root.dark .ldw .ldw-sheet{--hk-accent:color-mix(in srgb,var(--ui-accent,var(--dt-primary,#4a84fe)) 68%,#000)}
+:root.dark .ldw .ldw-sheet .hk-link{color:var(--hk-accent)}
 .ldw-frame>.ldw-inner{padding:20px 28px 44px;gap:18px;max-width:1240px;box-sizing:border-box;width:100%}
 
 
@@ -5656,7 +5667,7 @@ var FRAME_CSS = `
 .ldw-bigclock.ldw-over{color:var(--hk-bad)}
 .ldw-overword{font-family:var(--ldw-cond);font-size:34px;text-transform:uppercase;letter-spacing:.04em}
 .ldw-cards{display:flex;gap:6px;align-items:flex-end;flex-wrap:wrap}
-.ldw-card{font-family:var(--ldw-cond);font-weight:700;font-size:22px;min-width:44px;height:52px;padding:0 6px;border-radius:var(--ldw-r);display:grid;place-items:center;border:1.5px solid var(--hk-stroke-strong)}
+.ldw-card{font-family:var(--ldw-cond);font-weight:700;font-size:22px;min-width:44px;height:52px;padding:0 6px;border-radius:var(--ldw-r);display:grid;place-items:center;border:0;background:var(--hk-sunken)}
 .ldw-card-time{min-width:64px;font-size:16px;text-transform:uppercase;letter-spacing:.04em}
 .ldw-card[data-up]{height:66px;background:var(--hk-ink);color:var(--hk-bg);border-color:var(--hk-ink)}
 @media (prefers-reduced-motion:no-preference){.ldw-card[data-up]{animation:ldw-flip 120ms ease-out}@keyframes ldw-flip{from{transform:rotateX(70deg)}to{transform:none}}}
@@ -5862,7 +5873,7 @@ var FRAME_CSS = `
 .ldw-live-wait{font-size:14px}
 @container (max-width:900px){.ldw-floor{grid-template-columns:1fr}}
 .ldw-settings{display:grid;gap:4px;max-width:880px}
-.ldw-set-h1{margin:0 0 10px;font-family:var(--ldw-cond);font-size:34px;font-weight:700;text-transform:uppercase;letter-spacing:.01em}
+.ldw-set-h1{margin:0 0 10px;font-size:28px;font-weight:700;letter-spacing:-.01em}
 .ldw-set{display:grid;grid-template-columns:200px minmax(0,1fr);gap:24px;padding:20px 0;border-top:1px solid var(--hk-stroke)}
 .ldw-set-title{margin:0;font-size:16px;font-weight:700}
 .ldw-set-body{display:grid;gap:12px;min-width:0;justify-items:start}
@@ -5899,13 +5910,14 @@ var FRAME_CSS = `
   .ldw-stage2{grid-template-columns:minmax(0,1fr) 230px;gap:18px}.ldw-bigclock{font-size:clamp(96px,13vw,150px)}.ldw-card{min-width:34px}}
 @container (max-width:620px){.ldw-stage2,.ldw-stage3{grid-template-columns:1fr}}
 /* a choice of one: the picked option is outlined in the accent, checked and bold */
-.ldw-choices{display:inline-flex;flex-wrap:wrap;gap:4px;text-transform:none;letter-spacing:0;font-family:var(--font-sans,inherit);font-weight:400}
-.ldw-choice{all:unset;box-sizing:border-box;display:inline-flex;align-items:center;gap:5px;padding:5px 11px 5px 8px;border:1px solid var(--hk-stroke-strong);border-radius:var(--ldw-r);font-size:13px;line-height:1.2;color:var(--hk-ink);cursor:pointer;white-space:nowrap;transition:background var(--hk-dur,120ms) var(--hk-ease,ease),border-color var(--hk-dur,120ms) var(--hk-ease,ease)}
+.ldw-choices{display:inline-flex;flex-wrap:wrap;gap:2px;padding:2px;border-radius:calc(var(--ldw-r) + 2px);background:var(--hk-sunken);text-transform:none;letter-spacing:0;font-family:var(--font-sans,inherit);font-weight:400}
+.ldw-choice{all:unset;box-sizing:border-box;display:inline-flex;align-items:center;gap:5px;padding:4px 11px;border:0;border-radius:var(--ldw-r);font-size:13px;line-height:1.2;color:var(--hk-ink);cursor:pointer;white-space:nowrap;transition:background var(--hk-dur,120ms) var(--hk-ease,ease),border-color var(--hk-dur,120ms) var(--hk-ease,ease)}
 .ldw-choice:hover{background:var(--hk-hover)}
 .ldw-choice:focus-visible{outline:2px solid var(--hk-accent);outline-offset:2px}
-.ldw-choice[aria-checked=true]{border-color:var(--hk-accent);box-shadow:inset 0 0 0 1px var(--hk-accent);background:color-mix(in srgb,var(--hk-accent) 13%,transparent);font-weight:700}
+.ldw-choice[aria-checked=true]{background:var(--hk-surface);box-shadow:0 1px 2px rgba(0,0,0,.18);font-weight:700}
 .ldw-choice[disabled]{opacity:.55;cursor:default}
-.ldw-choice .ldw-choice-check{font-size:13px !important;width:13px;visibility:hidden}
+.ldw-choice .ldw-choice-check{font-size:13px !important;width:0;visibility:hidden}
+.ldw-choice[aria-checked=true] .ldw-choice-check{width:13px}
 .ldw-choice[aria-checked=true] .ldw-choice-check{visibility:visible;color:var(--hk-accent)}
 /* the question tools: another, your own, the list */
 .ldw-qtools{display:grid;gap:10px;margin-top:2px}
@@ -5929,7 +5941,8 @@ var FRAME_CSS = `
 /* the ballot: what the boxes answer, and what the points mean */
 .ldw-boxwrap{display:grid;gap:5px}
 .ldw-boxes-q{font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase}
-.ldw-sheet-dec>.ldw-pts-key{grid-column:1/-1;margin:2px 0 0;font-size:12.5px;line-height:1.45;max-width:none}
+.ldw-sheet-dec>.ldw-pts-key{grid-column:1/-1;margin:2px 0 0;font-size:13px;line-height:1.45;max-width:none}
+.ldw-pts-key p{margin:4px 0 0}.ldw-pts-how{font-size:13px}
 /* checked quotes in a fallacy answer */
 .ldw-inline-flag{display:inline-block;margin-left:6px;padding:0 6px;border:1.5px solid var(--hk-bad-fill);border-radius:var(--ldw-r);color:var(--hk-bad);font-family:var(--font-sans,inherit);font-style:normal}
 /* the flow beside the clock in your rebuttals */
@@ -5969,6 +5982,7 @@ button.ldw-brow-main:focus-visible{outline:2px solid var(--hk-accent);outline-of
 
 .ldw-line-removed{margin:6px 0 0;font-size:13px;font-style:italic}
 .ldw-drillrow .ldw-drill-link{white-space:nowrap;font-size:14.5px}
+.ldw-clockmore{font-size:13.5px}.ldw-clockmore summary{cursor:pointer;width:max-content;font-size:13.5px}.ldw-clockmore[open]{display:grid;gap:8px}
 .ldw-chip-find{display:inline-block;font-family:var(--hk-mono);font-size:12.5px;padding:0 6px;border:1px dashed var(--hk-stroke-strong);border-radius:var(--ldw-r)}
 .ldw-coachbox{border:1.5px dashed var(--hk-stroke-strong);border-radius:var(--ldw-r);padding:14px 16px;display:grid;gap:9px;max-width:760px;box-sizing:border-box;min-width:0}
 .ldw-coachbox-head{display:flex;align-items:baseline;gap:4px 14px;flex-wrap:wrap}
@@ -6121,7 +6135,7 @@ button.ldw-brow-main:focus-visible{outline:2px solid var(--hk-accent);outline-of
 .ldw-advanced-sub{font-size:14px}
 .ldw-advanced>summary:focus-visible{outline:2px solid var(--hk-accent);outline-offset:2px}
 .ldw-advanced .ldw-set{border-top:1px dashed var(--hk-stroke);padding-top:16px}
-.ldw-set-h1{font-size:30px}
+.ldw-set-h1{font-size:26px}
 
 /* motion: the ballot slides up 240 ms; the card flips 180 ms; reduced motion turns both off */
 @media (prefers-reduced-motion:no-preference){
@@ -6281,11 +6295,11 @@ function ClockPanel({ big, label, rows = [], primary, clock, prep, over, extra, 
   return jsxs15("section", { className: cls("ldw-clock ldw-stage2", beside && "ldw-stage3"), "aria-label": "Clock", children: [
     jsxs15("div", { className: "ldw-ldface", children: [
       face,
-      clock ? jsx15("button", {
+      clock && clock.left !== clock.total ? jsx15("button", {
         type: "button",
         className: "hk-link",
         onClick: clock.running ? clock.pause : clock.start,
-        children: clock.running ? "Pause the clock" : clock.left === clock.total ? "Start the clock by hand" : "Resume the clock"
+        children: clock.running ? "Pause the clock" : "Resume the clock"
       }) : null
     ] }),
     beside || null,
@@ -6303,7 +6317,11 @@ function ClockPanel({ big, label, rows = [], primary, clock, prep, over, extra, 
           children: prep.running ? "Stop prep" : prep.left > 0 ? "Use prep" : "None left"
         })
       ] }) : null,
-      rows.length ? jsx15("dl", { className: "ldw-rows", children: rows.map(([k, v]) => jsxs15(Fragment10, { children: [jsx15("dt", { children: k }), jsx15("dd", { children: v })] }, k)) }) : null,
+      rows.length || clock && clock.left === clock.total ? jsxs15("details", { className: "ldw-clockmore", children: [
+        jsx15("summary", { children: "Details" }),
+        rows.length ? jsx15("dl", { className: "ldw-rows", children: rows.map(([k, v]) => jsxs15(Fragment10, { children: [jsx15("dt", { children: k }), jsx15("dd", { children: v })] }, k)) }) : null,
+        clock && clock.left === clock.total ? jsx15("button", { type: "button", className: "hk-link", onClick: clock.start, children: "Start the clock by hand" }) : null
+      ] }) : null,
       extra || null
     ] })
   ] });
@@ -6333,7 +6351,7 @@ function FlowBeside({ r, onHide }) {
     ] }, s.id)) })
   ] });
 }
-function StudentSpeech({ r, stop, flowBeside, onHideFlow }) {
+function StudentSpeech({ r, stop, flowBeside, onHideFlow, onShowFlow }) {
   const [text, setText] = useState14(r.drafts[stop.id] || "");
   const [busy, setBusy] = useState14(false);
   const [err, setErr] = useState14(null);
@@ -6406,6 +6424,7 @@ function StudentSpeech({ r, stop, flowBeside, onHideFlow }) {
 
 ${t}` : t) }),
       rows: recording ? [] : [["Pace", pace], real !== null ? ["Spoken length", `${mmss(real)}, recorded`] : ["Spoken length", `about ${mmss(spoken)}, estimated`]],
+      extra: !flowBeside && onShowFlow && r.transcript.some((t) => t.speaker === "ai") ? jsx15("button", { type: "button", className: "hk-link", onClick: onShowFlow, children: "Show the flow" }) : null,
       primary: recording ? null : jsx15(BigButton, { icon: "arrow-right", onClick: finish, loading: busy, disabled: take && ["waiting", "working"].includes(take.transcript.status), children: "Finish speech" })
     }),
     jsxs15("section", { className: "ldw-panel ldw-stage", "aria-label": "Your speech", children: [
@@ -6889,7 +6908,7 @@ function Room() {
   const [redo, setRedo] = useState14(null);
   const [hit, setHit] = useState14(null);
   const [confirmEnd, setConfirmEnd] = useState14(false);
-  const [flowBeside, setFlowBeside] = useState14(true);
+  const [flowBeside, setFlowBeside] = useState14(false);
   const missing = r ? r.transcript.filter((t) => !r.flow[t.id]).length : 0;
   useEffect11(() => {
     if (!missing) return void 0;
@@ -6910,12 +6929,12 @@ function Room() {
   else if (r.phase === "ballot") {
     floor = jsx15(FullBallot, { r, onRedo: setRedo, onFlowHit: flowHit, onNew: newRound });
   } else if (stop.kind === "cx") floor = jsx15(CrossEx, { r, stop }, `${r.round_no}-${stop.id}`);
-  else if (speakerOf(stop, r.side) === "student") floor = jsx15(StudentSpeech, { r, stop, flowBeside: flowBeside && !showFlow, onHideFlow: () => setFlowBeside(false) }, `${r.round_no}-${stop.id}`);
+  else if (speakerOf(stop, r.side) === "student") floor = jsx15(StudentSpeech, { r, stop, flowBeside: flowBeside && !showFlow, onHideFlow: () => setFlowBeside(false), onShowFlow: () => setFlowBeside(true) }, `${r.round_no}-${stop.id}`);
   else floor = jsx15(OpponentSpeech, { r, stop }, `${r.round_no}-${stop.id}`);
   const last = r && r.ballots.length ? r.ballots[r.ballots.length - 1] : st.history && st.history.last;
-  const roundMenu = r ? jsx15(Menu, { label: "Round", icon: "list-flat", align: "end", items: [
+  const roundMenu = r ? jsx15(Menu, { label: "More", icon: "ellipsis", ariaLabel: "Round options", title: "Round options", align: "end", items: [
     { label: showFlow || r.phase === "ballot" ? "Hide the flow" : "Show the flow", icon: "list-flat", disabled: r.phase === "ballot", onSelect: () => setShowFlow((v) => !v) },
-    !flowBeside && r.phase === "live" ? { label: "Flow beside the clock in your speeches", icon: "layout-sidebar-right", onSelect: () => setFlowBeside(true) } : null,
+    !flowBeside && r.phase === "live" ? { label: "Flow beside the clock in your speeches", icon: "layout-sidebar-right", onSelect: () => setFlowBeside(true) } : flowBeside && r.phase === "live" ? { label: "Fold the flow while you speak", icon: "layout-sidebar-right", onSelect: () => setFlowBeside(false) } : null,
     r.phase !== "ballot" ? { label: "End this round", icon: "close", danger: true, onSelect: () => setConfirmEnd(true) } : null
   ] }) : null;
   return jsxs15(Fragment10, { children: [

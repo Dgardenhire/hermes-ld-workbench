@@ -11,8 +11,12 @@ export const FRAME_CSS = `
 .ldw{--ldw-cond:"Avenir Next Condensed","DIN Condensed","Bahnschrift Condensed","Bahnschrift","Roboto Condensed","Arial Narrow",sans-serif;
   --ldw-serif:"Iowan Old Style","Charter","Georgia",serif;--ldw-r:var(--hk-radius);
   --ldw-paper:var(--ui-bg-elevated,var(--hk-surface));--ldw-paper-ink:var(--hk-ink);--ldw-paper-rule:color-mix(in srgb,var(--hk-ink) 24%,transparent)}
-:root.dark .ldw{--ldw-paper:color-mix(in srgb,var(--ui-base,#e6edf3) 90%,var(--ui-bg-chrome,#0d1015));--ldw-paper-ink:var(--ui-bg-chrome,#0d1015);
-  --ldw-paper-rule:color-mix(in srgb,var(--ui-bg-chrome,#0d1015) 30%,transparent)}
+:root.dark .ldw{--ldw-paper:#e8e3d8;--ldw-paper-ink:#1c1a16;
+  --ldw-paper-rule:color-mix(in srgb,#1c1a16 26%,transparent)}
+:root.dark .ldw .ldw-sheet{box-shadow:0 1px 0 rgba(255,255,255,.06),0 10px 30px rgba(0,0,0,.45);border-color:transparent}
+/* On the light paper in dark mode, the accent darkens so links, marks and the playing word keep their contrast. */
+:root.dark .ldw .ldw-sheet{--hk-accent:color-mix(in srgb,var(--ui-accent,var(--dt-primary,#4a84fe)) 68%,#000)}
+:root.dark .ldw .ldw-sheet .hk-link{color:var(--hk-accent)}
 .ldw-frame>.ldw-inner{padding:20px 28px 44px;gap:18px;max-width:1240px;box-sizing:border-box;width:100%}
 
 
@@ -30,7 +34,7 @@ export const FRAME_CSS = `
 .ldw-bigclock.ldw-over{color:var(--hk-bad)}
 .ldw-overword{font-family:var(--ldw-cond);font-size:34px;text-transform:uppercase;letter-spacing:.04em}
 .ldw-cards{display:flex;gap:6px;align-items:flex-end;flex-wrap:wrap}
-.ldw-card{font-family:var(--ldw-cond);font-weight:700;font-size:22px;min-width:44px;height:52px;padding:0 6px;border-radius:var(--ldw-r);display:grid;place-items:center;border:1.5px solid var(--hk-stroke-strong)}
+.ldw-card{font-family:var(--ldw-cond);font-weight:700;font-size:22px;min-width:44px;height:52px;padding:0 6px;border-radius:var(--ldw-r);display:grid;place-items:center;border:0;background:var(--hk-sunken)}
 .ldw-card-time{min-width:64px;font-size:16px;text-transform:uppercase;letter-spacing:.04em}
 .ldw-card[data-up]{height:66px;background:var(--hk-ink);color:var(--hk-bg);border-color:var(--hk-ink)}
 @media (prefers-reduced-motion:no-preference){.ldw-card[data-up]{animation:ldw-flip 120ms ease-out}@keyframes ldw-flip{from{transform:rotateX(70deg)}to{transform:none}}}
@@ -236,7 +240,7 @@ export const FRAME_CSS = `
 .ldw-live-wait{font-size:14px}
 @container (max-width:900px){.ldw-floor{grid-template-columns:1fr}}
 .ldw-settings{display:grid;gap:4px;max-width:880px}
-.ldw-set-h1{margin:0 0 10px;font-family:var(--ldw-cond);font-size:34px;font-weight:700;text-transform:uppercase;letter-spacing:.01em}
+.ldw-set-h1{margin:0 0 10px;font-size:28px;font-weight:700;letter-spacing:-.01em}
 .ldw-set{display:grid;grid-template-columns:200px minmax(0,1fr);gap:24px;padding:20px 0;border-top:1px solid var(--hk-stroke)}
 .ldw-set-title{margin:0;font-size:16px;font-weight:700}
 .ldw-set-body{display:grid;gap:12px;min-width:0;justify-items:start}
@@ -273,13 +277,14 @@ export const FRAME_CSS = `
   .ldw-stage2{grid-template-columns:minmax(0,1fr) 230px;gap:18px}.ldw-bigclock{font-size:clamp(96px,13vw,150px)}.ldw-card{min-width:34px}}
 @container (max-width:620px){.ldw-stage2,.ldw-stage3{grid-template-columns:1fr}}
 /* a choice of one: the picked option is outlined in the accent, checked and bold */
-.ldw-choices{display:inline-flex;flex-wrap:wrap;gap:4px;text-transform:none;letter-spacing:0;font-family:var(--font-sans,inherit);font-weight:400}
-.ldw-choice{all:unset;box-sizing:border-box;display:inline-flex;align-items:center;gap:5px;padding:5px 11px 5px 8px;border:1px solid var(--hk-stroke-strong);border-radius:var(--ldw-r);font-size:13px;line-height:1.2;color:var(--hk-ink);cursor:pointer;white-space:nowrap;transition:background var(--hk-dur,120ms) var(--hk-ease,ease),border-color var(--hk-dur,120ms) var(--hk-ease,ease)}
+.ldw-choices{display:inline-flex;flex-wrap:wrap;gap:2px;padding:2px;border-radius:calc(var(--ldw-r) + 2px);background:var(--hk-sunken);text-transform:none;letter-spacing:0;font-family:var(--font-sans,inherit);font-weight:400}
+.ldw-choice{all:unset;box-sizing:border-box;display:inline-flex;align-items:center;gap:5px;padding:4px 11px;border:0;border-radius:var(--ldw-r);font-size:13px;line-height:1.2;color:var(--hk-ink);cursor:pointer;white-space:nowrap;transition:background var(--hk-dur,120ms) var(--hk-ease,ease),border-color var(--hk-dur,120ms) var(--hk-ease,ease)}
 .ldw-choice:hover{background:var(--hk-hover)}
 .ldw-choice:focus-visible{outline:2px solid var(--hk-accent);outline-offset:2px}
-.ldw-choice[aria-checked=true]{border-color:var(--hk-accent);box-shadow:inset 0 0 0 1px var(--hk-accent);background:color-mix(in srgb,var(--hk-accent) 13%,transparent);font-weight:700}
+.ldw-choice[aria-checked=true]{background:var(--hk-surface);box-shadow:0 1px 2px rgba(0,0,0,.18);font-weight:700}
 .ldw-choice[disabled]{opacity:.55;cursor:default}
-.ldw-choice .ldw-choice-check{font-size:13px !important;width:13px;visibility:hidden}
+.ldw-choice .ldw-choice-check{font-size:13px !important;width:0;visibility:hidden}
+.ldw-choice[aria-checked=true] .ldw-choice-check{width:13px}
 .ldw-choice[aria-checked=true] .ldw-choice-check{visibility:visible;color:var(--hk-accent)}
 /* the question tools: another, your own, the list */
 .ldw-qtools{display:grid;gap:10px;margin-top:2px}
@@ -303,7 +308,8 @@ export const FRAME_CSS = `
 /* the ballot: what the boxes answer, and what the points mean */
 .ldw-boxwrap{display:grid;gap:5px}
 .ldw-boxes-q{font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase}
-.ldw-sheet-dec>.ldw-pts-key{grid-column:1/-1;margin:2px 0 0;font-size:12.5px;line-height:1.45;max-width:none}
+.ldw-sheet-dec>.ldw-pts-key{grid-column:1/-1;margin:2px 0 0;font-size:13px;line-height:1.45;max-width:none}
+.ldw-pts-key p{margin:4px 0 0}.ldw-pts-how{font-size:13px}
 /* checked quotes in a fallacy answer */
 .ldw-inline-flag{display:inline-block;margin-left:6px;padding:0 6px;border:1.5px solid var(--hk-bad-fill);border-radius:var(--ldw-r);color:var(--hk-bad);font-family:var(--font-sans,inherit);font-style:normal}
 /* the flow beside the clock in your rebuttals */
@@ -343,6 +349,7 @@ button.ldw-brow-main:focus-visible{outline:2px solid var(--hk-accent);outline-of
 
 .ldw-line-removed{margin:6px 0 0;font-size:13px;font-style:italic}
 .ldw-drillrow .ldw-drill-link{white-space:nowrap;font-size:14.5px}
+.ldw-clockmore{font-size:13.5px}.ldw-clockmore summary{cursor:pointer;width:max-content;font-size:13.5px}.ldw-clockmore[open]{display:grid;gap:8px}
 .ldw-chip-find{display:inline-block;font-family:var(--hk-mono);font-size:12.5px;padding:0 6px;border:1px dashed var(--hk-stroke-strong);border-radius:var(--ldw-r)}
 .ldw-coachbox{border:1.5px dashed var(--hk-stroke-strong);border-radius:var(--ldw-r);padding:14px 16px;display:grid;gap:9px;max-width:760px;box-sizing:border-box;min-width:0}
 .ldw-coachbox-head{display:flex;align-items:baseline;gap:4px 14px;flex-wrap:wrap}
@@ -495,7 +502,7 @@ button.ldw-brow-main:focus-visible{outline:2px solid var(--hk-accent);outline-of
 .ldw-advanced-sub{font-size:14px}
 .ldw-advanced>summary:focus-visible{outline:2px solid var(--hk-accent);outline-offset:2px}
 .ldw-advanced .ldw-set{border-top:1px dashed var(--hk-stroke);padding-top:16px}
-.ldw-set-h1{font-size:30px}
+.ldw-set-h1{font-size:26px}
 
 /* motion: the ballot slides up 240 ms; the card flips 180 ms; reduced motion turns both off */
 @media (prefers-reduced-motion:no-preference){

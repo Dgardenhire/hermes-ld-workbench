@@ -383,6 +383,15 @@ export const POINTS_KEY = {
   ld: 'Speaker points run 20 to 30; most rounds land between 26 and 30. 28.0 is a typical good round, 29.0 and up is excellent, and below 27.0 means serious problems.',
 }
 
+// What the points mean, one press away: the paper stays a ballot, not a rubric.
+function PointsKey({ text }) {
+  const [open, setOpen] = useState(false)
+  return jsxs('div', { className: 'ldw-pts-key', children: [
+    jsx('button', { type: 'button', className: 'hk-link ldw-pts-how', 'aria-expanded': open, onClick: () => setOpen(v => !v), children: open ? 'Hide how points work' : 'How points work' }),
+    open ? jsx('p', { children: text }) : null,
+  ] })
+}
+
 function PointsScale({ points }) {
   const marks = [20, 22, 24, 26, 28, 30]
   const pos = points === null || points === undefined ? null : ((points - 20) / 10) * 100
@@ -424,7 +433,7 @@ export function ExtempSheet({ b, take, onDrill, drillLabel = 'Run the drill', dr
       ] }),
       jsx('div', { className: 'ldw-verdict', children: b.summary || verdictWord }),
       jsx(PointsScale, { points: b.points }),
-      jsx('p', { className: 'ldw-pts-key', children: POINTS_KEY.extemp }),
+      jsx(PointsKey, { text: POINTS_KEY.extemp }),
     ] }),
     b.decisive && b.decisive.length ? jsxs('div', { className: 'ldw-declines', children: [
       jsx('h4', { children: 'The lines that decided it' }),
@@ -489,7 +498,7 @@ export function LdSheet({ b, onLine, onDrill, defaultOpen = false }) {
         jsx('span', { className: 'ldw-box', 'data-x': b.decision === k ? '1' : '0' }), SIDE[k]] }, k)) }),
       jsx('div', { className: 'ldw-verdict ldw-ldverdict', children: won ? 'You won' : 'You lost' }),
       jsx(PointsScale, { points: pts.student }),
-      jsx('p', { className: 'ldw-pts-key', children: POINTS_KEY.ld }),
+      jsx(PointsKey, { text: POINTS_KEY.ld }),
     ] }),
     b.reason ? jsx('p', { className: 'ldw-sheet-why', children: firstSentence(b.reason) }) : null,
     lines.length ? jsxs('div', { className: 'ldw-declines', children: [jsx('h4', { children: 'The lines that decided it' }), ...lines.map(line)] }) : null,

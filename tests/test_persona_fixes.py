@@ -223,7 +223,9 @@ class Rebuttals(unittest.TestCase):
     def test_the_flow_sits_beside_the_clock_in_rebuttals(self):
         p = SRC["plugin.js"]
         self.assertIn("beside: flowBeside && r.transcript.some(t => t.speaker === 'ai') ? jsx(FlowBeside", p)
-        self.assertIn("const [flowBeside, setFlowBeside] = useState(true)", p)  # on by default
+        # Loop 2 (product owner, D4): folded while she speaks, one press away beside the clock
+        self.assertIn("const [flowBeside, setFlowBeside] = useState(false)", p)
+        self.assertIn("children: 'Show the flow' })", p)
         self.assertIn("The flow so far", BUNDLE)
         self.assertIn("Hide the flow", BUNDLE)
 
@@ -307,7 +309,8 @@ class Layout(unittest.TestCase):
         self.assertIn("role: 'radiogroup'", SRC["core.js"])
         self.assertIn("'aria-checked': value === o.id", SRC["core.js"])
         css = SRC["styles.js"]
-        self.assertIn(".ldw-choice[aria-checked=true]{border-color:var(--hk-accent)", css)
+        # Loop 2 (D4): one quiet segmented track; the pick is a raised chip, bold, with its check mark (never color alone)
+        self.assertIn(".ldw-choice[aria-checked=true]{background:var(--hk-surface)", css)
         self.assertIn(".ldw-choice[aria-checked=true] .ldw-choice-check{visibility:visible", css)
 
     def test_narrow_windows_keep_the_strip_on_one_row_and_speak_beside_the_clock(self):

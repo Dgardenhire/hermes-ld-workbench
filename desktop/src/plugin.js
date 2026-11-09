@@ -137,8 +137,8 @@ function ClockPanel({ big, label, rows = [], primary, clock, prep, over, extra, 
   return jsxs('section', { className: cls('ldw-clock ldw-stage2', beside && 'ldw-stage3'), 'aria-label': 'Clock', children: [
     jsxs('div', { className: 'ldw-ldface', children: [
       face,
-      clock ? jsx('button', { type: 'button', className: 'hk-link', onClick: clock.running ? clock.pause : clock.start,
-        children: clock.running ? 'Pause the clock' : clock.left === clock.total ? 'Start the clock by hand' : 'Resume the clock' }) : null,
+      clock && clock.left !== clock.total ? jsx('button', { type: 'button', className: 'hk-link', onClick: clock.running ? clock.pause : clock.start,
+        children: clock.running ? 'Pause the clock' : 'Resume the clock' }) : null,
     ] }),
     beside || null,
     jsxs('div', { className: 'ldw-ldside', children: [
@@ -149,7 +149,10 @@ function ClockPanel({ big, label, rows = [], primary, clock, prep, over, extra, 
         jsx('button', { type: 'button', className: 'hk-link', onClick: prep.toggle, disabled: !prep.running && prep.left <= 0,
           children: prep.running ? 'Stop prep' : prep.left > 0 ? 'Use prep' : 'None left' }),
       ] }) : null,
-      rows.length ? jsx('dl', { className: 'ldw-rows', children: rows.map(([k, v]) => jsxs(Fragment, { children: [jsx('dt', { children: k }), jsx('dd', { children: v })] }, k)) }) : null,
+      rows.length || (clock && clock.left === clock.total) ? jsxs('details', { className: 'ldw-clockmore', children: [jsx('summary', { children: 'Details' }),
+        rows.length ? jsx('dl', { className: 'ldw-rows', children: rows.map(([k, v]) => jsxs(Fragment, { children: [jsx('dt', { children: k }), jsx('dd', { children: v })] }, k)) }) : null,
+        clock && clock.left === clock.total ? jsx('button', { type: 'button', className: 'hk-link', onClick: clock.start, children: 'Start the clock by hand' }) : null,
+      ] }) : null,
       extra || null,
     ] }),
   ] })
@@ -181,7 +184,7 @@ function FlowBeside({ r, onHide }) {
   ] })
 }
 
-function StudentSpeech({ r, stop, flowBeside, onHideFlow }) {
+function StudentSpeech({ r, stop, flowBeside, onHideFlow, onShowFlow }) {
   const [text, setText] = useState(r.drafts[stop.id] || '')
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState(null)
@@ -224,6 +227,7 @@ function StudentSpeech({ r, stop, flowBeside, onHideFlow }) {
       beside: flowBeside && r.transcript.some(t => t.speaker === 'ai') ? jsx(FlowBeside, { r, onHide: onHideFlow }) : null,
       go: jsx(SpeakControls, { rec, startLabel: `Speak your ${stop.id}`, onTyped: t => change(text.trim() ? `${text}\n\n${t}` : t) }),
       rows: recording ? [] : [['Pace', pace], real !== null ? ['Spoken length', `${mmss(real)}, recorded`] : ['Spoken length', `about ${mmss(spoken)}, estimated`]],
+      extra: !flowBeside && onShowFlow && r.transcript.some(t => t.speaker === 'ai') ? jsx('button', { type: 'button', className: 'hk-link', onClick: onShowFlow, children: 'Show the flow' }) : null,
       primary: recording ? null : jsx(BigButton, { icon: 'arrow-right', onClick: finish, loading: busy, disabled: take && ['waiting', 'working'].includes(take.transcript.status), children: 'Finish speech' }),
     }),
     jsxs('section', { className: 'ldw-panel ldw-stage', 'aria-label': 'Your speech', children: [
@@ -563,7 +567,7 @@ function Room() {
   const [redo, setRedo] = useState(null)
   const [hit, setHit] = useState(null)
   const [confirmEnd, setConfirmEnd] = useState(false)
-  const [flowBeside, setFlowBeside] = useState(true)
+  const [flowBeside, setFlowBeside] = useState(false) // the flow waits behind Show the flow while she speaks
   // The flow is written in the background; pick it up while any finished speech is still missing.
   const missing = r ? r.transcript.filter(t => !r.flow[t.id]).length : 0
   useEffect(() => {
@@ -581,12 +585,13 @@ function Room() {
   else if (r.phase === 'ballot') {
     floor = jsx(FullBallot, { r, onRedo: setRedo, onFlowHit: flowHit, onNew: newRound })
   } else if (stop.kind === 'cx') floor = jsx(CrossEx, { r, stop }, `${r.round_no}-${stop.id}`)
-  else if (speakerOf(stop, r.side) === 'student') floor = jsx(StudentSpeech, { r, stop, flowBeside: flowBeside && !showFlow, onHideFlow: () => setFlowBeside(false) }, `${r.round_no}-${stop.id}`)
+  else if (speakerOf(stop, r.side) === 'student') floor = jsx(StudentSpeech, { r, stop, flowBeside: flowBeside && !showFlow, onHideFlow: () => setFlowBeside(false), onShowFlow: () => setFlowBeside(true) }, `${r.round_no}-${stop.id}`)
   else floor = jsx(OpponentSpeech, { r, stop }, `${r.round_no}-${stop.id}`)
   const last = r && r.ballots.length ? r.ballots[r.ballots.length - 1] : st.history && st.history.last
-  const roundMenu = r ? jsx(Menu, { label: 'Round', icon: 'list-flat', align: 'end', items: [
+  // One "Round" on the page (the sub-switch): the round's own actions sit behind a quiet "More" menu.
+  const roundMenu = r ? jsx(Menu, { label: 'More', icon: 'ellipsis', ariaLabel: 'Round options', title: 'Round options', align: 'end', items: [
     { label: showFlow || r.phase === 'ballot' ? 'Hide the flow' : 'Show the flow', icon: 'list-flat', disabled: r.phase === 'ballot', onSelect: () => setShowFlow(v => !v) },
-    !flowBeside && r.phase === 'live' ? { label: 'Flow beside the clock in your speeches', icon: 'layout-sidebar-right', onSelect: () => setFlowBeside(true) } : null,
+    !flowBeside && r.phase === 'live' ? { label: 'Flow beside the clock in your speeches', icon: 'layout-sidebar-right', onSelect: () => setFlowBeside(true) } : flowBeside && r.phase === 'live' ? { label: 'Fold the flow while you speak', icon: 'layout-sidebar-right', onSelect: () => setFlowBeside(false) } : null,
     r.phase !== 'ballot' ? { label: 'End this round', icon: 'close', danger: true, onSelect: () => setConfirmEnd(true) } : null,
   ] }) : null
   return jsxs(Fragment, { children: [
