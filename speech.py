@@ -114,23 +114,28 @@ def _tokens(text):
     return re.findall(r"[a-z']+|[,.;:!?]", (text or "").lower())
 
 
-def count_fillers(text):
-    """Fillers the transcript caught: um, uh and friends, two-word fillers, and "like" or "so" when
-    they stand alone between punctuation or open a clause."""
-    toks = _tokens(text)
-    n = 0
+def filler_hits(toks):
+    """Where the fillers are in a token list from ``_tokens``: [(index, how many tokens)]. One rule for the
+    count on the floor and the dotted marks in the take player (player.filler_flags)."""
+    out = []
     for i, t in enumerate(toks):
         prev = toks[i - 1] if i else "."
         nxt = toks[i + 1] if i + 1 < len(toks) else "."
         if t in FILLER_WORDS:
-            n += 1
+            out.append((i, 1))
         elif t == "like" and prev in ",.;:!?" and nxt in ",":
-            n += 1
+            out.append((i, 1))
         elif t == "so" and prev in ".;:!?" and nxt == ",":
-            n += 1
+            out.append((i, 1))
         elif i + 1 < len(toks) and f"{t} {nxt}" in FILLER_PHRASES and prev in ",.;:!?":
-            n += 1
-    return n
+            out.append((i, 2))
+    return out
+
+
+def count_fillers(text):
+    """Fillers the transcript caught: um, uh and friends, two-word fillers, and "like" or "so" when
+    they stand alone between punctuation or open a clause."""
+    return len(filler_hits(_tokens(text)))
 
 
 def word_count(text):
@@ -309,7 +314,21 @@ def public(take, with_levels=True):
     out["has_audio"] = bool(take.get("file"))
     if with_levels:
         out["levels"] = take.get("levels") or []
+        out["timeline"] = _timeline(take)
     return out
+
+
+def _timeline(take):
+    """The take player's words with times (player.timeline). A take the player cannot time still plays."""
+    try:
+        try:
+            from . import player
+        except ImportError:  # loose module (tests)
+            import player  # type: ignore
+        return player.timeline(take)
+    except Exception:  # the take and its recording matter more than the highlight
+        _log.exception("take timeline")
+        return {"method": "none", "tokens": [], "sentences": []}
 
 
 def is_audio(data):
