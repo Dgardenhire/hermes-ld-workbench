@@ -1,0 +1,1332 @@
+{
+ "note": "The Sample on the first open. A written adult answer, timed word by word; no voice is cleared to ship yet, so has_audio is false and the play marks stay hidden (BRIEF section 4). Same shape as a real take and a real drill ballot. Each decisive line carries start and end, in seconds, for the take player.",
+ "take": {
+  "id": "sample",
+  "event": "drill",
+  "segment": "answer",
+  "limit": 60,
+  "prompt": "Should the Federal Reserve care more about prices or about jobs right now?",
+  "answer": "Prices, for now",
+  "ref": "",
+  "at": 0,
+  "duration": 59.8,
+  "typed": false,
+  "bytes": 0,
+  "mime": "",
+  "transcript": {
+   "status": "done",
+   "text": "Um, so the question is whether the Fed should care more about prices or about jobs right now. My answer is prices, for now. First, the law. Congress gave the Fed two goals, stable prices and maximum employment, so the real question is which one is further off. Second, the jobs side is holding up. According to Reuters, Fed policymakers are weighing a rate hike after a strong jobs report, which tells you hiring is not the emergency. Third, the cost of waiting. Prices that run hot for a year are, uh, harder to bring down, and they hurt the same workers the jobs goal is meant to protect. So the Fed should lean on prices now, and watch the jobs numbers every month.",
+   "words": [
+    {
+     "word": "Um,",
+     "start": 0.7,
+     "end": 1.04
+    },
+    {
+     "word": "so",
+     "start": 1.13,
+     "end": 1.47
+    },
+    {
+     "word": "the",
+     "start": 1.56,
+     "end": 1.9
+    },
+    {
+     "word": "question",
+     "start": 1.98,
+     "end": 2.33
+    },
+    {
+     "word": "is",
+     "start": 2.41,
+     "end": 2.76
+    },
+    {
+     "word": "whether",
+     "start": 2.84,
+     "end": 3.18
+    },
+    {
+     "word": "the",
+     "start": 3.27,
+     "end": 3.61
+    },
+    {
+     "word": "Fed",
+     "start": 3.7,
+     "end": 4.04
+    },
+    {
+     "word": "should",
+     "start": 4.13,
+     "end": 4.47
+    },
+    {
+     "word": "care",
+     "start": 4.55,
+     "end": 4.9
+    },
+    {
+     "word": "more",
+     "start": 4.98,
+     "end": 5.32
+    },
+    {
+     "word": "about",
+     "start": 5.41,
+     "end": 5.75
+    },
+    {
+     "word": "prices",
+     "start": 5.84,
+     "end": 6.18
+    },
+    {
+     "word": "or",
+     "start": 6.27,
+     "end": 6.61
+    },
+    {
+     "word": "about",
+     "start": 6.7,
+     "end": 7.04
+    },
+    {
+     "word": "jobs",
+     "start": 7.12,
+     "end": 7.47
+    },
+    {
+     "word": "right",
+     "start": 7.55,
+     "end": 7.89
+    },
+    {
+     "word": "now.",
+     "start": 7.98,
+     "end": 8.32
+    },
+    {
+     "word": "My",
+     "start": 8.41,
+     "end": 8.75
+    },
+    {
+     "word": "answer",
+     "start": 8.84,
+     "end": 9.18
+    },
+    {
+     "word": "is",
+     "start": 9.26,
+     "end": 9.61
+    },
+    {
+     "word": "prices,",
+     "start": 9.69,
+     "end": 10.04
+    },
+    {
+     "word": "for",
+     "start": 10.12,
+     "end": 10.46
+    },
+    {
+     "word": "now.",
+     "start": 10.55,
+     "end": 10.89
+    },
+    {
+     "word": "First,",
+     "start": 10.98,
+     "end": 11.32
+    },
+    {
+     "word": "the",
+     "start": 11.41,
+     "end": 11.75
+    },
+    {
+     "word": "law.",
+     "start": 11.83,
+     "end": 12.18
+    },
+    {
+     "word": "Congress",
+     "start": 12.26,
+     "end": 12.6
+    },
+    {
+     "word": "gave",
+     "start": 12.69,
+     "end": 13.03
+    },
+    {
+     "word": "the",
+     "start": 13.12,
+     "end": 13.46
+    },
+    {
+     "word": "Fed",
+     "start": 13.55,
+     "end": 13.89
+    },
+    {
+     "word": "two",
+     "start": 13.97,
+     "end": 14.32
+    },
+    {
+     "word": "goals,",
+     "start": 14.4,
+     "end": 14.75
+    },
+    {
+     "word": "stable",
+     "start": 14.83,
+     "end": 15.17
+    },
+    {
+     "word": "prices",
+     "start": 15.26,
+     "end": 15.6
+    },
+    {
+     "word": "and",
+     "start": 15.69,
+     "end": 16.03
+    },
+    {
+     "word": "maximum",
+     "start": 16.12,
+     "end": 16.46
+    },
+    {
+     "word": "employment,",
+     "start": 16.54,
+     "end": 16.89
+    },
+    {
+     "word": "so",
+     "start": 16.97,
+     "end": 17.32
+    },
+    {
+     "word": "the",
+     "start": 17.4,
+     "end": 17.74
+    },
+    {
+     "word": "real",
+     "start": 17.83,
+     "end": 18.17
+    },
+    {
+     "word": "question",
+     "start": 18.26,
+     "end": 18.6
+    },
+    {
+     "word": "is",
+     "start": 18.69,
+     "end": 19.03
+    },
+    {
+     "word": "which",
+     "start": 19.11,
+     "end": 19.46
+    },
+    {
+     "word": "one",
+     "start": 19.54,
+     "end": 19.88
+    },
+    {
+     "word": "is",
+     "start": 19.97,
+     "end": 20.31
+    },
+    {
+     "word": "further",
+     "start": 20.4,
+     "end": 20.74
+    },
+    {
+     "word": "off.",
+     "start": 20.83,
+     "end": 21.17
+    },
+    {
+     "word": "Second,",
+     "start": 21.25,
+     "end": 21.6
+    },
+    {
+     "word": "the",
+     "start": 24.0,
+     "end": 24.34
+    },
+    {
+     "word": "jobs",
+     "start": 24.43,
+     "end": 24.77
+    },
+    {
+     "word": "side",
+     "start": 24.86,
+     "end": 25.2
+    },
+    {
+     "word": "is",
+     "start": 25.28,
+     "end": 25.63
+    },
+    {
+     "word": "holding",
+     "start": 25.71,
+     "end": 26.06
+    },
+    {
+     "word": "up.",
+     "start": 26.14,
+     "end": 26.48
+    },
+    {
+     "word": "According",
+     "start": 26.57,
+     "end": 26.91
+    },
+    {
+     "word": "to",
+     "start": 27.0,
+     "end": 27.34
+    },
+    {
+     "word": "Reuters,",
+     "start": 27.43,
+     "end": 27.77
+    },
+    {
+     "word": "Fed",
+     "start": 27.85,
+     "end": 28.2
+    },
+    {
+     "word": "policymakers",
+     "start": 28.28,
+     "end": 28.62
+    },
+    {
+     "word": "are",
+     "start": 28.71,
+     "end": 29.05
+    },
+    {
+     "word": "weighing",
+     "start": 29.14,
+     "end": 29.48
+    },
+    {
+     "word": "a",
+     "start": 29.57,
+     "end": 29.91
+    },
+    {
+     "word": "rate",
+     "start": 30.0,
+     "end": 30.34
+    },
+    {
+     "word": "hike",
+     "start": 30.42,
+     "end": 30.77
+    },
+    {
+     "word": "after",
+     "start": 30.85,
+     "end": 31.19
+    },
+    {
+     "word": "a",
+     "start": 31.28,
+     "end": 31.62
+    },
+    {
+     "word": "strong",
+     "start": 31.71,
+     "end": 32.05
+    },
+    {
+     "word": "jobs",
+     "start": 32.14,
+     "end": 32.48
+    },
+    {
+     "word": "report,",
+     "start": 32.56,
+     "end": 32.91
+    },
+    {
+     "word": "which",
+     "start": 32.99,
+     "end": 33.34
+    },
+    {
+     "word": "tells",
+     "start": 33.42,
+     "end": 33.76
+    },
+    {
+     "word": "you",
+     "start": 33.85,
+     "end": 34.19
+    },
+    {
+     "word": "hiring",
+     "start": 34.28,
+     "end": 34.62
+    },
+    {
+     "word": "is",
+     "start": 34.71,
+     "end": 35.05
+    },
+    {
+     "word": "not",
+     "start": 35.13,
+     "end": 35.48
+    },
+    {
+     "word": "the",
+     "start": 35.56,
+     "end": 35.9
+    },
+    {
+     "word": "emergency.",
+     "start": 35.99,
+     "end": 36.33
+    },
+    {
+     "word": "Third,",
+     "start": 36.42,
+     "end": 36.76
+    },
+    {
+     "word": "the",
+     "start": 36.85,
+     "end": 37.19
+    },
+    {
+     "word": "cost",
+     "start": 39.2,
+     "end": 39.54
+    },
+    {
+     "word": "of",
+     "start": 39.63,
+     "end": 39.97
+    },
+    {
+     "word": "waiting.",
+     "start": 40.06,
+     "end": 40.4
+    },
+    {
+     "word": "Prices",
+     "start": 40.48,
+     "end": 40.83
+    },
+    {
+     "word": "that",
+     "start": 40.91,
+     "end": 41.26
+    },
+    {
+     "word": "run",
+     "start": 41.34,
+     "end": 41.68
+    },
+    {
+     "word": "hot",
+     "start": 41.77,
+     "end": 42.11
+    },
+    {
+     "word": "for",
+     "start": 42.2,
+     "end": 42.54
+    },
+    {
+     "word": "a",
+     "start": 42.63,
+     "end": 42.97
+    },
+    {
+     "word": "year",
+     "start": 43.05,
+     "end": 43.4
+    },
+    {
+     "word": "are,",
+     "start": 43.48,
+     "end": 43.82
+    },
+    {
+     "word": "uh,",
+     "start": 43.91,
+     "end": 44.25
+    },
+    {
+     "word": "harder",
+     "start": 44.34,
+     "end": 44.68
+    },
+    {
+     "word": "to",
+     "start": 44.77,
+     "end": 45.11
+    },
+    {
+     "word": "bring",
+     "start": 45.2,
+     "end": 45.54
+    },
+    {
+     "word": "down,",
+     "start": 45.62,
+     "end": 45.97
+    },
+    {
+     "word": "and",
+     "start": 46.05,
+     "end": 46.39
+    },
+    {
+     "word": "they",
+     "start": 46.48,
+     "end": 46.82
+    },
+    {
+     "word": "hurt",
+     "start": 46.91,
+     "end": 47.25
+    },
+    {
+     "word": "the",
+     "start": 47.34,
+     "end": 47.68
+    },
+    {
+     "word": "same",
+     "start": 47.76,
+     "end": 48.11
+    },
+    {
+     "word": "workers",
+     "start": 48.19,
+     "end": 48.54
+    },
+    {
+     "word": "the",
+     "start": 48.62,
+     "end": 48.96
+    },
+    {
+     "word": "jobs",
+     "start": 49.05,
+     "end": 49.39
+    },
+    {
+     "word": "goal",
+     "start": 49.48,
+     "end": 49.82
+    },
+    {
+     "word": "is",
+     "start": 49.91,
+     "end": 50.25
+    },
+    {
+     "word": "meant",
+     "start": 50.33,
+     "end": 50.68
+    },
+    {
+     "word": "to",
+     "start": 50.76,
+     "end": 51.1
+    },
+    {
+     "word": "protect.",
+     "start": 51.19,
+     "end": 51.53
+    },
+    {
+     "word": "So",
+     "start": 51.62,
+     "end": 51.96
+    },
+    {
+     "word": "the",
+     "start": 52.05,
+     "end": 52.39
+    },
+    {
+     "word": "Fed",
+     "start": 52.48,
+     "end": 52.82
+    },
+    {
+     "word": "should",
+     "start": 52.9,
+     "end": 53.25
+    },
+    {
+     "word": "lean",
+     "start": 53.33,
+     "end": 53.67
+    },
+    {
+     "word": "on",
+     "start": 53.76,
+     "end": 54.1
+    },
+    {
+     "word": "prices",
+     "start": 54.19,
+     "end": 54.53
+    },
+    {
+     "word": "now,",
+     "start": 54.62,
+     "end": 54.96
+    },
+    {
+     "word": "and",
+     "start": 55.04,
+     "end": 55.39
+    },
+    {
+     "word": "watch",
+     "start": 55.47,
+     "end": 55.82
+    },
+    {
+     "word": "the",
+     "start": 55.9,
+     "end": 56.24
+    },
+    {
+     "word": "jobs",
+     "start": 56.33,
+     "end": 56.67
+    },
+    {
+     "word": "numbers",
+     "start": 56.76,
+     "end": 57.1
+    },
+    {
+     "word": "every",
+     "start": 57.19,
+     "end": 57.53
+    },
+    {
+     "word": "month.",
+     "start": 57.61,
+     "end": 57.96
+    }
+   ],
+   "model": "",
+   "error": null
+  },
+  "stats": {
+   "duration": 59.8,
+   "speaking": 58.6,
+   "starts_at": 0.6,
+   "pauses": [
+    {
+     "at": 21.6,
+     "length": 2.4
+    },
+    {
+     "at": 37.19,
+     "length": 2.0
+    }
+   ],
+   "measured_from": "levels",
+   "words": 122,
+   "wpm": 125,
+   "fillers": 2,
+   "answer_at": 5.2
+  },
+  "has_audio": false,
+  "levels": [
+   0.006,
+   0.005,
+   0.008,
+   0.004,
+   0.007,
+   0.006,
+   0.414,
+   0.577,
+   0.4,
+   0.511,
+   0.345,
+   0.311,
+   0.394,
+   0.514,
+   0.264,
+   0.315,
+   0.487,
+   0.639,
+   0.549,
+   0.519,
+   0.739,
+   0.414,
+   0.68,
+   0.448,
+   0.356,
+   0.308,
+   0.344,
+   0.507,
+   0.288,
+   0.449,
+   0.504,
+   0.451,
+   0.551,
+   0.41,
+   0.421,
+   0.465,
+   0.607,
+   0.483,
+   0.402,
+   0.46,
+   0.388,
+   0.325,
+   0.508,
+   0.501,
+   0.379,
+   0.536,
+   0.554,
+   0.7,
+   0.655,
+   0.488,
+   0.701,
+   0.36,
+   0.425,
+   0.509,
+   0.277,
+   0.392,
+   0.251,
+   0.502,
+   0.575,
+   0.549,
+   0.687,
+   0.508,
+   0.641,
+   0.587,
+   0.548,
+   0.465,
+   0.56,
+   0.566,
+   0.387,
+   0.457,
+   0.268,
+   0.527,
+   0.548,
+   0.708,
+   0.676,
+   0.499,
+   0.528,
+   0.603,
+   0.34,
+   0.453,
+   0.313,
+   0.27,
+   0.241,
+   0.499,
+   0.302,
+   0.381,
+   0.473,
+   0.676,
+   0.422,
+   0.557,
+   0.579,
+   0.666,
+   0.605,
+   0.58,
+   0.341,
+   0.369,
+   0.347,
+   0.547,
+   0.604,
+   0.362,
+   0.411,
+   0.462,
+   0.48,
+   0.567,
+   0.584,
+   0.437,
+   0.306,
+   0.411,
+   0.364,
+   0.419,
+   0.559,
+   0.489,
+   0.462,
+   0.539,
+   0.598,
+   0.408,
+   0.715,
+   0.665,
+   0.674,
+   0.61,
+   0.428,
+   0.393,
+   0.264,
+   0.442,
+   0.252,
+   0.281,
+   0.369,
+   0.393,
+   0.491,
+   0.413,
+   0.4,
+   0.439,
+   0.392,
+   0.445,
+   0.286,
+   0.549,
+   0.438,
+   0.274,
+   0.327,
+   0.391,
+   0.437,
+   0.393,
+   0.679,
+   0.746,
+   0.56,
+   0.547,
+   0.374,
+   0.339,
+   0.384,
+   0.327,
+   0.511,
+   0.282,
+   0.256,
+   0.616,
+   0.509,
+   0.413,
+   0.579,
+   0.409,
+   0.577,
+   0.71,
+   0.632,
+   0.533,
+   0.344,
+   0.356,
+   0.279,
+   0.501,
+   0.445,
+   0.569,
+   0.453,
+   0.451,
+   0.679,
+   0.744,
+   0.684,
+   0.638,
+   0.603,
+   0.535,
+   0.322,
+   0.404,
+   0.346,
+   0.249,
+   0.28,
+   0.408,
+   0.441,
+   0.624,
+   0.733,
+   0.553,
+   0.705,
+   0.689,
+   0.637,
+   0.391,
+   0.311,
+   0.3,
+   0.294,
+   0.32,
+   0.502,
+   0.64,
+   0.657,
+   0.557,
+   0.629,
+   0.672,
+   0.396,
+   0.561,
+   0.607,
+   0.526,
+   0.49,
+   0.387,
+   0.294,
+   0.535,
+   0.414,
+   0.619,
+   0.713,
+   0.534,
+   0.54,
+   0.716,
+   0.008,
+   0.005,
+   0.005,
+   0.005,
+   0.009,
+   0.009,
+   0.005,
+   0.009,
+   0.01,
+   0.008,
+   0.006,
+   0.007,
+   0.005,
+   0.004,
+   0.01,
+   0.008,
+   0.007,
+   0.01,
+   0.007,
+   0.009,
+   0.009,
+   0.005,
+   0.006,
+   0.006,
+   0.005,
+   0.008,
+   0.482,
+   0.512,
+   0.374,
+   0.606,
+   0.375,
+   0.387,
+   0.424,
+   0.549,
+   0.407,
+   0.62,
+   0.515,
+   0.56,
+   0.579,
+   0.406,
+   0.538,
+   0.418,
+   0.316,
+   0.554,
+   0.302,
+   0.388,
+   0.476,
+   0.435,
+   0.386,
+   0.494,
+   0.547,
+   0.658,
+   0.436,
+   0.592,
+   0.462,
+   0.438,
+   0.571,
+   0.439,
+   0.43,
+   0.486,
+   0.546,
+   0.405,
+   0.5,
+   0.504,
+   0.543,
+   0.633,
+   0.558,
+   0.578,
+   0.532,
+   0.657,
+   0.531,
+   0.557,
+   0.556,
+   0.311,
+   0.428,
+   0.591,
+   0.593,
+   0.388,
+   0.417,
+   0.55,
+   0.424,
+   0.468,
+   0.379,
+   0.548,
+   0.548,
+   0.555,
+   0.276,
+   0.473,
+   0.472,
+   0.323,
+   0.623,
+   0.692,
+   0.461,
+   0.732,
+   0.535,
+   0.545,
+   0.687,
+   0.591,
+   0.317,
+   0.384,
+   0.401,
+   0.345,
+   0.319,
+   0.398,
+   0.58,
+   0.372,
+   0.585,
+   0.554,
+   0.397,
+   0.48,
+   0.545,
+   0.465,
+   0.272,
+   0.571,
+   0.496,
+   0.573,
+   0.298,
+   0.393,
+   0.355,
+   0.648,
+   0.491,
+   0.444,
+   0.531,
+   0.671,
+   0.599,
+   0.363,
+   0.292,
+   0.544,
+   0.422,
+   0.486,
+   0.305,
+   0.335,
+   0.595,
+   0.533,
+   0.424,
+   0.724,
+   0.596,
+   0.62,
+   0.328,
+   0.56,
+   0.255,
+   0.522,
+   0.386,
+   0.37,
+   0.481,
+   0.653,
+   0.459,
+   0.436,
+   0.584,
+   0.473,
+   0.402,
+   0.382,
+   0.302,
+   0.32,
+   0.335,
+   0.327,
+   0.009,
+   0.006,
+   0.007,
+   0.005,
+   0.006,
+   0.004,
+   0.006,
+   0.004,
+   0.008,
+   0.007,
+   0.005,
+   0.007,
+   0.01,
+   0.005,
+   0.009,
+   0.007,
+   0.007,
+   0.009,
+   0.006,
+   0.007,
+   0.008,
+   0.01,
+   0.458,
+   0.589,
+   0.507,
+   0.454,
+   0.362,
+   0.349,
+   0.271,
+   0.334,
+   0.354,
+   0.626,
+   0.481,
+   0.457,
+   0.419,
+   0.657,
+   0.629,
+   0.519,
+   0.347,
+   0.31,
+   0.323,
+   0.395,
+   0.318,
+   0.458,
+   0.435,
+   0.713,
+   0.737,
+   0.59,
+   0.468,
+   0.689,
+   0.419,
+   0.395,
+   0.239,
+   0.355,
+   0.389,
+   0.418,
+   0.346,
+   0.493,
+   0.357,
+   0.478,
+   0.431,
+   0.535,
+   0.387,
+   0.345,
+   0.403,
+   0.34,
+   0.436,
+   0.405,
+   0.49,
+   0.483,
+   0.54,
+   0.638,
+   0.503,
+   0.506,
+   0.745,
+   0.441,
+   0.615,
+   0.549,
+   0.298,
+   0.54,
+   0.537,
+   0.44,
+   0.491,
+   0.548,
+   0.352,
+   0.527,
+   0.554,
+   0.689,
+   0.68,
+   0.671,
+   0.554,
+   0.622,
+   0.509,
+   0.481,
+   0.302,
+   0.234,
+   0.29,
+   0.403,
+   0.354,
+   0.649,
+   0.581,
+   0.619,
+   0.614,
+   0.61,
+   0.508,
+   0.297,
+   0.537,
+   0.493,
+   0.396,
+   0.415,
+   0.484,
+   0.313,
+   0.589,
+   0.456,
+   0.418,
+   0.493,
+   0.644,
+   0.433,
+   0.582,
+   0.624,
+   0.42,
+   0.359,
+   0.388,
+   0.474,
+   0.533,
+   0.52,
+   0.57,
+   0.405,
+   0.449,
+   0.487,
+   0.641,
+   0.455,
+   0.508,
+   0.273,
+   0.259,
+   0.315,
+   0.459,
+   0.486,
+   0.514,
+   0.42,
+   0.538,
+   0.549,
+   0.563,
+   0.436,
+   0.684,
+   0.405,
+   0.637,
+   0.585,
+   0.236,
+   0.381,
+   0.515,
+   0.593,
+   0.448,
+   0.426,
+   0.442,
+   0.724,
+   0.474,
+   0.592,
+   0.41,
+   0.505,
+   0.615,
+   0.293,
+   0.512,
+   0.399,
+   0.546,
+   0.512,
+   0.386,
+   0.66,
+   0.549,
+   0.406,
+   0.399,
+   0.552,
+   0.506,
+   0.414,
+   0.317,
+   0.358,
+   0.332,
+   0.518,
+   0.245,
+   0.541,
+   0.613,
+   0.4,
+   0.711,
+   0.649,
+   0.709,
+   0.472,
+   0.465,
+   0.431,
+   0.606,
+   0.436,
+   0.346,
+   0.379,
+   0.351,
+   0.309,
+   0.369,
+   0.661,
+   0.493,
+   0.727,
+   0.475,
+   0.453,
+   0.5,
+   0.347,
+   0.376,
+   0.559,
+   0.53,
+   0.52,
+   0.487,
+   0.626,
+   0.676,
+   0.571,
+   0.649,
+   0.415,
+   0.636,
+   0.505,
+   0.57,
+   0.493,
+   0.337,
+   0.238,
+   0.548,
+   0.29,
+   0.445,
+   0.44,
+   0.004,
+   0.004,
+   0.004,
+   0.004,
+   0.004,
+   0.004
+  ],
+  "sample": true
+ },
+ "ballot": {
+  "event": "drill",
+  "answered": "yes",
+  "points": 27.5,
+  "summary": "A clear answer with three areas, in time",
+  "decisive": [
+   {
+    "line": "My answer is prices, for now.",
+    "effect": "The answer came in the first ten seconds, then every area returned to it.",
+    "checked": true,
+    "start": 8.41,
+    "end": 10.89
+   },
+   {
+    "line": "so the real question is which one is further off",
+    "effect": "The strongest area: it turns a yes-or-no into a comparison a judge can weigh.",
+    "checked": true,
+    "start": 16.97,
+    "end": 21.17
+   },
+   {
+    "line": "According to Reuters, Fed policymakers are weighing a rate hike after a strong jobs report",
+    "effect": "One source named aloud, but with no date.",
+    "checked": true,
+    "start": 26.57,
+    "end": 32.91
+   }
+  ],
+  "reason": "You answered the question early and kept coming back to it, which is what a judge listens for in a one-minute answer. Your three areas were in a sensible order: what the law asks of the Fed, where the jobs side stands, and what waiting would cost. The first area was the best analysis, because it turned the question into a comparison you could win. The jobs area needed one more step: say what number would change your answer. You named Reuters but gave no date, so the judge cannot tell how current it is. Delivery was steady. Two long pauses came at the turns between areas, which reads as searching for the next point.",
+  "strengths": [
+   "Answer in the first ten seconds",
+   "Three areas, each a different reason"
+  ],
+  "drill": {
+   "name": "Source and date in one breath",
+   "how": "Say five sources from your file aloud as 'Outlet, month and day' until each takes under two seconds. Then answer again."
+  },
+  "tags": [
+   "undated-sources"
+  ],
+  "measured_tags": [],
+  "measured": {
+   "speaking": 58.6,
+   "wpm": 125,
+   "fillers": 2,
+   "answer_at": 5.2,
+   "duration": 59.8,
+   "pauses": 2,
+   "limit": 60,
+   "typed": false,
+   "transcript": true
+  },
+  "sources_cited": [
+   {
+    "outlet": "Reuters",
+    "at": null,
+    "title": "Fed policymakers consider rate hike after strong jobs report"
+   }
+  ],
+  "question": "Should the Federal Reserve care more about prices or about jobs right now?",
+  "take_id": "sample",
+  "at": 0,
+  "index": 0,
+  "sample": true
+ }
+}

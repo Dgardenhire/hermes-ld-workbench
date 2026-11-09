@@ -1478,3 +1478,59 @@ async def post_coach_ballot_show(body: dict):
         return out
     except Exception as e:
         _fail(e)
+
+
+def _lane(name):
+    """A lane's own module in this package, imported on first use."""
+    from importlib import import_module
+    _load_package()  # the package is in sys.modules after the first load; this only makes sure
+    return import_module(f"ld_workbench_dashboard_package.{name}")
+
+
+# ===== Lane B: player routes =====
+#
+#
+#
+#
+#
+#
+#
+#
+#
+#
+
+# ===== Lane C: evidence routes =====
+#
+#
+#
+#
+#
+#
+#
+#
+#
+#
+
+# ===== Lane E: hermes routes =====
+#
+#
+#
+#
+#
+#
+#
+#
+#
+#
+
+# ===== spare =====
+#
+#
+#
+#
+#
+#
+#
+#
+#
+#
