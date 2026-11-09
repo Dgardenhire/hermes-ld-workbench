@@ -7,7 +7,7 @@ import { Button, Codicon, Input, Textarea, atom, useValue } from '@hermes/plugin
 import { Notice } from 'hermes-ui-kit'
 import { Choices, Thinking, api, cls, errText, mmss, post, rest } from './core.js'
 import { Clock, ExtempSheet, FILE_EMPTY_NOTE, LastTake, LiveWave, SpeakControls, Strip, mentionsFile, sendTake, takeSettled, useRecorder, useTakePoll } from './floor.js'
-import { $coachOn, PrepCoach, StrongExample, useCoachContext } from './coach.js'
+import { $coachOn, PrepCoach, StrongExample, TakeTwo, useCoachContext } from './coach.js'
 import { PrimerButton, PrimerCards } from './primer.js'
 import { FirstRun, SampleBallot, isFirstRun } from './firstrun.js'
 import { useMarginSpot } from './margin.js'
@@ -70,7 +70,7 @@ function LinkMiss() {
 /* ------------------------------------------------------------------ the take, judged -- */
 
 // Record or type a take, wait for the transcript, then ask for the ballot. Shared by the drill and the round.
-function useJudgedTake({ event, limit, question, outline, initial, onBallot }) {
+function useJudgedTake({ event, limit, question, outline, initial, onBallot, judgeExtra }) {
   const [take, setTake] = useState(initial || null)
   const [ballot, setBallot] = useState(null)
   const [busy, setBusy] = useState(null) // sending | judging
@@ -79,7 +79,7 @@ function useJudgedTake({ event, limit, question, outline, initial, onBallot }) {
   const judge = async t => {
     setBusy('judging'); setErr(null)
     try {
-      const b = await post(`speech/${t.id}/judge`, { question, outline })
+      const b = await post(`speech/${t.id}/judge`, { question, outline, ...((judgeExtra && judgeExtra.current) || {}) })
       setBallot(b); if (onBallot) onBallot(b, t)
     } catch (e) { setErr(errText(e)) } finally { setBusy(null) }
   }
@@ -221,10 +221,18 @@ function Slip({ kicker, question, side, tools }) {
 function DrillFloor({ home, modeSwitch }) {
   const q = useQuestion()
   const last = home.last_take && home.last_take.drill
-  const jt = useJudgedTake({ event: 'drill', limit: DRILL, question: q.text, initial: last && last.prompt === q.text ? last : null, onBallot: () => { loadHome() } }) // the new drill goes under the floor
+  const extra = useRef(null) // { after_example } once the student tries again after the coach's example
+  const [prev, setPrev] = useState(null) // Take 1 and the example it got, kept for the Take 2 row
+  const jt = useJudgedTake({ event: 'drill', limit: DRILL, question: q.text, initial: last && last.prompt === q.text ? last : null, onBallot: () => { loadHome() }, judgeExtra: extra }) // the new drill goes under the floor
   const live = jt.recorder.state === 'live' || jt.recorder.state === 'armed'
   const shown = useRef(q.text)
-  useEffect(() => { if (shown.current !== q.text) { shown.current = q.text; jt.reset() } }, [q.text]) // a new question, a clean floor
+  useEffect(() => { if (shown.current !== q.text) { shown.current = q.text; jt.reset(); setPrev(null); extra.current = null } }, [q.text]) // a new question, a clean floor
+  const again = example => { // Try it again from the compare: Take 1 and its example stay for the Take 2 row
+    setPrev({ take: jt.take, ballot: jt.ballot, example })
+    extra.current = { after_example: example.id }
+    jt.reset()
+  }
+  const plain = () => { setPrev(null); extra.current = null; jt.reset() }
   const fileEmpty = !home.file_count
   const phase = jt.ballot ? 'ballot' : live ? 'live' : jt.take ? 'taken' : 'ready'
   const first = isFirstRun(home)
@@ -238,8 +246,9 @@ function DrillFloor({ home, modeSwitch }) {
     ] }),
     jsx(Slip, { kicker: [`60-second answer, ${AREAS[q.area] || 'United States'}`, modeSwitch], question: q.text, tools: jsx(QuestionTools, { home, disabled: live }) }),
     jsx(PrimerCards, { question: q.text }),
-    jt.ballot ? jsx(ExtempSheet, { b: jt.ballot, take: jt.take, drillLabel: 'Try it again', onDrill: () => jt.reset(), fileEmpty, showMe: false }) : null,
-    jt.ballot && jt.take ? jsx(StrongExample, { kind: 'answer', question: q.text, takeIds: [jt.take.id], onAgain: () => jt.reset() }) : null,
+    prev && jt.take && prev.take ? jsx(TakeTwo, { take1: prev.take.id, take2: jt.take.id, exampleId: prev.example.id, ready: !!jt.ballot }) : null,
+    jt.ballot ? jsx(ExtempSheet, { b: jt.ballot, take: jt.take, drillLabel: 'Try it again', drillLink: true, onDrill: plain, fileEmpty, showMe: false }) : null,
+    jt.ballot && jt.take ? jsx(StrongExample, { kind: 'answer', question: q.text, takeIds: [jt.take.id], onAgain: again }) : null,
     jsx(Floor, { limit: DRILL, label: null, jt, startLabel: 'Start speaking', extra: jsx(PrimerButton, { question: q.text }) }),
     first && phase === 'ready' ? jsx(FirstRun, {}) : null,
     first && phase === 'ready' ? jsx(SampleBallot, {}) : null,

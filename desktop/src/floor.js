@@ -402,12 +402,13 @@ export const FILE_EMPTY_NOTE = 'Your file is empty for now: in Full round, pull 
 
 // The extemp ballot: read in ten seconds, the full reason folded. fileEmpty: the student has no saved sources,
 // so a drill that sends them to "your file" says how to start one.
-export function ExtempSheet({ b, take, onDrill, drillLabel = 'Run the drill', defaultOpen = false, fileEmpty = false, showMe = true, label = 'Practice ballot' }) {
+export function ExtempSheet({ b, take, onDrill, drillLabel = 'Run the drill', drillLink = false, defaultOpen = false, fileEmpty = false, showMe = true, label = 'Practice ballot' }) {
   const [open, setOpen] = useState(defaultOpen)
   const m = b.measured || {}
   const verdictWord = { yes: 'You answered the question', partly: 'You partly answered the question', no: 'You did not answer the question' }[b.answered]
   return jsxs('article', { className: 'ldw-sheet', 'aria-label': 'Ballot', children: [
-    jsxs('div', { className: 'ldw-sheet-head', children: [jsx('b', { children: b.event === 'drill' ? '60-second answer' : 'Extemporaneous speaking' }), jsx('span', { children: label })] }),
+    jsxs('div', { className: 'ldw-sheet-head', children: [jsx('b', { children: b.event === 'drill' ? '60-second answer' : 'Extemporaneous speaking' }),
+      jsx('span', { children: b.help === "after the coach's example" ? `${label} · after the coach's example` : label })] }),
     jsxs('div', { className: 'ldw-sheet-fields', children: [
       jsxs('div', { children: [jsx('i', { children: 'Judge' }), 'Extemp judge'] }),
       jsxs('div', { children: [jsx('i', { children: 'Time' }), m.typed ? 'typed' : `${mmss(m.speaking || 0)} of ${mmss(m.limit || 0)}`] }),
@@ -432,12 +433,14 @@ export function ExtempSheet({ b, take, onDrill, drillLabel = 'Run the drill', de
         jsx('span', { className: 'ldw-line-effect', children: d.effect }),
         d.checked === false ? jsx('span', { className: 'ldw-line-flag', children: 'Not found in your transcript. Check it.' }) : null,
       ] }, i)),
+      b.notes_removed ? jsx('p', { className: 'ldw-line-removed', children: `${b.notes_removed} judge's note${b.notes_removed === 1 ? '' : 's'} removed: ${b.notes_removed === 1 ? 'it' : 'they'} said more than your words show.` }) : null,
     ] }) : null,
     b.drill ? jsxs('div', { className: 'ldw-drillrow', children: [
       jsx('span', { className: 'ldw-stamp2', children: 'Drill' }),
       jsxs('p', { children: [jsx('strong', { children: b.drill.name }), '. ', b.drill.how,
         fileEmpty && mentionsFile(b.drill) ? jsx('span', { className: 'ldw-drill-note', children: ` ${FILE_EMPTY_NOTE}` }) : null] }),
-      onDrill ? jsx(Button, { size: 'sm', onClick: onDrill, children: drillLabel }) : null,
+      onDrill ? (drillLink ? jsx('button', { type: 'button', className: 'hk-link ldw-drill-link', onClick: onDrill, children: drillLabel })
+        : jsx(Button, { size: 'sm', onClick: onDrill, children: drillLabel })) : null,
     ] }) : null,
     showMe ? jsx('div', { className: 'ldw-noprint', children: jsx(ShowMe, { b }) }) : null,
     jsxs('button', { type: 'button', className: 'ldw-fold', 'aria-expanded': open, onClick: () => setOpen(v => !v), children: [

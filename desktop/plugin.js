@@ -362,8 +362,8 @@ function registerPage(ctx, opts) {
 }
 
 // desktop/src/floor.js
-import { useEffect as useEffect5, useRef as useRef5, useState as useState6 } from "react";
-import { Fragment as Fragment4, jsx as jsx6, jsxs as jsxs6 } from "react/jsx-runtime";
+import { useEffect as useEffect6, useRef as useRef5, useState as useState7 } from "react";
+import { Fragment as Fragment4, jsx as jsx7, jsxs as jsxs7 } from "react/jsx-runtime";
 import { Button as Button4, Codicon as Codicon6, Textarea as Textarea2 } from "@hermes/plugin-sdk";
 
 // desktop/src/core.js
@@ -456,13 +456,13 @@ function inlineChecked(text, label) {
 }
 function inline(text, key) {
   const out = [];
-  const re = /\*\*(.+?)\*\*|\*([^*\n]+)\*|\[\[not-found\]\]|\[\[not-in-file\]\]/g;
+  const re = /\*\*(.+?)\*\*|\*([^*\n]+)\*|\[\[not-found\]\]|\[\[not-in-file\]\]|\[find (a source|a card|evidence):\s*([^\]]+)\]/gi;
   let last = 0;
   let m;
   let i = 0;
   while (m = re.exec(text)) {
     if (m.index > last) out.push(text.slice(last, m.index));
-    out.push(m[0] === NOT_FOUND ? jsx3("span", { className: "ldw-line-flag ldw-inline-flag", children: notFoundLabel }, `${key}-n${i++}`) : m[0] === NOT_IN_FILE ? jsx3("span", { className: "ldw-line-flag ldw-inline-flag", children: NOT_IN_FILE_LABEL }, `${key}-f${i++}`) : m[1] ? jsx3("strong", { children: m[1] }, `${key}-b${i++}`) : jsx3("em", { children: m[2] }, `${key}-i${i++}`));
+    out.push(m[4] ? jsx3("span", { className: "ldw-chip-find", children: `${m[3].toLowerCase() === "a card" ? "Find a card" : "Find"}: ${m[4].trim()}` }, `${key}-s${i++}`) : m[0] === NOT_FOUND ? jsx3("span", { className: "ldw-line-flag ldw-inline-flag", children: notFoundLabel }, `${key}-n${i++}`) : m[0] === NOT_IN_FILE ? jsx3("span", { className: "ldw-line-flag ldw-inline-flag", children: NOT_IN_FILE_LABEL }, `${key}-f${i++}`) : m[1] ? jsx3("strong", { children: m[1] }, `${key}-b${i++}`) : jsx3("em", { children: m[2] }, `${key}-i${i++}`));
     last = re.lastIndex;
   }
   if (last < text.length) out.push(text.slice(last));
@@ -632,336 +632,101 @@ function Menu({ label, icon, items, align = "start", trigger, variant = "seconda
 }
 
 // desktop/src/coach.js
-import { useEffect as useEffect3, useRef as useRef3, useState as useState4 } from "react";
-import { Fragment as Fragment2, jsx as jsx4, jsxs as jsxs4 } from "react/jsx-runtime";
-import { Button as Button3, Codicon as Codicon4, Input, Textarea, atom as atom2, useValue } from "@hermes/plugin-sdk";
-var $coachOn = atom2(true);
-var $coachCtx = atom2(null);
-var $chatOpen = atom2(false);
-var $threads = atom2({});
-var COACH_FLAG = "Not in your sources or your words. Check it before you use it.";
-var EMPTY = {
-  extemp: "Ask anything about the question, your answer, your file or the ballot.",
-  ld: "Ask anything about your case, the resolution, the round or the ballot.",
-  rhetoric: "Ask anything about a figure, a speech or your line.",
-  ballots: "Ask anything about a ballot, or the patterns across them."
-};
-function useCoachContext(ctx, deps) {
+import { useEffect as useEffect5, useRef as useRef4, useState as useState6 } from "react";
+import { Fragment as Fragment3, jsx as jsx6, jsxs as jsxs6 } from "react/jsx-runtime";
+import { Button as Button3, Codicon as Codicon5, Input, Textarea, atom as atom4, useValue as useValue3 } from "@hermes/plugin-sdk";
+
+// desktop/src/margin.js
+import { useEffect as useEffect3, useState as useState4 } from "react";
+import { jsx as jsx4, jsxs as jsxs4 } from "react/jsx-runtime";
+import { atom as atom2, useValue } from "@hermes/plugin-sdk";
+var $compareOpen = atom2(false);
+var $marginSpot = atom2(null);
+var MARGIN_DEFAULT = /* @__PURE__ */ new Set(["extemp-prep", "ld-bench"]);
+function useMarginSpot(name) {
   useEffect3(() => {
-    $coachCtx.set(ctx);
-  }, deps);
+    $marginSpot.set(name);
+    return () => {
+      if ($marginSpot.get() === name) $marginSpot.set(null);
+    };
+  }, [name]);
 }
-function checkSummary(c, against = "your file") {
-  if (!c) return null;
-  const n = c.citations || 0;
-  const q = c.quotes || 0;
-  const miss = (c.not_in_file || 0) + (c.quotes_missed || 0) + (c.numbers_missed || 0) + (c.outlets_missed || 0);
-  const parts = [];
-  if (n) parts.push(`${n} citation${n === 1 ? "" : "s"}`);
-  if (q) parts.push(`${q} quote${q === 1 ? "" : "s"}`);
-  const head = parts.length ? `Checked against ${against}: ${parts.join(" and ")}.` : `Checked against ${against}: no quotes, figures or sources to check.`;
-  return miss ? `${head} ${miss} marked. Check ${miss === 1 ? "it" : "them"} before you use ${miss === 1 ? "it" : "them"}.` : head;
+function marginState(open, compare) {
+  if (!open) return void 0;
+  return compare ? "tab" : "open";
 }
-function CoachBox({ label = "Coach's example", sub, checks, against, foot, onClose, children, className }) {
-  return jsxs4("section", { className: cls("ldw-coachbox", className), "aria-label": label, children: [
-    jsxs4("div", { className: "ldw-coachbox-head", children: [
-      jsx4("span", { className: "ldw-coachbox-label", children: label }),
-      sub ? jsx4("span", { className: "ldw-coachbox-sub", children: sub }) : null,
-      onClose ? jsx4("button", { type: "button", className: "hk-link ldw-coachbox-close", onClick: onClose, children: "Hide" }) : null
-    ] }),
-    children,
-    checks || foot ? jsx4("p", { className: "ldw-coachbox-check", children: [foot, checks ? checkSummary(checks, against) : null].filter(Boolean).join(" ") }) : null
-  ] });
-}
-function useCoachCall() {
-  const [busy, setBusy] = useState4(false);
-  const [err, setErr] = useState4(null);
-  const [out, setOut] = useState4(null);
-  const call = async (path, body) => {
-    setBusy(true);
-    setErr(null);
-    try {
-      const o = await post(path, body);
-      setOut(o);
-      return o;
-    } catch (e) {
-      setErr(errText(e));
-      return null;
-    } finally {
-      setBusy(false);
-    }
-  };
-  return { busy, err, out, setOut, call, reset: () => {
-    setOut(null);
-    setErr(null);
-  } };
-}
-function StrongExample({ kind, question, takeIds, best, onAgain }) {
-  const on = useValue($coachOn);
-  const c = useCoachCall();
-  const key = (takeIds || []).join(",");
+var Stroke = ({ d, size = 18 }) => jsx4("svg", {
+  width: size,
+  height: size,
+  viewBox: "0 0 24 24",
+  fill: "none",
+  stroke: "currentColor",
+  strokeWidth: 1.5,
+  strokeLinecap: "round",
+  strokeLinejoin: "round",
+  "aria-hidden": "true",
+  focusable: "false",
+  children: (Array.isArray(d) ? d : [d]).map((p, i) => jsx4("path", { d: p }, i))
+});
+var CoachIcon = (props) => jsx4(Stroke, { ...props, d: "M7.9 20A9 9 0 1 0 4 16.1L2 22Z" });
+var CloseIcon = (props) => jsx4(Stroke, { ...props, d: ["M18 6 6 18", "m6 6 12 12"] });
+function Margin({ open, onToggle, children, title = "Coach" }) {
+  const compare = useValue($compareOpen);
+  const [peek, setPeek] = useState4(false);
   useEffect3(() => {
-    c.reset();
-  }, [key, question]);
-  if (!on) return null;
-  const what = kind === "opening" ? "opening" : "answer";
-  const ask = () => c.call("coach/extemp/example", kind === "opening" ? { kind, question, take_ids: takeIds, best } : { kind, question, take_id: takeIds[0] });
-  if (!c.out) {
-    return jsxs4("div", { className: "ldw-coachask", children: [
-      jsx4(Button3, { variant: "secondary", loading: c.busy, onClick: ask, children: jsxs4(Fragment2, { children: [jsx4(Codicon4, { name: "lightbulb" }), `Show me a strong ${what}`] }) }),
-      jsx4("span", { className: "ldw-meta", children: `The coach gives a ${kind === "opening" ? "45-second opening" : "60-second answer"} on your question, built on yours, and says why it works.` }),
-      c.busy ? jsx4(Thinking, { label: `Writing a strong ${what}` }) : null,
-      c.err ? jsx4(Notice, { tone: "bad", children: c.err }) : null
-    ] });
-  }
-  const o = c.out;
-  return jsxs4(CoachBox, { label: "Coach's example", sub: `A strong ${what} on your question. Learn the moves, then say it your own way.`, checks: o.checks, onClose: c.reset, children: [
-    jsx4("p", { className: "ldw-spoken ldw-coachbox-said", children: inlineChecked(o.example, COACH_FLAG) }),
-    o.notes && o.notes.length ? jsxs4(Fragment2, { children: [
-      jsx4("h4", { className: "ldw-coachbox-h", children: "Why it works" }),
-      jsx4("ul", { className: "ldw-coachbox-notes", children: o.notes.map((n, i) => jsx4("li", { children: inlineChecked(n, COACH_FLAG) }, i)) })
-    ] }) : null,
-    o.kept ? jsxs4("p", { className: "ldw-coachbox-kept", children: [jsx4("b", { children: "Kept from yours: " }), o.kept] }) : null,
-    !o.sources ? jsx4("p", { className: "ldw-meta", children: "Your file is empty, so the example names no source. Save headlines in Full round and the coach can cite them." }) : null,
-    onAgain ? jsx4("div", { children: jsx4(Button3, { size: "sm", variant: "secondary", onClick: onAgain, children: `Now give your own ${what} again` }) }) : null
-  ] });
-}
-function ShowMe({ b }) {
-  const on = useValue($coachOn);
-  const c = useCoachCall();
-  useEffect3(() => {
-    c.reset();
-  }, [b && b.at]);
-  if (!on || !b || !b.at) return null;
-  const o = c.out;
-  if (!o) {
-    return jsxs4("div", { className: "ldw-coachask ldw-coachask-row", children: [
-      jsx4(Button3, {
-        size: "sm",
-        variant: "secondary",
-        loading: c.busy,
-        onClick: () => c.call("coach/ballot/show", { at: b.at }),
-        children: jsxs4(Fragment2, { children: [jsx4(Codicon4, { name: "lightbulb" }), "Show me"] })
-      }),
-      jsx4("span", { className: "ldw-meta", children: b.show_me ? "The coach redid the weakest moment. Open it again." : "The coach finds the weakest moment and redoes it." }),
-      c.err ? jsx4(Notice, { tone: "bad", children: c.err }) : null
-    ] });
-  }
-  return jsxs4(CoachBox, {
-    label: "Coach's redo",
-    sub: "The weakest moment, done again. Practice it, then do it your way.",
-    checks: o.checks,
-    against: b.answered ? "your file" : "your round",
-    onClose: c.reset,
-    children: [
-      jsxs4("div", { className: "ldw-redo-row", children: [
-        jsx4("span", { className: "ldw-redo-k", children: "You said" }),
-        jsxs4("div", { children: [
-          jsx4("p", { className: "ldw-spoken", children: `"${o.moment}"` }),
-          o.moment_checked === false ? jsx4("span", { className: "ldw-line-flag", children: "Not found in your words as kept. The coach may have misquoted you." }) : null
-        ] })
-      ] }),
-      o.why ? jsxs4("div", { className: "ldw-redo-row", children: [jsx4("span", { className: "ldw-redo-k", children: "Why it cost you" }), jsx4("p", { children: inlineChecked(o.why, COACH_FLAG) })] }) : null,
-      jsxs4("div", { className: "ldw-redo-row", children: [jsx4("span", { className: "ldw-redo-k", children: "Done again" }), jsx4("p", { className: "ldw-spoken", children: inlineChecked(o.redo, COACH_FLAG) })] }),
-      o.practice ? jsxs4("div", { className: "ldw-redo-row", children: [jsx4("span", { className: "ldw-redo-k", children: "Practice" }), jsx4("p", { children: inlineChecked(o.practice, COACH_FLAG) })] }) : null
-    ]
-  });
-}
-function seesLine(ctx) {
-  const sees = (ctx && ctx.sees || []).filter(Boolean);
-  if (!sees.length) return "The coach sees what is on this screen.";
-  return `The coach sees ${sees.length === 1 ? sees[0] : `${sees.slice(0, -1).join(", ")} and ${sees[sees.length - 1]}`}.`;
-}
-function CoachChat({ floor }) {
-  const open = useValue($chatOpen);
-  const raw = useValue($coachCtx);
-  const on = useValue($coachOn);
-  const threads = useValue($threads);
-  const [text, setText] = useState4("");
-  const [busy, setBusy] = useState4(false);
-  const [err, setErr] = useState4(null);
-  const box = useRef3(null);
-  const ctx = raw && raw.floor === floor ? raw : { floor };
-  const thread = threads[floor] || [];
-  useEffect3(() => {
-    if (box.current) box.current.scrollTop = box.current.scrollHeight;
-  }, [thread.length, busy, open]);
-  useEffect3(() => {
-    const el = open && document.getElementById("ldw-coach-ask");
-    if (el) el.focus();
-  }, [open, floor]);
+    if (!compare) setPeek(false);
+  }, [compare]);
   if (!open) return null;
-  const send = async () => {
-    const t = text.trim();
-    if (!t || busy) return;
-    setText("");
-    setErr(null);
-    setBusy(true);
-    const before = thread;
-    $threads.set({ ...$threads.get(), [floor]: [...before, { role: "you", text: t }] });
-    try {
-      const { sees, ...ids } = ctx;
-      const out = await post("coach/chat", { ...ids, floor, message: t, thread: before.map((m) => ({ role: m.role, text: m.text })) });
-      $threads.set({ ...$threads.get(), [floor]: [...before, { role: "you", text: t }, { role: "coach", text: out.text, checks: out.checks }] });
-    } catch (e) {
-      setErr(errText(e));
-      $threads.set({ ...$threads.get(), [floor]: before });
-      setText(t);
-    } finally {
-      setBusy(false);
-    }
-  };
-  return jsxs4("aside", { className: "ldw-chat ldw-noprint", "aria-label": "Ask the coach", children: [
-    jsxs4("div", { className: "ldw-chat-head", children: [
-      jsx4("h2", { className: "ldw-h2", children: "Ask the coach" }),
-      jsx4("button", { type: "button", className: "ldw-iconbtn", "aria-label": "Close the coach", onClick: () => $chatOpen.set(false), children: jsx4(Codicon4, { name: "close" }) })
-    ] }),
-    jsx4("p", { className: "ldw-chat-sees", children: seesLine(ctx) }),
-    jsxs4("div", { className: "ldw-chat-thread", ref: box, "aria-live": "polite", children: [
-      !thread.length && !busy ? jsx4("p", { className: "ldw-meta", children: EMPTY[floor] || "Ask anything about this screen." }) : null,
-      ...thread.map((m, i) => jsxs4("div", { className: "ldw-msg", "data-role": m.role, children: [
-        jsx4("span", { className: "ldw-who", children: m.role === "coach" ? "Coach" : "You" }),
-        m.role === "coach" ? renderChecked(m.text, COACH_FLAG) : jsx4("p", { children: m.text })
-      ] }, i)),
-      busy ? jsx4(Thinking, { label: "The coach is reading your screen" }) : null,
-      err ? jsx4(Notice, { tone: "bad", children: err }) : null
-    ] }),
-    jsxs4("div", { className: "ldw-ask", children: [
-      jsx4(Textarea, {
-        id: "ldw-coach-ask",
-        "aria-label": "Question for the coach",
-        value: text,
-        placeholder: "Ask the coach",
-        onChange: (e) => setText(e.target.value),
-        onKeyDown: (e) => {
-          if (e.key === "Enter" && !e.shiftKey) {
-            e.preventDefault();
-            send();
-          }
-        }
-      }),
-      jsx4(Button3, { onClick: send, disabled: busy || !text.trim(), "aria-label": "Send", children: jsx4(Codicon4, { name: "send" }) })
-    ] }),
-    jsx4("p", { className: "ldw-chat-foot", children: on ? "After you try something yourself, the coach can show an example. It is marked as the coach's." : "Coach examples are off in Settings. The coach explains and asks; it writes nothing for you to say." })
-  ] });
-}
-var STANCE_WORD = { supports: "Supports your point", against: "Cuts against it", context: "Background" };
-function PrepCoach({ outline, file, onUseArea, onPick, picked }) {
-  const on = useValue($coachOn);
-  const areas = useCoachCall();
-  const ev = useCoachCall();
-  const [point, setPoint] = useState4("");
-  if (!on) return null;
-  const noAnswer = !String(outline.answer || "").trim();
-  const noFile = !file.length;
-  return jsxs4("section", { className: "ldw-prepcoach", "aria-label": "The coach in prep", children: [
-    jsxs4("div", { className: "ldw-prepcoach-row", children: [
-      jsx4(Button3, {
-        variant: "secondary",
-        size: "sm",
-        loading: areas.busy,
-        disabled: noAnswer || noFile,
-        "aria-describedby": noAnswer || noFile ? "ldw-areas-why" : void 0,
-        onClick: () => areas.call("coach/extemp/areas", { outline }),
-        children: jsxs4(Fragment2, { children: [jsx4(Codicon4, { name: "lightbulb" }), "Suggest areas"] })
-      }),
-      jsx4("span", { id: "ldw-areas-why", className: noAnswer || noFile ? "ldw-why-off" : "ldw-meta", children: noAnswer ? "Write your answer first, in Your answer. The coach suggests three areas that back it." : noFile ? "Save a few sources to your file first. Each area comes with one of them." : "Three areas that back your answer, each with a source from your file." })
-    ] }),
-    areas.err ? jsx4(Notice, { tone: "bad", children: areas.err }) : null,
-    areas.out ? jsxs4(CoachBox, {
-      label: "Coach's suggestion",
-      sub: "Areas for your outline. Keep, change or throw out each one.",
-      checks: areas.out.checks,
-      onClose: areas.reset,
-      foot: areas.out.areas.every((a) => a.source) ? "Every source named is in your file." : null,
-      children: [
-        areas.out.note ? jsx4("p", { className: "ldw-coachbox-kept", children: areas.out.note }) : null,
-        jsx4("ol", { className: "ldw-areas", children: areas.out.areas.map((a, i) => jsxs4("li", { children: [
-          jsx4("b", { children: a.title }),
-          a.why ? jsx4("p", { children: inlineChecked(a.why, COACH_FLAG) }) : null,
-          a.source ? jsxs4("p", { className: "ldw-areas-src", children: [jsx4("span", { className: "ldw-areas-cite", children: a.source.citation }), ` "${a.source.title}"`] }) : jsx4("span", { className: "ldw-line-flag", children: "No source in your file was cited for this one. Find one before you use it." }),
-          a.use ? jsx4("p", { children: inlineChecked(a.use, COACH_FLAG) }) : null,
-          jsxs4("div", { className: "hk-actions", children: [
-            jsx4("button", { type: "button", className: "hk-link", onClick: () => onUseArea(i, a.title), children: `Put it in Area ${i + 1}` }),
-            a.source && !picked.includes(a.source.id) ? jsx4("button", { type: "button", className: "hk-link", onClick: () => onPick(a.source.id), children: "Pick this source" }) : null
-          ] })
-        ] }, i)) })
-      ]
-    }) : null,
-    jsxs4("div", { className: "ldw-prepcoach-row", children: [
-      jsx4(Input, {
-        className: "ldw-topic",
-        "aria-label": "The point you need evidence for",
-        value: point,
-        placeholder: 'A point you need evidence for, like "hiring is still strong"',
-        onChange: (e) => setPoint(e.target.value),
-        onKeyDown: (e) => {
-          if (e.key === "Enter" && point.trim() && !noFile) ev.call("coach/extemp/evidence", { point });
-        }
-      }),
-      jsx4(Button3, {
-        variant: "secondary",
-        size: "sm",
-        loading: ev.busy,
-        disabled: !point.trim() || noFile,
-        onClick: () => ev.call("coach/extemp/evidence", { point }),
-        children: jsxs4(Fragment2, { children: [jsx4(Codicon4, { name: "search" }), "Find me evidence"] })
-      })
-    ] }),
-    ev.err ? jsx4(Notice, { tone: "bad", children: ev.err }) : null,
-    ev.out ? jsxs4(CoachBox, {
-      label: ev.out.fallback ? "From your file" : "Coach's picks",
-      sub: "From your saved headlines only.",
-      onClose: ev.reset,
-      foot: ev.out.picks.length ? `Every pick is a source in your file${ev.out.dropped ? `; ${ev.out.dropped} that ${ev.out.dropped === 1 ? "was" : "were"} not ${ev.out.dropped === 1 ? "was" : "were"} left out.` : "."}` : null,
-      checks: ev.out.fallback || !ev.out.checks || !((ev.out.checks.quotes || 0) + (ev.out.checks.not_in_file || 0) + (ev.out.checks.numbers_missed || 0) + (ev.out.checks.outlets_missed || 0)) ? null : ev.out.checks,
-      children: [
-        ev.out.notice ? jsx4(Notice, { tone: "warn", children: ev.out.notice }) : null,
-        ev.out.picks.length ? jsx4("ul", { className: "ldw-areas ldw-picks", children: ev.out.picks.map((p) => jsxs4("li", { children: [
-          jsxs4("p", { className: "ldw-areas-src", children: [jsx4("span", { className: "ldw-areas-cite", children: p.source.citation }), ` "${p.source.title}"`] }),
-          p.stance || p.how ? jsxs4("p", { children: [p.stance ? jsx4("b", { children: `${STANCE_WORD[p.stance]}. ` }) : null, inlineChecked(p.how, COACH_FLAG)] }) : null,
-          picked.includes(p.source.id) ? jsx4("span", { className: "ldw-meta", children: "Picked for this speech" }) : jsx4("button", { type: "button", className: "hk-link", onClick: () => onPick(p.source.id), children: "Pick this source" })
-        ] }, p.source.id)) }) : jsx4("p", { className: "ldw-meta", children: ev.out.missing || "Nothing in your file fits that point." })
-      ]
-    }) : null
-  ] });
-}
-function ThreeVersions({ figure, line, figureName }) {
-  const on = useValue($coachOn);
-  const c = useCoachCall();
-  useEffect3(() => {
-    c.reset();
-  }, [figure, line]);
-  if (!on) return null;
-  if (!c.out) {
-    return jsxs4("div", { className: "ldw-coachask", children: [
-      jsx4(Button3, {
-        variant: "secondary",
-        loading: c.busy,
-        onClick: () => c.call("coach/rhetoric/versions", { figure, line }),
-        children: jsxs4(Fragment2, { children: [jsx4(Codicon4, { name: "lightbulb" }), "Show me three versions"] })
-      }),
-      jsx4("span", { className: "ldw-meta", children: `Your line, three ways, each using ${figureName.toLowerCase()}. Then write a fourth of your own.` }),
-      c.err ? jsx4(Notice, { tone: "bad", children: c.err }) : null
-    ] });
+  const folded = compare && !peek;
+  if (folded) {
+    return jsx4("aside", { className: "ldw-margin ldw-noprint", "data-folded": "", "aria-label": title, children: jsxs4("button", {
+      type: "button",
+      className: "ldw-margin-tab",
+      "aria-expanded": false,
+      onClick: () => setPeek(true),
+      title: `Open the ${title.toLowerCase()} beside the compare`,
+      children: [jsx4(CoachIcon, {}), jsx4("span", { children: title })]
+    }) });
   }
-  return jsx4(CoachBox, {
-    label: "Coach's versions",
-    sub: `Your line with ${figureName.toLowerCase()}, three ways. Now write your own fourth.`,
-    checks: c.out.checks,
-    against: "your line",
-    onClose: c.reset,
-    children: jsx4("ol", { className: "ldw-versions", children: c.out.versions.map((v, i) => jsxs4("li", { children: [
-      jsx4("p", { className: "ldw-spoken", children: inlineChecked(v.line, COACH_FLAG) }),
-      v.note ? jsx4("p", { className: "ldw-meta", children: v.note }) : null
-    ] }, i)) })
-  });
+  return jsxs4("aside", { className: cls("ldw-margin ldw-noprint", compare && "ldw-margin-peek"), "aria-label": title, children: [
+    // Under 1,040 px the margin is a bottom sheet; the handle closes it.
+    jsx4("button", { type: "button", className: "ldw-margin-handle", "aria-label": `Close the ${title.toLowerCase()}`, onClick: onToggle, children: jsx4("span", { "aria-hidden": "true" }) }),
+    jsxs4("div", { className: "ldw-margin-head", children: [
+      jsx4("h2", { className: "ldw-margin-title", children: title }),
+      compare ? jsx4("button", { type: "button", className: "ldw-iconbtn", "aria-label": "Fold the coach beside the compare", onClick: () => setPeek(false), children: jsx4(Stroke, { d: "m9 18 6-6-6-6" }) }) : null,
+      jsx4("button", { type: "button", className: "ldw-iconbtn", "aria-label": `Close the ${title.toLowerCase()}`, onClick: onToggle, children: jsx4(CloseIcon, {}) })
+    ] }),
+    jsx4("div", { className: "ldw-margin-body", children })
+  ] });
+}
+function Tabs({ tabs, label, initial }) {
+  const [on, setOn] = useState4(initial || tabs[0] && tabs[0].id);
+  return jsxs4("div", { className: "ldw-tabs2", children: [
+    jsx4("div", { className: "ldw-tabs2-list", role: "tablist", "aria-label": label, children: tabs.map((t) => jsx4("button", {
+      type: "button",
+      role: "tab",
+      id: `ldw-tab-${t.id}`,
+      "aria-selected": on === t.id,
+      "aria-controls": `ldw-pane-${t.id}`,
+      className: "ldw-tabs2-tab",
+      onClick: () => setOn(t.id),
+      children: t.label
+    }, t.id)) }),
+    jsx4("div", { className: "ldw-tabs2-panes", style: { "--ldw-panes": tabs.length }, children: tabs.map((t) => jsx4("div", {
+      id: `ldw-pane-${t.id}`,
+      role: "tabpanel",
+      "aria-labelledby": `ldw-tab-${t.id}`,
+      className: "ldw-tabs2-pane",
+      "data-on": on === t.id ? "" : void 0,
+      children: t.content
+    }, t.id)) })
+  ] });
 }
 
 // desktop/src/player.js
-import { useEffect as useEffect4, useMemo, useRef as useRef4, useState as useState5 } from "react";
-import { Fragment as Fragment3, jsx as jsx5, jsxs as jsxs5 } from "react/jsx-runtime";
-import { Codicon as Codicon5, atom as atom3, useValue as useValue2 } from "@hermes/plugin-sdk";
+import { useEffect as useEffect4, useMemo, useRef as useRef3, useState as useState5 } from "react";
+import { Fragment as Fragment2, jsx as jsx5, jsxs as jsxs5 } from "react/jsx-runtime";
+import { Codicon as Codicon4, atom as atom3, useValue as useValue2 } from "@hermes/plugin-sdk";
 var QUOTE_CLICK_TEXT_ONLY = true;
 var LEAD = 0.3;
 var TAIL = 0.35;
@@ -1182,7 +947,7 @@ function PlayerWave({ take, tl, view, marks, headRef, playedRef, onSeek }) {
     }
     return out;
   }, [levels, view.from, view.to]);
-  const drag = useRef4(false);
+  const drag = useRef3(false);
   const seekAt = (e) => {
     const r = e.currentTarget.getBoundingClientRect();
     const f = Math.min(1, Math.max(0, (e.clientX - r.left) / r.width));
@@ -1265,12 +1030,12 @@ function TakePlayer({ take, audioSrc, startAt, onTime }) {
   useEffect4(() => installStyles(null, `${PLUGIN_ID}:player`, PLAYER_CSS), []);
   const tl = useMemo(() => timelineOf(take), [take]);
   const audio = useTakeAudio(take, audioSrc);
-  const el = useRef4(null);
-  const head = { line: useRef4(null), slider: useRef4(null) };
-  const played = useRef4(null);
-  const timeRef = useRef4(null);
-  const stopAt = useRef4(null);
-  const pending = useRef4(null);
+  const el = useRef3(null);
+  const head = { line: useRef3(null), slider: useRef3(null) };
+  const played = useRef3(null);
+  const timeRef = useRef3(null);
+  const stopAt = useRef3(null);
+  const pending = useRef3(null);
   const [playing, setPlaying] = useState5(false);
   const [now, setNow] = useState5(-1);
   const [lineOn, setLineOn] = useState5(null);
@@ -1419,7 +1184,7 @@ function TakePlayer({ take, audioSrc, startAt, onTime }) {
         "aria-label": playing ? "Pause" : "Play your take",
         "aria-pressed": playing,
         onClick: toggle,
-        children: jsx5(Codicon5, { name: playing ? "debug-pause" : "play" })
+        children: jsx5(Codicon4, { name: playing ? "debug-pause" : "play" })
       }),
       jsxs5("span", { className: "ldw-ptime", children: [jsx5("b", { ref: timeRef, children: "0:00" }), ` / ${mmss(Math.max(0, dur - startsAt))}`] }),
       audio.state === "loading" ? jsx5("span", { className: "ldw-pstate", role: "status", children: "Loading the recording" }) : null,
@@ -1454,7 +1219,7 @@ function QuoteLine({ take, line, index = 0, className, children }) {
     "aria-label": playing ? `Stop line ${index + 1}` : `Play line ${index + 1}, at ${mmss(Math.max(0, span.at - p.startsAt))}`,
     onClick: () => playing ? p.stop() : p.playLine(span, index),
     children: [
-      jsx5(Codicon5, { name: playing ? "debug-pause" : "play" }),
+      jsx5(Codicon4, { name: playing ? "debug-pause" : "play" }),
       jsx5("span", { children: mmss(Math.max(0, span.at - p.startsAt)) })
     ]
   }) : jsx5("span", { className: "ldw-quote-mark ldw-quote-none", "aria-hidden": "true" });
@@ -1516,13 +1281,591 @@ var PLAYER_CSS = `
 @media (max-width:640px){.ldw-qline{grid-template-columns:54px minmax(0,1fr);gap:6px}.ldw-ptx-words{font-size:16px}}
 `;
 
+// desktop/src/coach.js
+var $coachOn = atom4(true);
+var $coachCtx = atom4(null);
+var $chatOpen = atom4(false);
+var $threads = atom4({});
+var COACH_FLAG = "Not in your sources or your words. Check it before you use it.";
+var EMPTY = {
+  extemp: "Ask anything about the question, your answer, your file or the ballot.",
+  ld: "Ask anything about your case, the resolution, the round or the ballot.",
+  rhetoric: "Ask anything about a figure, a speech or your line.",
+  ballots: "Ask anything about a ballot, or the patterns across them."
+};
+function useCoachContext(ctx, deps) {
+  useEffect5(() => {
+    $coachCtx.set(ctx);
+  }, deps);
+}
+function checkSummary(c, against = "your file") {
+  if (!c) return null;
+  const n = c.citations || 0;
+  const q = c.quotes || 0;
+  const miss = (c.not_in_file || 0) + (c.quotes_missed || 0) + (c.numbers_missed || 0) + (c.outlets_missed || 0);
+  const parts = [];
+  if (n) parts.push(`${n} citation${n === 1 ? "" : "s"}`);
+  if (q) parts.push(`${q} quote${q === 1 ? "" : "s"}`);
+  const head = parts.length ? `Checked against ${against}: ${parts.join(" and ")}.` : `Checked against ${against}: no quotes, figures or sources to check.`;
+  return miss ? `${head} ${miss} marked. Check ${miss === 1 ? "it" : "them"} before you use ${miss === 1 ? "it" : "them"}.` : head;
+}
+function CoachBox({ label = "Coach's example", sub, checks, against, foot, onClose, children, className }) {
+  return jsxs6("section", { className: cls("ldw-coachbox", className), "aria-label": label, children: [
+    jsxs6("div", { className: "ldw-coachbox-head", children: [
+      jsx6("span", { className: "ldw-coachbox-label", children: label }),
+      sub ? jsx6("span", { className: "ldw-coachbox-sub", children: sub }) : null,
+      onClose ? jsx6("button", { type: "button", className: "hk-link ldw-coachbox-close", onClick: onClose, children: "Hide" }) : null
+    ] }),
+    children,
+    checks || foot ? jsx6("p", { className: "ldw-coachbox-check", children: [foot, checks ? checkSummary(checks, against) : null].filter(Boolean).join(" ") }) : null
+  ] });
+}
+function useCoachCall() {
+  const [busy, setBusy] = useState6(false);
+  const [err, setErr] = useState6(null);
+  const [out, setOut] = useState6(null);
+  const call = async (path, body) => {
+    setBusy(true);
+    setErr(null);
+    try {
+      const o = await post(path, body);
+      setOut(o);
+      return o;
+    } catch (e) {
+      setErr(errText(e));
+      return null;
+    } finally {
+      setBusy(false);
+    }
+  };
+  return { busy, err, out, setOut, call, reset: () => {
+    setOut(null);
+    setErr(null);
+  } };
+}
+var EXAMPLE_STAGES = [[0, "Reading your take, line by line"], [3, "Writing a strong answer on your question"], [13, "Checking every source, quote and line link"]];
+function Stages({ stages = EXAMPLE_STAGES }) {
+  const [t, setT] = useState6(0);
+  useEffect5(() => {
+    const t0 = Date.now();
+    const id = setInterval(() => setT((Date.now() - t0) / 1e3), 250);
+    return () => clearInterval(id);
+  }, []);
+  const now = stages.filter(([at]) => t >= at).pop() || stages[0];
+  return jsxs6("div", { className: "ldw-stages", role: "status", children: [
+    jsx6("span", { className: "hk-spinner" }),
+    jsx6("span", { children: now[1] }),
+    jsx6("span", { className: "ldw-stages-t", children: `${Math.floor(t)} s` })
+  ] });
+}
+function HearIt({ exampleId, label = "Hear it" }) {
+  const [state, setState] = useState6("idle");
+  const [playing, setPlaying] = useState6(false);
+  const [err, setErr] = useState6(null);
+  const audio = useRef4(null);
+  const urls = useRef4([]);
+  const part = useRef4(0);
+  const key = `coach:${exampleId}`;
+  const now = useValue3($nowPlaying);
+  useEffect5(() => {
+    if (now !== key && playing) {
+      try {
+        audio.current.pause();
+      } catch (e) {
+      }
+      setPlaying(false);
+    }
+  }, [now]);
+  useEffect5(() => () => {
+    releasePlayback(key);
+    urls.current.forEach((u) => URL.revokeObjectURL(u));
+  }, [exampleId]);
+  const play = () => {
+    const a = audio.current;
+    if (!a) return;
+    if (!a.src) a.src = urls.current[part.current];
+    claimPlayback(key);
+    a.play().then(() => {
+      setPlaying(true);
+      setErr(null);
+    }, () => {
+      setPlaying(false);
+      setErr("Press Hear it again to play it.");
+    });
+  };
+  const load2 = async () => {
+    setState("loading");
+    setErr(null);
+    try {
+      const d = await post("coach/speak", { example_id: exampleId });
+      urls.current = d.parts.map((p) => {
+        const bin = atob(p.b64);
+        const bytes = new Uint8Array(bin.length);
+        for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+        return URL.createObjectURL(new Blob([bytes], { type: p.mime }));
+      });
+      part.current = 0;
+      setState("ready");
+      setTimeout(play, 0);
+    } catch (e) {
+      setErr(errText(e));
+      setState("idle");
+    }
+  };
+  const pause = () => {
+    try {
+      audio.current.pause();
+    } catch (e) {
+    }
+    setPlaying(false);
+    releasePlayback(key);
+  };
+  const ended = () => {
+    if (part.current < urls.current.length - 1) {
+      part.current += 1;
+      audio.current.src = urls.current[part.current];
+      play();
+    } else {
+      setPlaying(false);
+      releasePlayback(key);
+    }
+  };
+  return jsxs6("span", { className: "ldw-hearit", children: [
+    jsx6("audio", { ref: audio, preload: "auto", onEnded: ended }),
+    jsx6(Button3, {
+      variant: "secondary",
+      loading: state === "loading",
+      onClick: state !== "ready" ? load2 : playing ? pause : play,
+      children: jsxs6(Fragment3, { children: [jsx6(Codicon5, { name: playing ? "debug-pause" : "unmute" }), state === "loading" ? "Getting the voice ready" : playing ? "Pause" : label] })
+    }),
+    err ? jsx6("span", { className: "ldw-why-off", role: "alert", children: err }) : null
+  ] });
+}
+function NoteHalves({ n }) {
+  if (typeof n === "string") return inlineChecked(n, COACH_FLAG);
+  return jsxs6(Fragment3, { children: [
+    n.yours ? jsxs6("span", { className: "ldw-half", children: [jsx6("b", { children: "Yours: " }), inlineChecked(n.yours.replace(/^You\b/, "You"), COACH_FLAG)] }) : null,
+    n.this ? jsxs6("span", { className: "ldw-half", children: [jsx6("b", { children: "This version: " }), inlineChecked(n.this.replace(/^This version\s*/i, "").replace(/^./, (c) => c.toUpperCase()), COACH_FLAG)] }) : null
+  ] });
+}
+function DetailsList({ o }) {
+  const c = o.checks || {};
+  const l = o.links || {};
+  const marked = (c.not_in_file || 0) + (c.quotes_missed || 0) + (c.numbers_missed || 0) + (c.outlets_missed || 0);
+  const items = [
+    `Citations to your file: ${c.citations || 0}${(o.cited || []).length ? ` (${o.cited.join("; ")})` : ""}.`,
+    `Quotes of four words or more: ${c.quotes || 0}, each found in a source or in your own words${c.quotes_missed ? `, except ${c.quotes_missed}` : ""}.`,
+    `Figures, dates and outlets not in your file: ${(c.numbers_missed || 0) + (c.outlets_missed || 0) + (c.not_in_file || 0)}${marked ? ", each marked where it is" : ""}.`,
+    l.linked !== void 0 ? `Line links: ${l.linked} of ${l.linked + l.new} sentences build on a line of yours; ${l.new} ${l.new === 1 ? "is" : "are"} new.${l.links_dropped ? ` ${l.links_dropped} link${l.links_dropped === 1 ? "" : "s"} the coach gave did not match your line and ${l.links_dropped === 1 ? "was" : "were"} marked new.` : ""}` : null,
+    "Each link is kept only when your line exists and shares a word with the sentence. Checked in code, not by the coach."
+  ].filter(Boolean);
+  return jsx6("ul", { className: "ldw-cmp-details", children: items.map((t, i) => jsx6("li", { children: t }, i)) });
+}
+function Compare({ o, onAgain, onClose }) {
+  const box = useRef4(null);
+  const [narrow, setNarrow] = useState6(false);
+  const [lit, setLit] = useState6(null);
+  const [details, setDetails] = useState6(false);
+  useEffect5(() => {
+    $compareOpen.set(true);
+    return () => $compareOpen.set(false);
+  }, []);
+  useEffect5(() => {
+    const el = box.current;
+    if (!el || typeof ResizeObserver === "undefined") return void 0;
+    const ro = new ResizeObserver(([e]) => setNarrow(e.contentRect.width < 600));
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+  const lines = o.lines || [];
+  const sentences = o.sentences && o.sentences.length ? o.sentences : [{ text: o.example, line: null }];
+  const yours = jsxs6("div", { className: "ldw-cmp-col", children: [
+    jsx6("h3", { className: "ldw-cmp-h", children: "Your take" }),
+    jsx6("ol", { className: "ldw-cmp-lines", children: lines.map((t, i) => jsxs6("li", { "data-lit": lit === i + 1 ? "" : void 0, children: [
+      jsx6("span", { className: "ldw-cmp-n", children: String(i + 1) }),
+      jsx6("span", { className: "ldw-spoken", children: t })
+    ] }, i)) })
+  ] });
+  const coach = jsxs6("div", { className: "ldw-cmp-col ldw-cmp-coach", children: [
+    jsx6("h3", { className: "ldw-cmp-h", children: "Coach's example" }),
+    jsx6("div", { className: "ldw-cmp-said", children: sentences.map((x, i) => jsxs6("p", { className: "ldw-cmp-s", onMouseEnter: () => setLit(x.line), onMouseLeave: () => setLit(null), children: [
+      jsx6("span", { className: "ldw-spoken", children: inlineChecked(x.text, COACH_FLAG) }),
+      " ",
+      jsx6("span", { className: "ldw-cmp-from", "data-new": x.line ? void 0 : "", children: x.line ? `from your line ${x.line}` : "new" })
+    ] }, i)) })
+  ] });
+  return jsxs6("section", { ref: box, className: "ldw-cmp", "aria-label": "Your take and the coach's example", children: [
+    narrow ? jsx6(Tabs, { label: "Your take and the coach's example", initial: "coach", tabs: [{ id: "yours", label: "Yours", content: yours }, { id: "coach", label: "Coach's", content: coach }] }) : jsxs6("div", { className: "ldw-cmp-cols", children: [yours, coach] }),
+    jsxs6("div", { className: "ldw-cmp-actions", children: [
+      o.id ? jsx6(HearIt, { exampleId: o.id }) : null,
+      onAgain ? jsx6(Button3, { onClick: onAgain, children: jsxs6(Fragment3, { children: [jsx6(Codicon5, { name: "mic" }), "Try it again"] }) }) : null,
+      jsx6("button", { type: "button", className: "hk-link", "aria-expanded": details, onClick: () => setDetails((v) => !v), children: details ? "Hide details" : "Details" }),
+      jsx6("button", { type: "button", className: "hk-link ldw-cmp-hide", onClick: onClose, children: "Close the example" })
+    ] }),
+    details ? jsx6(DetailsList, { o }) : null,
+    o.notes && o.notes.length ? jsxs6("div", { className: "ldw-cmp-why", children: [
+      jsx6("h4", { className: "ldw-coachbox-h", children: "Why it works" }),
+      jsx6("ul", { className: "ldw-coachbox-notes", children: o.notes.map((n, i) => jsx6("li", { children: jsx6(NoteHalves, { n }) }, i)) })
+    ] }) : null,
+    o.moves && o.moves.length ? jsxs6("div", { className: "ldw-cmp-why", children: [
+      jsx6("h4", { className: "ldw-coachbox-h", children: "Your next take is measured on" }),
+      jsx6("ul", { className: "ldw-moves", children: o.moves.map((m) => jsxs6("li", { children: [jsx6("b", { children: m.label }), jsx6("span", { children: ` This take: ${m.take1.value}.` })] }, m.id)) })
+    ] }) : null,
+    !o.sources ? jsx6("p", { className: "ldw-coachbox-kept", children: "Your file is empty, so the example names no source. Save headlines in Full round and the coach can cite them." }) : null
+  ] });
+}
+function StrongExample({ kind, question, takeIds, best, onAgain, onExample }) {
+  useEffect5(() => installStyles(null, `${PLUGIN_ID}:coach`, COACH_CSS), []);
+  const on = useValue3($coachOn);
+  const c = useCoachCall();
+  const key = (takeIds || []).join(",");
+  useEffect5(() => {
+    c.reset();
+  }, [key, question]);
+  useEffect5(() => {
+    if (onExample) onExample(c.out);
+  }, [c.out]);
+  if (!on) return null;
+  const what = kind === "opening" ? "opening" : "answer";
+  const ask = () => c.call("coach/extemp/example", kind === "opening" ? { kind, question, take_ids: takeIds, best } : { kind, question, take_id: takeIds[0] });
+  if (!c.out) {
+    return jsxs6("div", { className: "ldw-showme-row ldw-noprint", children: [
+      jsx6(Button3, { className: "ldw-showme", disabled: c.busy, onClick: ask, children: jsxs6(Fragment3, { children: [jsx6(Codicon5, { name: "lightbulb" }), `Show me a strong ${what}`] }) }),
+      c.busy ? jsx6(Stages, {}) : null,
+      c.err ? jsx6(Notice, { tone: "bad", children: c.err, action: jsx6(Button3, { size: "sm", variant: "secondary", onClick: ask, children: "Try again" }) }) : null
+    ] });
+  }
+  const o = c.out;
+  if (kind === "answer") return jsx6(Compare, { o, onAgain: onAgain ? () => onAgain(o) : null, onClose: c.reset });
+  return jsxs6(CoachBox, { label: "Coach's example", sub: `A strong ${what} on your question. Learn the moves, then say it your own way.`, checks: o.checks, onClose: c.reset, children: [
+    jsx6("p", { className: "ldw-spoken ldw-coachbox-said", children: inlineChecked(o.example, COACH_FLAG) }),
+    o.notes && o.notes.length ? jsxs6(Fragment3, { children: [
+      jsx6("h4", { className: "ldw-coachbox-h", children: "Why it works" }),
+      jsx6("ul", { className: "ldw-coachbox-notes", children: o.notes.map((n, i) => jsx6("li", { children: jsx6(NoteHalves, { n }) }, i)) })
+    ] }) : null,
+    o.kept ? jsxs6("p", { className: "ldw-coachbox-kept", children: [jsx6("b", { children: "Kept from yours: " }), o.kept] }) : null,
+    !o.sources ? jsx6("p", { className: "ldw-meta", children: "Your file is empty, so the example names no source. Save headlines in Full round and the coach can cite them." }) : null,
+    onAgain ? jsx6("div", { children: jsx6(Button3, { size: "sm", variant: "secondary", onClick: () => onAgain(o), children: `Now give your own ${what} again` }) }) : null
+  ] });
+}
+var CHANGE = { better: "Better", worse: "Worse", "the same": "Same", "not measured": "Not measured" };
+function cell(key, v) {
+  if (v === null || v === void 0) return "none";
+  if (key === "answer_at") return mmss(v);
+  if (key === "points") return Number(v).toFixed(1);
+  return String(v);
+}
+function TakeTwo({ take1, take2, exampleId, ready }) {
+  useEffect5(() => installStyles(null, `${PLUGIN_ID}:coach`, COACH_CSS), []);
+  const [out, setOut] = useState6(null);
+  const [err, setErr] = useState6(null);
+  useEffect5(() => {
+    if (!ready || !take1 || !take2) return;
+    let alive = true;
+    post("coach/extemp/take2", { take1, take2, example_id: exampleId }).then((o) => {
+      if (alive) setOut(o);
+    }, (e) => {
+      if (alive) setErr(errText(e));
+    });
+    return () => {
+      alive = false;
+    };
+  }, [take1, take2, exampleId, ready]);
+  if (err) return jsx6(Notice, { tone: "warn", children: err });
+  if (!out) return ready ? jsx6(Thinking, { label: "Measuring Take 2 against Take 1" }) : null;
+  return jsxs6("section", { className: "ldw-take2", "aria-label": "Take 2 against Take 1", children: [
+    jsxs6("table", { className: "ldw-take2-t", children: [
+      jsx6("thead", { children: jsxs6("tr", { children: [jsx6("th", { scope: "col", children: "" }), jsx6("th", { scope: "col", children: "Take 1" }), jsx6("th", { scope: "col", children: "Take 2" }), jsx6("th", { scope: "col", children: "Change" })] }) }),
+      jsx6("tbody", { children: out.rows.map((r) => jsxs6("tr", { "data-change": r.change, children: [
+        jsx6("th", { scope: "row", children: r.label }),
+        jsx6("td", { children: cell(r.key, r.take1) }),
+        jsx6("td", { children: cell(r.key, r.take2) }),
+        jsx6("td", { children: CHANGE[r.change] || r.change })
+      ] }, r.key)) })
+    ] }),
+    jsx6("ul", { className: "ldw-take2-moves", children: out.moves.map((m) => jsxs6("li", { "data-met": m.take2.met ? "" : void 0, children: [
+      jsx6("span", { className: "ldw-met", children: m.take2.met ? "Met" : "Not met" }),
+      jsx6("b", { children: m.label }),
+      jsx6("span", { children: ` Take 2: ${m.take2.value}. Take 1: ${m.take1.value}.` })
+    ] }, m.id)) })
+  ] });
+}
+var COACH_CSS = `
+.ldw-showme-row{display:flex;align-items:center;gap:10px 16px;flex-wrap:wrap;max-width:760px;margin:14px 0 4px}
+.ldw-showme-row .ldw-showme{font-size:15px;font-weight:650;padding:0 18px;min-height:40px}
+.ldw-stages{display:inline-flex;align-items:center;gap:8px;font-size:14px}
+.ldw-stages-t{font-variant-numeric:tabular-nums}
+.ldw-cmp{max-width:1040px;display:grid;gap:12px;margin:14px 0 6px;min-width:0}
+.ldw-cmp-cols{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:0;border-top:2px solid currentColor}
+.ldw-cmp-col{min-width:0;padding:12px 22px 14px 0}
+.ldw-cmp-coach{padding:12px 0 14px 22px;border-left:1px solid var(--hk-stroke)}
+.ldw-cmp-cols .ldw-cmp-coach{border-left:1.5px dashed var(--hk-stroke-strong)}
+.ldw-tabs2 .ldw-cmp-col,.ldw-tabs2 .ldw-cmp-coach{padding:10px 0;border-left:0}.ldw-tabs2 .ldw-cmp-h{display:none}
+.ldw-cmp-h{margin:0 0 8px;font-family:var(--ldw-cond);font-weight:700;font-size:16px;text-transform:uppercase;letter-spacing:.05em}
+.ldw-cmp-lines{list-style:none;margin:0;padding:0;display:grid;gap:5px}
+.ldw-cmp-lines li{display:grid;grid-template-columns:22px minmax(0,1fr);gap:6px;align-items:baseline;border-radius:var(--ldw-r);transition:background 120ms}
+.ldw-cmp-lines li[data-lit]{background:color-mix(in srgb,var(--hk-accent) 14%,transparent)}
+.ldw-cmp-n{font-family:var(--hk-mono);font-size:12px;text-align:right}
+.ldw-cmp .ldw-spoken{font-family:var(--ldw-serif);font-size:16px;line-height:1.55}
+.ldw-cmp-said{display:grid;gap:5px}
+.ldw-cmp-s{margin:0}
+.ldw-cmp-from{font-family:var(--hk-mono);font-size:12px;white-space:nowrap;border-bottom:1px dotted currentColor}
+.ldw-cmp-from[data-new]{border-bottom:0;font-style:italic}
+.ldw-cmp-actions{display:flex;align-items:center;gap:10px 18px;flex-wrap:wrap;padding-top:10px;border-top:1px solid var(--hk-stroke)}
+.ldw-cmp-hide{margin-left:auto}
+.ldw-hearit{display:inline-flex;align-items:center;gap:10px}
+.ldw-cmp-details{margin:0;padding-left:18px;font-size:13.5px;line-height:1.5;display:grid;gap:3px}
+.ldw-cmp-why{display:grid;gap:4px;max-width:760px}
+.ldw-half{display:block}.ldw-half+.ldw-half{margin-top:1px}
+.ldw-moves{margin:0;padding-left:18px;display:grid;gap:3px;font-size:14.5px}
+.ldw-take2{max-width:760px;display:grid;gap:10px;margin:0 0 14px}
+.ldw-take2-t{border-collapse:collapse;width:100%;font-size:14.5px;font-variant-numeric:tabular-nums}
+.ldw-take2-t th,.ldw-take2-t td{text-align:left;padding:6px 10px 6px 0;border-bottom:1px solid var(--hk-stroke)}
+.ldw-take2-t thead th{font-family:var(--ldw-cond);font-weight:700;text-transform:uppercase;letter-spacing:.05em;font-size:13px;border-bottom:2px solid currentColor}
+.ldw-take2-t tr[data-change="better"] td:last-child{color:var(--hk-good,inherit);font-weight:700}
+.ldw-take2-moves{list-style:none;margin:0;padding:0;display:grid;gap:5px;font-size:14.5px}
+.ldw-met{display:inline-block;min-width:64px;font-family:var(--hk-mono);font-size:12px;font-weight:800;letter-spacing:.06em;text-transform:uppercase}
+.ldw-take2-moves li[data-met] .ldw-met{color:var(--hk-good,inherit)}
+`;
+function ShowMe({ b }) {
+  const on = useValue3($coachOn);
+  const c = useCoachCall();
+  useEffect5(() => {
+    c.reset();
+  }, [b && b.at]);
+  if (!on || !b || !b.at) return null;
+  const o = c.out;
+  if (!o) {
+    return jsxs6("div", { className: "ldw-coachask ldw-coachask-row", children: [
+      jsx6(Button3, {
+        size: "sm",
+        variant: "secondary",
+        loading: c.busy,
+        onClick: () => c.call("coach/ballot/show", { at: b.at }),
+        children: jsxs6(Fragment3, { children: [jsx6(Codicon5, { name: "lightbulb" }), "Show me"] })
+      }),
+      jsx6("span", { className: "ldw-meta", children: b.show_me ? "The coach redid the weakest moment. Open it again." : "The coach finds the weakest moment and redoes it." }),
+      c.err ? jsx6(Notice, { tone: "bad", children: c.err }) : null
+    ] });
+  }
+  return jsxs6(CoachBox, {
+    label: "Coach's redo",
+    sub: "The weakest moment, done again. Practice it, then do it your way.",
+    checks: o.checks,
+    against: b.answered ? "your file" : "your round",
+    onClose: c.reset,
+    children: [
+      jsxs6("div", { className: "ldw-redo-row", children: [
+        jsx6("span", { className: "ldw-redo-k", children: "You said" }),
+        jsxs6("div", { children: [
+          jsx6("p", { className: "ldw-spoken", children: `"${o.moment}"` }),
+          o.moment_checked === false ? jsx6("span", { className: "ldw-line-flag", children: "Not found in your words as kept. The coach may have misquoted you." }) : null
+        ] })
+      ] }),
+      o.why ? jsxs6("div", { className: "ldw-redo-row", children: [jsx6("span", { className: "ldw-redo-k", children: "Why it cost you" }), jsx6("p", { children: inlineChecked(o.why, COACH_FLAG) })] }) : null,
+      jsxs6("div", { className: "ldw-redo-row", children: [jsx6("span", { className: "ldw-redo-k", children: "Done again" }), jsx6("p", { className: "ldw-spoken", children: inlineChecked(o.redo, COACH_FLAG) })] }),
+      o.practice ? jsxs6("div", { className: "ldw-redo-row", children: [jsx6("span", { className: "ldw-redo-k", children: "Practice" }), jsx6("p", { children: inlineChecked(o.practice, COACH_FLAG) })] }) : null
+    ]
+  });
+}
+function seesLine(ctx) {
+  const sees = (ctx && ctx.sees || []).filter(Boolean);
+  if (!sees.length) return "The coach sees what is on this screen.";
+  return `The coach sees ${sees.length === 1 ? sees[0] : `${sees.slice(0, -1).join(", ")} and ${sees[sees.length - 1]}`}.`;
+}
+function CoachChat({ floor }) {
+  const open = useValue3($chatOpen);
+  const raw = useValue3($coachCtx);
+  const on = useValue3($coachOn);
+  const threads = useValue3($threads);
+  const [text, setText] = useState6("");
+  const [busy, setBusy] = useState6(false);
+  const [err, setErr] = useState6(null);
+  const box = useRef4(null);
+  const ctx = raw && raw.floor === floor ? raw : { floor };
+  const thread = threads[floor] || [];
+  useEffect5(() => {
+    if (box.current) box.current.scrollTop = box.current.scrollHeight;
+  }, [thread.length, busy, open]);
+  useEffect5(() => {
+    const el = open && document.getElementById("ldw-coach-ask");
+    if (el) el.focus();
+  }, [open, floor]);
+  if (!open) return null;
+  const send = async () => {
+    const t = text.trim();
+    if (!t || busy) return;
+    setText("");
+    setErr(null);
+    setBusy(true);
+    const before = thread;
+    $threads.set({ ...$threads.get(), [floor]: [...before, { role: "you", text: t }] });
+    try {
+      const { sees, ...ids } = ctx;
+      const out = await post("coach/chat", { ...ids, floor, message: t, thread: before.map((m) => ({ role: m.role, text: m.text })) });
+      $threads.set({ ...$threads.get(), [floor]: [...before, { role: "you", text: t }, { role: "coach", text: out.text, checks: out.checks }] });
+    } catch (e) {
+      setErr(errText(e));
+      $threads.set({ ...$threads.get(), [floor]: before });
+      setText(t);
+    } finally {
+      setBusy(false);
+    }
+  };
+  return jsxs6("aside", { className: "ldw-chat ldw-noprint", "aria-label": "Ask the coach", children: [
+    jsxs6("div", { className: "ldw-chat-head", children: [
+      jsx6("h2", { className: "ldw-h2", children: "Ask the coach" }),
+      jsx6("button", { type: "button", className: "ldw-iconbtn", "aria-label": "Close the coach", onClick: () => $chatOpen.set(false), children: jsx6(Codicon5, { name: "close" }) })
+    ] }),
+    jsx6("p", { className: "ldw-chat-sees", children: seesLine(ctx) }),
+    jsxs6("div", { className: "ldw-chat-thread", ref: box, "aria-live": "polite", children: [
+      !thread.length && !busy ? jsx6("p", { className: "ldw-meta", children: EMPTY[floor] || "Ask anything about this screen." }) : null,
+      ...thread.map((m, i) => jsxs6("div", { className: "ldw-msg", "data-role": m.role, children: [
+        jsx6("span", { className: "ldw-who", children: m.role === "coach" ? "Coach" : "You" }),
+        m.role === "coach" ? renderChecked(m.text, COACH_FLAG) : jsx6("p", { children: m.text })
+      ] }, i)),
+      busy ? jsx6(Thinking, { label: "The coach is reading your screen" }) : null,
+      err ? jsx6(Notice, { tone: "bad", children: err }) : null
+    ] }),
+    jsxs6("div", { className: "ldw-ask", children: [
+      jsx6(Textarea, {
+        id: "ldw-coach-ask",
+        "aria-label": "Question for the coach",
+        value: text,
+        placeholder: "Ask the coach",
+        onChange: (e) => setText(e.target.value),
+        onKeyDown: (e) => {
+          if (e.key === "Enter" && !e.shiftKey) {
+            e.preventDefault();
+            send();
+          }
+        }
+      }),
+      jsx6(Button3, { onClick: send, disabled: busy || !text.trim(), "aria-label": "Send", children: jsx6(Codicon5, { name: "send" }) })
+    ] }),
+    jsx6("p", { className: "ldw-chat-foot", children: on ? "After you try something yourself, the coach can show an example. It is marked as the coach's." : "Coach examples are off in Settings. The coach explains and asks; it writes nothing for you to say." })
+  ] });
+}
+var STANCE_WORD = { supports: "Supports your point", against: "Cuts against it", context: "Background" };
+function PrepCoach({ outline, file, onUseArea, onPick, picked }) {
+  const on = useValue3($coachOn);
+  const areas = useCoachCall();
+  const ev = useCoachCall();
+  const [point, setPoint] = useState6("");
+  if (!on) return null;
+  const noAnswer = !String(outline.answer || "").trim();
+  const noFile = !file.length;
+  return jsxs6("section", { className: "ldw-prepcoach", "aria-label": "The coach in prep", children: [
+    jsxs6("div", { className: "ldw-prepcoach-row", children: [
+      jsx6(Button3, {
+        variant: "secondary",
+        size: "sm",
+        loading: areas.busy,
+        disabled: noAnswer || noFile,
+        "aria-describedby": noAnswer || noFile ? "ldw-areas-why" : void 0,
+        onClick: () => areas.call("coach/extemp/areas", { outline }),
+        children: jsxs6(Fragment3, { children: [jsx6(Codicon5, { name: "lightbulb" }), "Suggest areas"] })
+      }),
+      jsx6("span", { id: "ldw-areas-why", className: noAnswer || noFile ? "ldw-why-off" : "ldw-meta", children: noAnswer ? "Write your answer first, in Your answer. The coach suggests three areas that back it." : noFile ? "Save a few sources to your file first. Each area comes with one of them." : "Three areas that back your answer, each with a source from your file." })
+    ] }),
+    areas.err ? jsx6(Notice, { tone: "bad", children: areas.err }) : null,
+    areas.out ? jsxs6(CoachBox, {
+      label: "Coach's suggestion",
+      sub: "Areas for your outline. Keep, change or throw out each one.",
+      checks: areas.out.checks,
+      onClose: areas.reset,
+      foot: areas.out.areas.every((a) => a.source) ? "Every source named is in your file." : null,
+      children: [
+        areas.out.note ? jsx6("p", { className: "ldw-coachbox-kept", children: areas.out.note }) : null,
+        jsx6("ol", { className: "ldw-areas", children: areas.out.areas.map((a, i) => jsxs6("li", { children: [
+          jsx6("b", { children: a.title }),
+          a.why ? jsx6("p", { children: inlineChecked(a.why, COACH_FLAG) }) : null,
+          a.source ? jsxs6("p", { className: "ldw-areas-src", children: [jsx6("span", { className: "ldw-areas-cite", children: a.source.citation }), ` "${a.source.title}"`] }) : jsx6("span", { className: "ldw-line-flag", children: "No source in your file was cited for this one. Find one before you use it." }),
+          a.use ? jsx6("p", { children: inlineChecked(a.use, COACH_FLAG) }) : null,
+          jsxs6("div", { className: "hk-actions", children: [
+            jsx6("button", { type: "button", className: "hk-link", onClick: () => onUseArea(i, a.title), children: `Put it in Area ${i + 1}` }),
+            a.source && !picked.includes(a.source.id) ? jsx6("button", { type: "button", className: "hk-link", onClick: () => onPick(a.source.id), children: "Pick this source" }) : null
+          ] })
+        ] }, i)) })
+      ]
+    }) : null,
+    jsxs6("div", { className: "ldw-prepcoach-row", children: [
+      jsx6(Input, {
+        className: "ldw-topic",
+        "aria-label": "The point you need evidence for",
+        value: point,
+        placeholder: 'A point you need evidence for, like "hiring is still strong"',
+        onChange: (e) => setPoint(e.target.value),
+        onKeyDown: (e) => {
+          if (e.key === "Enter" && point.trim() && !noFile) ev.call("coach/extemp/evidence", { point });
+        }
+      }),
+      jsx6(Button3, {
+        variant: "secondary",
+        size: "sm",
+        loading: ev.busy,
+        disabled: !point.trim() || noFile,
+        onClick: () => ev.call("coach/extemp/evidence", { point }),
+        children: jsxs6(Fragment3, { children: [jsx6(Codicon5, { name: "search" }), "Find me evidence"] })
+      })
+    ] }),
+    ev.err ? jsx6(Notice, { tone: "bad", children: ev.err }) : null,
+    ev.out ? jsxs6(CoachBox, {
+      label: ev.out.fallback ? "From your file" : "Coach's picks",
+      sub: "From your saved headlines only.",
+      onClose: ev.reset,
+      foot: ev.out.picks.length ? `Every pick is a source in your file${ev.out.dropped ? `; ${ev.out.dropped} that ${ev.out.dropped === 1 ? "was" : "were"} not ${ev.out.dropped === 1 ? "was" : "were"} left out.` : "."}` : null,
+      checks: ev.out.fallback || !ev.out.checks || !((ev.out.checks.quotes || 0) + (ev.out.checks.not_in_file || 0) + (ev.out.checks.numbers_missed || 0) + (ev.out.checks.outlets_missed || 0)) ? null : ev.out.checks,
+      children: [
+        ev.out.notice ? jsx6(Notice, { tone: "warn", children: ev.out.notice }) : null,
+        ev.out.picks.length ? jsx6("ul", { className: "ldw-areas ldw-picks", children: ev.out.picks.map((p) => jsxs6("li", { children: [
+          jsxs6("p", { className: "ldw-areas-src", children: [jsx6("span", { className: "ldw-areas-cite", children: p.source.citation }), ` "${p.source.title}"`] }),
+          p.stance || p.how ? jsxs6("p", { children: [p.stance ? jsx6("b", { children: `${STANCE_WORD[p.stance]}. ` }) : null, inlineChecked(p.how, COACH_FLAG)] }) : null,
+          picked.includes(p.source.id) ? jsx6("span", { className: "ldw-meta", children: "Picked for this speech" }) : jsx6("button", { type: "button", className: "hk-link", onClick: () => onPick(p.source.id), children: "Pick this source" })
+        ] }, p.source.id)) }) : jsx6("p", { className: "ldw-meta", children: ev.out.missing || "Nothing in your file fits that point." })
+      ]
+    }) : null
+  ] });
+}
+function ThreeVersions({ figure, line, figureName }) {
+  const on = useValue3($coachOn);
+  const c = useCoachCall();
+  useEffect5(() => {
+    c.reset();
+  }, [figure, line]);
+  if (!on) return null;
+  if (!c.out) {
+    return jsxs6("div", { className: "ldw-coachask", children: [
+      jsx6(Button3, {
+        variant: "secondary",
+        loading: c.busy,
+        onClick: () => c.call("coach/rhetoric/versions", { figure, line }),
+        children: jsxs6(Fragment3, { children: [jsx6(Codicon5, { name: "lightbulb" }), "Show me three versions"] })
+      }),
+      jsx6("span", { className: "ldw-meta", children: `Your line, three ways, each using ${figureName.toLowerCase()}. Then write a fourth of your own.` }),
+      c.err ? jsx6(Notice, { tone: "bad", children: c.err }) : null
+    ] });
+  }
+  return jsx6(CoachBox, {
+    label: "Coach's versions",
+    sub: `Your line with ${figureName.toLowerCase()}, three ways. Now write your own fourth.`,
+    checks: c.out.checks,
+    against: "your line",
+    onClose: c.reset,
+    children: jsx6("ol", { className: "ldw-versions", children: c.out.versions.map((v, i) => jsxs6("li", { children: [
+      jsx6("p", { className: "ldw-spoken", children: inlineChecked(v.line, COACH_FLAG) }),
+      v.note ? jsx6("p", { className: "ldw-meta", children: v.note }) : null
+    ] }, i)) })
+  });
+}
+
 // desktop/src/floor.js
 function Strip({ segments, label }) {
-  return jsx6("ol", { className: "ldw-strip", "aria-label": label || "This event, in time", children: segments.map((s) => {
-    const inner = [jsx6("b", { className: "ldw-seg-code", children: s.code }, "c"), s.sub ? jsx6("span", { className: "ldw-seg-sub", children: s.sub }, "s") : null];
-    const fill = s.state === "now" && s.fill ? jsx6("i", { className: "ldw-seg-fill", style: { width: `${Math.min(1, s.fill) * 100}%` }, "aria-hidden": "true" }, "f") : null;
-    const body = s.onClick ? jsxs6("button", { type: "button", className: "ldw-seg-btn", onClick: s.onClick, children: [fill, ...inner] }) : jsxs6(Fragment4, { children: [fill, ...inner] });
-    return jsx6("li", {
+  return jsx7("ol", { className: "ldw-strip", "aria-label": label || "This event, in time", children: segments.map((s) => {
+    const inner = [jsx7("b", { className: "ldw-seg-code", children: s.code }, "c"), s.sub ? jsx7("span", { className: "ldw-seg-sub", children: s.sub }, "s") : null];
+    const fill = s.state === "now" && s.fill ? jsx7("i", { className: "ldw-seg-fill", style: { width: `${Math.min(1, s.fill) * 100}%` }, "aria-hidden": "true" }, "f") : null;
+    const body = s.onClick ? jsxs7("button", { type: "button", className: "ldw-seg-btn", onClick: s.onClick, children: [fill, ...inner] }) : jsxs7(Fragment4, { children: [fill, ...inner] });
+    return jsx7("li", {
       className: "ldw-seg",
       "data-state": s.state || "later",
       "aria-current": s.state === "now" ? "step" : void 0,
@@ -1549,9 +1892,9 @@ function Clock({ limit, elapsed = 0, live = false, label }) {
   const over = remaining < 0;
   const up = cardUp(limit, remaining);
   const cards = cardsFor(limit);
-  return jsxs6("div", { className: "ldw-clockface", children: [
-    label ? jsx6("div", { className: "ldw-clock-label", children: label }) : null,
-    jsxs6("div", {
+  return jsxs7("div", { className: "ldw-clockface", children: [
+    label ? jsx7("div", { className: "ldw-clock-label", children: label }) : null,
+    jsxs7("div", {
       className: cls("ldw-bigclock", over && "ldw-over"),
       role: "timer",
       "aria-live": "off",
@@ -1559,10 +1902,10 @@ function Clock({ limit, elapsed = 0, live = false, label }) {
       children: [
         over ? "+" : "",
         mmss(Math.abs(remaining)).replace(/^\+/, ""),
-        over ? jsx6("span", { className: "ldw-overword", children: "over" }) : null
+        over ? jsx7("span", { className: "ldw-overword", children: "over" }) : null
       ]
     }),
-    jsx6("div", { className: "ldw-cards", "aria-label": "Time cards", children: cards.map((c) => jsx6("span", {
+    jsx7("div", { className: "ldw-cards", "aria-label": "Time cards", children: cards.map((c) => jsx7("span", {
       className: cls("ldw-card", c.key === "time" && "ldw-card-time"),
       "data-up": c.key === up ? "" : void 0,
       "aria-current": c.key === up ? "true" : void 0,
@@ -1589,10 +1932,10 @@ function micError(e) {
 var SOUND = 0.05;
 var MIMES = ["audio/webm;codecs=opus", "audio/webm", "audio/ogg;codecs=opus", "audio/mp4"];
 function useRecorder({ limit, onTake }) {
-  const [state, setState] = useState6("idle");
-  const [err, setErr] = useState6(null);
-  const [elapsed, setElapsed] = useState6(0);
-  const [level, setLevel] = useState6(0);
+  const [state, setState] = useState7("idle");
+  const [err, setErr] = useState7(null);
+  const [elapsed, setElapsed] = useState7(0);
+  const [level, setLevel] = useState7(0);
   const R = useRef5({});
   const done = useRef5(onTake);
   done.current = onTake;
@@ -1609,7 +1952,7 @@ function useRecorder({ limit, onTake }) {
     }
     R.current = { cancelled: x2.cancelled };
   };
-  useEffect5(() => () => {
+  useEffect6(() => () => {
     R.current.cancelled = true;
     R.current.gaveUp = true;
     try {
@@ -1736,17 +2079,17 @@ function livePauses(levels, minSeconds = 2) {
 }
 function LiveWave({ rec, limit }) {
   if (rec.firstIdx === null || rec.firstIdx === void 0) {
-    return jsx6("div", { className: "ldw-live ldw-live-wait", children: jsx6("span", { children: "The clock starts when you do." }) });
+    return jsx7("div", { className: "ldw-live ldw-live-wait", children: jsx7("span", { children: "The clock starts when you do." }) });
   }
   const levels = rec.levels.slice(rec.firstIdx);
   const pauses = livePauses(levels);
   const open = pauses.length && pauses[pauses.length - 1].open;
-  return jsxs6("section", { className: "ldw-live", "aria-label": "Your take so far", children: [
-    jsxs6("div", { className: "ldw-last-head", children: [
-      jsx6("h3", { className: "ldw-h3", children: "Recording" }),
-      jsx6("span", { className: "ldw-prov", children: open ? "Pausing" : pauses.length ? `${pauses.length} pause${pauses.length === 1 ? "" : "s"} over 2 seconds` : "No pauses over 2 seconds" })
+  return jsxs7("section", { className: "ldw-live", "aria-label": "Your take so far", children: [
+    jsxs7("div", { className: "ldw-last-head", children: [
+      jsx7("h3", { className: "ldw-h3", children: "Recording" }),
+      jsx7("span", { className: "ldw-prov", children: open ? "Pausing" : pauses.length ? `${pauses.length} pause${pauses.length === 1 ? "" : "s"} over 2 seconds` : "No pauses over 2 seconds" })
     ] }),
-    jsx6(Wave, { levels, duration: levels.length / 10, pauses, limit })
+    jsx7(Wave, { levels, duration: levels.length / 10, pauses, limit })
   ] });
 }
 function toB64(buf) {
@@ -1770,7 +2113,7 @@ async function sendTake(meta, rec) {
 }
 var WAITING = /* @__PURE__ */ new Set(["waiting", "working"]);
 function useTakePoll(take, setTake) {
-  useEffect5(() => {
+  useEffect6(() => {
     if (!take || !WAITING.has(take.transcript.status)) return void 0;
     let alive = true;
     const id = setInterval(async () => {
@@ -1801,26 +2144,26 @@ function Wave({ levels = [], duration = 0, pauses = [], answerAt = null, startsA
     for (let k = a; k < b && k < levels.length; k++) m = Math.max(m, levels[k]);
     if (a >= levels.length) break;
     const h = Math.max(1.5, Math.min(1, m * 1.6) * (H2 - 6));
-    bars.push(jsx6("rect", { x: i * W2 / n + 0.6, y: (H2 - h) / 2, width: W2 / n - 1.6, height: h, rx: 0.8, className: "ldw-wave-bar" }, i));
+    bars.push(jsx7("rect", { x: i * W2 / n + 0.6, y: (H2 - h) / 2, width: W2 / n - 1.6, height: h, rx: 0.8, className: "ldw-wave-bar" }, i));
   }
   const step = total <= 90 ? 10 : 60;
   const ticks = [];
   for (let t = 0; t <= total + 0.01; t += step) ticks.push(t);
   const x = (t) => t / total * W2;
-  return jsxs6("div", { className: "ldw-wave", children: [
-    jsxs6("svg", {
+  return jsxs7("div", { className: "ldw-wave", children: [
+    jsxs7("svg", {
       viewBox: `0 0 ${W2} ${H2}`,
       preserveAspectRatio: "none",
       role: "img",
       "aria-label": `Your take: ${mmss(duration)} long, ${pauses.length} pause${pauses.length === 1 ? "" : "s"} over 2 seconds`,
       children: [
-        ...pauses.map((p, i) => jsx6("rect", { x: x(p.at), y: 0, width: Math.max(3, x(p.length)), height: H2, className: "ldw-wave-pause" }, `p${i}`)),
+        ...pauses.map((p, i) => jsx7("rect", { x: x(p.at), y: 0, width: Math.max(3, x(p.length)), height: H2, className: "ldw-wave-pause" }, `p${i}`)),
         ...bars,
-        answerAt !== null && answerAt !== void 0 ? jsx6("line", { x1: x(answerAt + startsAt), x2: x(answerAt + startsAt), y1: 0, y2: H2, className: "ldw-wave-answer" }, "a") : null
+        answerAt !== null && answerAt !== void 0 ? jsx7("line", { x1: x(answerAt + startsAt), x2: x(answerAt + startsAt), y1: 0, y2: H2, className: "ldw-wave-answer" }, "a") : null
       ]
     }),
-    answerAt !== null && answerAt !== void 0 ? jsx6("span", { className: "ldw-wave-mark", style: { left: `${x(answerAt + startsAt) / W2 * 100}%` }, children: `Answer ${mmss(answerAt)}` }) : null,
-    jsx6("div", { className: "ldw-wave-ticks", "aria-hidden": "true", children: ticks.map((t) => jsx6("span", { style: { left: `${x(t) / W2 * 100}%` }, children: mmss(t) }, t)) })
+    answerAt !== null && answerAt !== void 0 ? jsx7("span", { className: "ldw-wave-mark", style: { left: `${x(answerAt + startsAt) / W2 * 100}%` }, children: `Answer ${mmss(answerAt)}` }) : null,
+    jsx7("div", { className: "ldw-wave-ticks", "aria-hidden": "true", children: ticks.map((t) => jsx7("span", { style: { left: `${x(t) / W2 * 100}%` }, children: mmss(t) }, t)) })
   ] });
 }
 function Stats({ take, limit, fastOk }) {
@@ -1838,9 +2181,9 @@ function Stats({ take, limit, fastOk }) {
     const aim = limit <= 90 ? 20 : 60;
     items.push({ v: mmss(s.answer_at), k: s.answer_at > aim ? `to your answer (aim for ${mmss(aim)})` : "to your answer", bad: s.answer_at > aim });
   }
-  return jsx6("dl", { className: "ldw-stats", children: items.map((it, i) => jsxs6("div", { className: "ldw-stat", "data-bad": it.bad ? "" : void 0, children: [
-    jsx6("dt", { className: "hk-sr", children: it.k }),
-    jsxs6("dd", { children: [jsx6("b", { children: it.v }), " ", it.k] })
+  return jsx7("dl", { className: "ldw-stats", children: items.map((it, i) => jsxs7("div", { className: "ldw-stat", "data-bad": it.bad ? "" : void 0, children: [
+    jsx7("dt", { className: "hk-sr", children: it.k }),
+    jsxs7("dd", { children: [jsx7("b", { children: it.v }), " ", it.k] })
   ] }, i)) });
 }
 function transcriptLine(t) {
@@ -1860,10 +2203,10 @@ function transcriptLine(t) {
 }
 var TRANSCRIPTS_OFF = "Transcripts need speech-to-text in Hermes. In Hermes Settings, Voice, choose a speech-to-text provider (local keeps your voice on this computer). Then press Transcribe now. Or type what you said.";
 function LastTake({ take, limit, title, onChange, children, fastOk }) {
-  const [typing, setTyping] = useState6(false);
-  const [text, setText] = useState6("");
-  const [busy, setBusy] = useState6(false);
-  const [err, setErr] = useState6(null);
+  const [typing, setTyping] = useState7(false);
+  const [text, setText] = useState7("");
+  const [busy, setBusy] = useState7(false);
+  const [err, setErr] = useState7(null);
   const st = take.transcript.status;
   const call = async (fn) => {
     setBusy(true);
@@ -1877,61 +2220,61 @@ function LastTake({ take, limit, title, onChange, children, fastOk }) {
     }
   };
   const s = take.stats || {};
-  return jsxs6("section", { className: "ldw-last", "aria-label": title || "Your last take", children: [
-    jsxs6("div", { className: "ldw-last-head", children: [jsx6("h3", { className: "ldw-h3", children: title || "Your take" }), jsx6("span", { className: "ldw-prov", children: transcriptLine(take) })] }),
-    jsx6(Stats, { take, limit, fastOk }),
-    jsx6(TakePlayer, { take }),
-    WAITING.has(st) ? jsxs6("div", { className: "hk-row", children: [
-      jsx6(Thinking, { label: "Making the transcript" }),
-      jsx6("button", { type: "button", className: "hk-link", onClick: () => call(() => post(`speech/${take.id}/cancel`)), children: "Stop" })
+  return jsxs7("section", { className: "ldw-last", "aria-label": title || "Your last take", children: [
+    jsxs7("div", { className: "ldw-last-head", children: [jsx7("h3", { className: "ldw-h3", children: title || "Your take" }), jsx7("span", { className: "ldw-prov", children: transcriptLine(take) })] }),
+    jsx7(Stats, { take, limit, fastOk }),
+    jsx7(TakePlayer, { take }),
+    WAITING.has(st) ? jsxs7("div", { className: "hk-row", children: [
+      jsx7(Thinking, { label: "Making the transcript" }),
+      jsx7("button", { type: "button", className: "hk-link", onClick: () => call(() => post(`speech/${take.id}/cancel`)), children: "Stop" })
     ] }) : null,
     // A take that waits for the press says where it would go; nothing has left the computer, so it is not a warning.
-    st === "unavailable" || st === "failed" || st === "cancelled" ? jsx6(Notice, {
+    st === "unavailable" || st === "failed" || st === "cancelled" ? jsx7(Notice, {
       tone: st === "failed" && take.transcript.ask === "send" ? "info" : "warn",
       children: st === "failed" ? take.transcript.error : TRANSCRIPTS_OFF,
-      action: jsxs6("div", { className: "hk-actions", children: [
-        take.has_audio ? jsx6(Button4, { size: "sm", variant: "secondary", loading: busy, onClick: () => call(() => post(`speech/${take.id}/transcribe`)), children: "Transcribe now" }) : null,
-        jsx6(Button4, { size: "sm", variant: "secondary", onClick: () => setTyping(true), children: "Type what you said" })
+      action: jsxs7("div", { className: "hk-actions", children: [
+        take.has_audio ? jsx7(Button4, { size: "sm", variant: "secondary", loading: busy, onClick: () => call(() => post(`speech/${take.id}/transcribe`)), children: "Transcribe now" }) : null,
+        jsx7(Button4, { size: "sm", variant: "secondary", onClick: () => setTyping(true), children: "Type what you said" })
       ] })
     }) : null,
-    typing ? jsxs6("div", { className: "hk-stack", children: [
-      jsx6(Textarea2, { className: "ldw-speechbox ldw-short", "aria-label": "What you said", value: text, onChange: (e) => setText(e.target.value) }),
-      jsxs6("div", { className: "hk-actions", children: [
-        jsx6(Button4, { size: "sm", loading: busy, disabled: !words(text), onClick: () => call(() => post(`speech/${take.id}/text`, { text })).then(() => setTyping(false)), children: "Use these words" }),
-        jsx6(Button4, { size: "sm", variant: "secondary", onClick: () => setTyping(false), children: "Cancel" })
+    typing ? jsxs7("div", { className: "hk-stack", children: [
+      jsx7(Textarea2, { className: "ldw-speechbox ldw-short", "aria-label": "What you said", value: text, onChange: (e) => setText(e.target.value) }),
+      jsxs7("div", { className: "hk-actions", children: [
+        jsx7(Button4, { size: "sm", loading: busy, disabled: !words(text), onClick: () => call(() => post(`speech/${take.id}/text`, { text })).then(() => setTyping(false)), children: "Use these words" }),
+        jsx7(Button4, { size: "sm", variant: "secondary", onClick: () => setTyping(false), children: "Cancel" })
       ] })
     ] }) : null,
-    err ? jsx6(Notice, { tone: "bad", children: err }) : null,
+    err ? jsx7(Notice, { tone: "bad", children: err }) : null,
     children || null
   ] });
 }
 function SpeakControls({ rec, onTyped, startLabel = "Start speaking", extra }) {
-  const [typing, setTyping] = useState6(false);
-  const [text, setText] = useState6("");
+  const [typing, setTyping] = useState7(false);
+  const [text, setText] = useState7("");
   const live = rec.state === "live" || rec.state === "armed";
-  return jsxs6("div", { className: "ldw-go", children: [
-    !live ? jsxs6("button", { type: "button", className: "ldw-rec", disabled: rec.state === "asking", onClick: rec.start, children: [
-      jsx6(Codicon6, { name: "mic" }),
+  return jsxs7("div", { className: "ldw-go", children: [
+    !live ? jsxs7("button", { type: "button", className: "ldw-rec", disabled: rec.state === "asking", onClick: rec.start, children: [
+      jsx7(Codicon6, { name: "mic" }),
       rec.state === "asking" ? "Opening the microphone" : startLabel
     ] }) : null,
-    live ? jsxs6("button", { type: "button", className: "ldw-rec ldw-rec-stop", onClick: rec.stop, children: [
-      jsx6("span", { className: "ldw-level", style: { "--lv": rec.level }, "aria-hidden": "true" }),
+    live ? jsxs7("button", { type: "button", className: "ldw-rec ldw-rec-stop", onClick: rec.stop, children: [
+      jsx7("span", { className: "ldw-level", style: { "--lv": rec.level }, "aria-hidden": "true" }),
       rec.state === "armed" ? "Listening. Start when ready" : "Stop"
     ] }) : null,
-    live ? jsx6("button", { type: "button", className: "hk-link ldw-center", onClick: rec.cancel, children: "Cancel this take" }) : null,
-    !live && !typing ? jsx6("button", { type: "button", className: "hk-link ldw-center", onClick: () => setTyping(true), children: "Type instead" }) : null,
+    live ? jsx7("button", { type: "button", className: "hk-link ldw-center", onClick: rec.cancel, children: "Cancel this take" }) : null,
+    !live && !typing ? jsx7("button", { type: "button", className: "hk-link ldw-center", onClick: () => setTyping(true), children: "Type instead" }) : null,
     !live && extra ? extra : null,
-    rec.err ? jsx6(Notice, { tone: rec.err.kind === "broke" ? "warn" : "bad", children: rec.err.text }) : null,
-    typing && !live ? jsxs6("div", { className: "hk-stack", children: [
-      jsx6(Textarea2, { className: "ldw-speechbox ldw-short", "aria-label": "Your speech, typed", value: text, onChange: (e) => setText(e.target.value) }),
-      jsx6("span", { className: "ldw-meta", children: `${words(text)} words · about ${mmss(words(text) / 140 * 60)} aloud, estimated at 140 words a minute` }),
-      jsxs6("div", { className: "hk-actions", children: [
-        jsx6(Button4, { size: "sm", disabled: !words(text), onClick: () => {
+    rec.err ? jsx7(Notice, { tone: rec.err.kind === "broke" ? "warn" : "bad", children: rec.err.text }) : null,
+    typing && !live ? jsxs7("div", { className: "hk-stack", children: [
+      jsx7(Textarea2, { className: "ldw-speechbox ldw-short", "aria-label": "Your speech, typed", value: text, onChange: (e) => setText(e.target.value) }),
+      jsx7("span", { className: "ldw-meta", children: `${words(text)} words · about ${mmss(words(text) / 140 * 60)} aloud, estimated at 140 words a minute` }),
+      jsxs7("div", { className: "hk-actions", children: [
+        jsx7(Button4, { size: "sm", disabled: !words(text), onClick: () => {
           onTyped(text);
           setTyping(false);
           setText("");
         }, children: "Use this" }),
-        jsx6(Button4, { size: "sm", variant: "secondary", onClick: () => setTyping(false), children: "Cancel" })
+        jsx7(Button4, { size: "sm", variant: "secondary", onClick: () => setTyping(false), children: "Cancel" })
       ] })
     ] }) : null
   ] });
@@ -1943,68 +2286,72 @@ var POINTS_KEY = {
 function PointsScale({ points }) {
   const marks = [20, 22, 24, 26, 28, 30];
   const pos = points === null || points === void 0 ? null : (points - 20) / 10 * 100;
-  return jsxs6("div", { className: "ldw-pts", children: [
-    jsxs6("div", { className: "ldw-pts-lbl", children: ["Points ", jsx6("b", { children: points === null || points === void 0 ? "none" : points.toFixed(1) })] }),
-    jsxs6("div", { className: "ldw-pts-scale", "aria-hidden": "true", children: [
-      ...marks.map((m) => jsx6("span", { style: { left: `${(m - 20) / 10 * 100}%` }, children: m }, m)),
-      pos !== null ? jsx6("i", { className: "ldw-pts-mark", style: { left: `${pos}%` } }) : null
+  return jsxs7("div", { className: "ldw-pts", children: [
+    jsxs7("div", { className: "ldw-pts-lbl", children: ["Points ", jsx7("b", { children: points === null || points === void 0 ? "none" : points.toFixed(1) })] }),
+    jsxs7("div", { className: "ldw-pts-scale", "aria-hidden": "true", children: [
+      ...marks.map((m) => jsx7("span", { style: { left: `${(m - 20) / 10 * 100}%` }, children: m }, m)),
+      pos !== null ? jsx7("i", { className: "ldw-pts-mark", style: { left: `${pos}%` } }) : null
     ] })
   ] });
 }
 var ANSWERED = { yes: "Yes", partly: "Partly", no: "No" };
 var mentionsFile = (d) => /\byour (extemp )?file\b/i.test(`${d && d.name || ""} ${d && d.how || ""}`);
 var FILE_EMPTY_NOTE = "Your file is empty for now: in Full round, pull headlines on a topic and save a few, or use sources you can name with an outlet and a date.";
-function ExtempSheet({ b, take, onDrill, drillLabel = "Run the drill", defaultOpen = false, fileEmpty = false, showMe = true, label = "Practice ballot" }) {
-  const [open, setOpen2] = useState6(defaultOpen);
+function ExtempSheet({ b, take, onDrill, drillLabel = "Run the drill", drillLink = false, defaultOpen = false, fileEmpty = false, showMe = true, label = "Practice ballot" }) {
+  const [open, setOpen2] = useState7(defaultOpen);
   const m = b.measured || {};
   const verdictWord = { yes: "You answered the question", partly: "You partly answered the question", no: "You did not answer the question" }[b.answered];
-  return jsxs6("article", { className: "ldw-sheet", "aria-label": "Ballot", children: [
-    jsxs6("div", { className: "ldw-sheet-head", children: [jsx6("b", { children: b.event === "drill" ? "60-second answer" : "Extemporaneous speaking" }), jsx6("span", { children: label })] }),
-    jsxs6("div", { className: "ldw-sheet-fields", children: [
-      jsxs6("div", { children: [jsx6("i", { children: "Judge" }), "Extemp judge"] }),
-      jsxs6("div", { children: [jsx6("i", { children: "Time" }), m.typed ? "typed" : `${mmss(m.speaking || 0)} of ${mmss(m.limit || 0)}`] }),
-      jsxs6("div", { children: [jsx6("i", { children: "Sources named" }), String((b.sources_cited || []).length)] }),
-      jsxs6("div", { children: [jsx6("i", { children: "Pace" }), m.wpm ? `${m.wpm} words a minute` : m.typed ? "typed" : "no transcript"] })
+  return jsxs7("article", { className: "ldw-sheet", "aria-label": "Ballot", children: [
+    jsxs7("div", { className: "ldw-sheet-head", children: [
+      jsx7("b", { children: b.event === "drill" ? "60-second answer" : "Extemporaneous speaking" }),
+      jsx7("span", { children: b.help === "after the coach's example" ? `${label} · after the coach's example` : label })
     ] }),
-    jsx6("div", { className: "ldw-sheet-q", children: b.question }),
-    jsxs6("div", { className: "ldw-sheet-dec", children: [
-      jsxs6("div", { className: "ldw-boxwrap", children: [
-        jsx6("div", { className: "ldw-boxes-q", "aria-hidden": "true", children: "Answered the question?" }),
-        jsx6("div", { className: "ldw-boxes", role: "img", "aria-label": `Answered the question: ${ANSWERED[b.answered]}`, children: ["yes", "partly", "no"].map((k) => jsxs6("span", { children: [
-          jsx6("span", { className: "ldw-box", "data-x": b.answered === k ? "1" : "0" }),
+    jsxs7("div", { className: "ldw-sheet-fields", children: [
+      jsxs7("div", { children: [jsx7("i", { children: "Judge" }), "Extemp judge"] }),
+      jsxs7("div", { children: [jsx7("i", { children: "Time" }), m.typed ? "typed" : `${mmss(m.speaking || 0)} of ${mmss(m.limit || 0)}`] }),
+      jsxs7("div", { children: [jsx7("i", { children: "Sources named" }), String((b.sources_cited || []).length)] }),
+      jsxs7("div", { children: [jsx7("i", { children: "Pace" }), m.wpm ? `${m.wpm} words a minute` : m.typed ? "typed" : "no transcript"] })
+    ] }),
+    jsx7("div", { className: "ldw-sheet-q", children: b.question }),
+    jsxs7("div", { className: "ldw-sheet-dec", children: [
+      jsxs7("div", { className: "ldw-boxwrap", children: [
+        jsx7("div", { className: "ldw-boxes-q", "aria-hidden": "true", children: "Answered the question?" }),
+        jsx7("div", { className: "ldw-boxes", role: "img", "aria-label": `Answered the question: ${ANSWERED[b.answered]}`, children: ["yes", "partly", "no"].map((k) => jsxs7("span", { children: [
+          jsx7("span", { className: "ldw-box", "data-x": b.answered === k ? "1" : "0" }),
           ANSWERED[k]
         ] }, k)) })
       ] }),
-      jsx6("div", { className: "ldw-verdict", children: b.summary || verdictWord }),
-      jsx6(PointsScale, { points: b.points }),
-      jsx6("p", { className: "ldw-pts-key", children: POINTS_KEY.extemp })
+      jsx7("div", { className: "ldw-verdict", children: b.summary || verdictWord }),
+      jsx7(PointsScale, { points: b.points }),
+      jsx7("p", { className: "ldw-pts-key", children: POINTS_KEY.extemp })
     ] }),
-    b.decisive && b.decisive.length ? jsxs6("div", { className: "ldw-declines", children: [
-      jsx6("h4", { children: "The lines that decided it" }),
-      ...b.decisive.map((d, i) => jsxs6(QuoteLine, { take: take || (b.take_id ? { id: b.take_id } : null), line: d, index: i, className: "ldw-line", children: [
-        jsx6("span", { className: "ldw-line-said", children: `"${d.line}"` }),
-        jsx6("span", { className: "ldw-line-effect", children: d.effect }),
-        d.checked === false ? jsx6("span", { className: "ldw-line-flag", children: "Not found in your transcript. Check it." }) : null
-      ] }, i))
+    b.decisive && b.decisive.length ? jsxs7("div", { className: "ldw-declines", children: [
+      jsx7("h4", { children: "The lines that decided it" }),
+      ...b.decisive.map((d, i) => jsxs7(QuoteLine, { take: take || (b.take_id ? { id: b.take_id } : null), line: d, index: i, className: "ldw-line", children: [
+        jsx7("span", { className: "ldw-line-said", children: `"${d.line}"` }),
+        jsx7("span", { className: "ldw-line-effect", children: d.effect }),
+        d.checked === false ? jsx7("span", { className: "ldw-line-flag", children: "Not found in your transcript. Check it." }) : null
+      ] }, i)),
+      b.notes_removed ? jsx7("p", { className: "ldw-line-removed", children: `${b.notes_removed} judge's note${b.notes_removed === 1 ? "" : "s"} removed: ${b.notes_removed === 1 ? "it" : "they"} said more than your words show.` }) : null
     ] }) : null,
-    b.drill ? jsxs6("div", { className: "ldw-drillrow", children: [
-      jsx6("span", { className: "ldw-stamp2", children: "Drill" }),
-      jsxs6("p", { children: [
-        jsx6("strong", { children: b.drill.name }),
+    b.drill ? jsxs7("div", { className: "ldw-drillrow", children: [
+      jsx7("span", { className: "ldw-stamp2", children: "Drill" }),
+      jsxs7("p", { children: [
+        jsx7("strong", { children: b.drill.name }),
         ". ",
         b.drill.how,
-        fileEmpty && mentionsFile(b.drill) ? jsx6("span", { className: "ldw-drill-note", children: ` ${FILE_EMPTY_NOTE}` }) : null
+        fileEmpty && mentionsFile(b.drill) ? jsx7("span", { className: "ldw-drill-note", children: ` ${FILE_EMPTY_NOTE}` }) : null
       ] }),
-      onDrill ? jsx6(Button4, { size: "sm", onClick: onDrill, children: drillLabel }) : null
+      onDrill ? drillLink ? jsx7("button", { type: "button", className: "hk-link ldw-drill-link", onClick: onDrill, children: drillLabel }) : jsx7(Button4, { size: "sm", onClick: onDrill, children: drillLabel }) : null
     ] }) : null,
-    showMe ? jsx6("div", { className: "ldw-noprint", children: jsx6(ShowMe, { b }) }) : null,
-    jsxs6("button", { type: "button", className: "ldw-fold", "aria-expanded": open, onClick: () => setOpen2((v) => !v), children: [
-      jsx6("span", { children: open ? "Hide the full reason for decision" : "Read the full reason for decision" }),
-      jsx6("span", { children: `${words(b.reason)} words` })
+    showMe ? jsx7("div", { className: "ldw-noprint", children: jsx7(ShowMe, { b }) }) : null,
+    jsxs7("button", { type: "button", className: "ldw-fold", "aria-expanded": open, onClick: () => setOpen2((v) => !v), children: [
+      jsx7("span", { children: open ? "Hide the full reason for decision" : "Read the full reason for decision" }),
+      jsx7("span", { children: `${words(b.reason)} words` })
     ] }),
-    open ? jsxs6("div", { className: "ldw-sheet-rfd", children: [
-      jsx6("p", { children: b.reason }),
-      b.strengths && b.strengths.length ? jsxs6(Fragment4, { children: [jsx6("h4", { children: "What worked" }), jsx6("ul", { children: b.strengths.map((s, i) => jsx6("li", { children: s }, i)) })] }) : null
+    open ? jsxs7("div", { className: "ldw-sheet-rfd", children: [
+      jsx7("p", { children: b.reason }),
+      b.strengths && b.strengths.length ? jsxs7(Fragment4, { children: [jsx7("h4", { children: "What worked" }), jsx7("ul", { children: b.strengths.map((s, i) => jsx7("li", { children: s }, i)) })] }) : null
     ] }) : null
   ] });
 }
@@ -2018,7 +2365,7 @@ var clip2 = (t, n) => {
   return t.length > n ? `${t.slice(0, n - 1).trimEnd()}...` : t;
 };
 function LdSheet({ b, onLine, onDrill, defaultOpen = false }) {
-  const [open, setOpen2] = useState6(defaultOpen);
+  const [open, setOpen2] = useState7(defaultOpen);
   const pts = b.speaker_points || {};
   const won = b.decision === b.side;
   const spoken = b.measured ? Object.keys(b.measured) : [];
@@ -2026,122 +2373,58 @@ function LdSheet({ b, onLine, onDrill, defaultOpen = false }) {
   const more = (b.decisive || []).slice(3);
   const [drill, ...drills] = b.drills || [];
   const line = (d, i) => {
-    const said = jsxs6(Fragment4, { children: [
-      jsx6("span", { className: "ldw-line-code", children: d.speech }),
-      jsx6(QuoteLine, { take: null, line: d, index: i, children: jsx6("span", { className: "ldw-line-said", children: `"${d.line}"` }) })
+    const said = jsxs7(Fragment4, { children: [
+      jsx7("span", { className: "ldw-line-code", children: d.speech }),
+      jsx7(QuoteLine, { take: null, line: d, index: i, children: jsx7("span", { className: "ldw-line-said", children: `"${d.line}"` }) })
     ] });
-    return jsxs6("div", { className: "ldw-line", children: [
-      onLine ? jsx6("button", { type: "button", className: "ldw-line-btn", onClick: () => onLine(d.speech), title: `Find the ${d.speech} on the flow`, children: said }) : jsx6("div", { children: said }),
-      jsx6("span", { className: "ldw-line-effect", children: d.effect }),
-      d.checked === false ? jsx6("span", { className: "ldw-line-flag", children: `Not found in the ${d.speech || "round"} as given. Check it on the flow.` }) : null
+    return jsxs7("div", { className: "ldw-line", children: [
+      onLine ? jsx7("button", { type: "button", className: "ldw-line-btn", onClick: () => onLine(d.speech), title: `Find the ${d.speech} on the flow`, children: said }) : jsx7("div", { children: said }),
+      jsx7("span", { className: "ldw-line-effect", children: d.effect }),
+      d.checked === false ? jsx7("span", { className: "ldw-line-flag", children: `Not found in the ${d.speech || "round"} as given. Check it on the flow.` }) : null
     ] }, i);
   };
-  return jsxs6("article", { className: "ldw-sheet", "aria-label": "Ballot", children: [
-    jsxs6("div", { className: "ldw-sheet-head", children: [jsx6("b", { children: "Lincoln-Douglas" }), jsx6("span", { children: `Practice ballot${b.round_no ? ` · round ${b.round_no}` : ""}` })] }),
-    jsxs6("div", { className: "ldw-sheet-fields", children: [
-      jsxs6("div", { children: [jsx6("i", { children: "Judge" }), b.judge || "Judge"] }),
-      jsxs6("div", { children: [jsx6("i", { children: "You" }), SIDE[b.side] || "Your side"] }),
-      jsxs6("div", { children: [jsx6("i", { children: "Speeches" }), spoken.length ? `${spoken.length} spoken, timed` : "typed"] }),
-      jsxs6("div", { children: [jsx6("i", { children: "Opponent" }), pts.opponent ? `${pts.opponent.toFixed(1)} points` : "no points"] })
+  return jsxs7("article", { className: "ldw-sheet", "aria-label": "Ballot", children: [
+    jsxs7("div", { className: "ldw-sheet-head", children: [jsx7("b", { children: "Lincoln-Douglas" }), jsx7("span", { children: `Practice ballot${b.round_no ? ` · round ${b.round_no}` : ""}` })] }),
+    jsxs7("div", { className: "ldw-sheet-fields", children: [
+      jsxs7("div", { children: [jsx7("i", { children: "Judge" }), b.judge || "Judge"] }),
+      jsxs7("div", { children: [jsx7("i", { children: "You" }), SIDE[b.side] || "Your side"] }),
+      jsxs7("div", { children: [jsx7("i", { children: "Speeches" }), spoken.length ? `${spoken.length} spoken, timed` : "typed"] }),
+      jsxs7("div", { children: [jsx7("i", { children: "Opponent" }), pts.opponent ? `${pts.opponent.toFixed(1)} points` : "no points"] })
     ] }),
-    b.resolution ? jsx6("div", { className: "ldw-sheet-q", children: b.resolution }) : null,
-    jsxs6("div", { className: "ldw-sheet-dec", children: [
-      jsxs6("div", { className: "ldw-boxes", role: "img", "aria-label": `Decision: ${SIDE[b.decision] || "none"}`, children: ["aff", "neg"].map((k) => jsxs6("span", { children: [
-        jsx6("span", { className: "ldw-box", "data-x": b.decision === k ? "1" : "0" }),
+    b.resolution ? jsx7("div", { className: "ldw-sheet-q", children: b.resolution }) : null,
+    jsxs7("div", { className: "ldw-sheet-dec", children: [
+      jsxs7("div", { className: "ldw-boxes", role: "img", "aria-label": `Decision: ${SIDE[b.decision] || "none"}`, children: ["aff", "neg"].map((k) => jsxs7("span", { children: [
+        jsx7("span", { className: "ldw-box", "data-x": b.decision === k ? "1" : "0" }),
         SIDE[k]
       ] }, k)) }),
-      jsx6("div", { className: "ldw-verdict ldw-ldverdict", children: won ? "You won" : "You lost" }),
-      jsx6(PointsScale, { points: pts.student }),
-      jsx6("p", { className: "ldw-pts-key", children: POINTS_KEY.ld })
+      jsx7("div", { className: "ldw-verdict ldw-ldverdict", children: won ? "You won" : "You lost" }),
+      jsx7(PointsScale, { points: pts.student }),
+      jsx7("p", { className: "ldw-pts-key", children: POINTS_KEY.ld })
     ] }),
-    b.reason ? jsx6("p", { className: "ldw-sheet-why", children: firstSentence(b.reason) }) : null,
-    lines.length ? jsxs6("div", { className: "ldw-declines", children: [jsx6("h4", { children: "The lines that decided it" }), ...lines.map(line)] }) : null,
-    drill ? jsxs6("div", { className: "ldw-drillrow", children: [
-      jsx6("span", { className: "ldw-stamp2", children: "Drill" }),
-      jsxs6("p", { children: [jsx6("strong", { children: drill.name }), ". ", drill.how] }),
-      onDrill ? jsx6(Button4, { size: "sm", onClick: onDrill, children: "Redo a speech" }) : null
+    b.reason ? jsx7("p", { className: "ldw-sheet-why", children: firstSentence(b.reason) }) : null,
+    lines.length ? jsxs7("div", { className: "ldw-declines", children: [jsx7("h4", { children: "The lines that decided it" }), ...lines.map(line)] }) : null,
+    drill ? jsxs7("div", { className: "ldw-drillrow", children: [
+      jsx7("span", { className: "ldw-stamp2", children: "Drill" }),
+      jsxs7("p", { children: [jsx7("strong", { children: drill.name }), ". ", drill.how] }),
+      onDrill ? jsx7(Button4, { size: "sm", onClick: onDrill, children: "Redo a speech" }) : null
     ] }) : null,
-    jsx6("div", { className: "ldw-noprint", children: jsx6(ShowMe, { b }) }),
-    jsxs6("button", { type: "button", className: "ldw-fold", "aria-expanded": open, onClick: () => setOpen2((v) => !v), children: [
-      jsx6("span", { children: open ? "Hide the full reason for decision" : "Read the full reason for decision" }),
-      jsx6("span", { children: `${words(b.reason)} words${drills.length ? ` · ${drills.length} more drill${drills.length === 1 ? "" : "s"}` : ""}` })
+    jsx7("div", { className: "ldw-noprint", children: jsx7(ShowMe, { b }) }),
+    jsxs7("button", { type: "button", className: "ldw-fold", "aria-expanded": open, onClick: () => setOpen2((v) => !v), children: [
+      jsx7("span", { children: open ? "Hide the full reason for decision" : "Read the full reason for decision" }),
+      jsx7("span", { children: `${words(b.reason)} words${drills.length ? ` · ${drills.length} more drill${drills.length === 1 ? "" : "s"}` : ""}` })
     ] }),
-    open ? jsxs6("div", { className: "ldw-sheet-rfd", children: [
-      jsx6("p", { children: b.reason }),
-      b.framework ? jsxs6(Fragment4, { children: [jsx6("h4", { children: "Framework" }), jsx6("p", { children: b.framework })] }) : null,
-      b.ownership ? jsxs6(Fragment4, { children: [jsx6("h4", { children: "Did you own your case?" }), jsx6("p", { children: b.ownership })] }) : null,
-      more.length ? jsxs6(Fragment4, { children: [jsx6("h4", { children: "More lines the judge named" }), ...more.map((d, i) => line(d, `m${i}`))] }) : null,
-      b.strengths && b.strengths.length ? jsxs6(Fragment4, { children: [jsx6("h4", { children: "What worked" }), jsx6("ul", { children: b.strengths.map((s, i) => jsx6("li", { children: s }, i)) })] }) : null,
-      drills.length ? jsxs6(Fragment4, { children: [jsx6("h4", { children: "More drills" }), ...drills.map((d, i) => jsxs6("div", { className: "ldw-drill2", children: [
-        jsx6("strong", { children: d.name }),
-        jsx6("p", { children: d.why }),
-        jsx6("p", { children: d.how })
+    open ? jsxs7("div", { className: "ldw-sheet-rfd", children: [
+      jsx7("p", { children: b.reason }),
+      b.framework ? jsxs7(Fragment4, { children: [jsx7("h4", { children: "Framework" }), jsx7("p", { children: b.framework })] }) : null,
+      b.ownership ? jsxs7(Fragment4, { children: [jsx7("h4", { children: "Did you own your case?" }), jsx7("p", { children: b.ownership })] }) : null,
+      more.length ? jsxs7(Fragment4, { children: [jsx7("h4", { children: "More lines the judge named" }), ...more.map((d, i) => line(d, `m${i}`))] }) : null,
+      b.strengths && b.strengths.length ? jsxs7(Fragment4, { children: [jsx7("h4", { children: "What worked" }), jsx7("ul", { children: b.strengths.map((s, i) => jsx7("li", { children: s }, i)) })] }) : null,
+      drills.length ? jsxs7(Fragment4, { children: [jsx7("h4", { children: "More drills" }), ...drills.map((d, i) => jsxs7("div", { className: "ldw-drill2", children: [
+        jsx7("strong", { children: d.name }),
+        jsx7("p", { children: d.why }),
+        jsx7("p", { children: d.how })
       ] }, i))] }) : null
     ] }) : null
-  ] });
-}
-
-// desktop/src/margin.js
-import { useEffect as useEffect6, useState as useState7 } from "react";
-import { jsx as jsx7, jsxs as jsxs7 } from "react/jsx-runtime";
-import { atom as atom4, useValue as useValue3 } from "@hermes/plugin-sdk";
-var $compareOpen = atom4(false);
-var $marginSpot = atom4(null);
-var MARGIN_DEFAULT = /* @__PURE__ */ new Set(["extemp-prep", "ld-bench"]);
-function useMarginSpot(name) {
-  useEffect6(() => {
-    $marginSpot.set(name);
-    return () => {
-      if ($marginSpot.get() === name) $marginSpot.set(null);
-    };
-  }, [name]);
-}
-function marginState(open, compare) {
-  if (!open) return void 0;
-  return compare ? "tab" : "open";
-}
-var Stroke = ({ d, size = 18 }) => jsx7("svg", {
-  width: size,
-  height: size,
-  viewBox: "0 0 24 24",
-  fill: "none",
-  stroke: "currentColor",
-  strokeWidth: 1.5,
-  strokeLinecap: "round",
-  strokeLinejoin: "round",
-  "aria-hidden": "true",
-  focusable: "false",
-  children: (Array.isArray(d) ? d : [d]).map((p, i) => jsx7("path", { d: p }, i))
-});
-var CoachIcon = (props) => jsx7(Stroke, { ...props, d: "M7.9 20A9 9 0 1 0 4 16.1L2 22Z" });
-var CloseIcon = (props) => jsx7(Stroke, { ...props, d: ["M18 6 6 18", "m6 6 12 12"] });
-function Margin({ open, onToggle, children, title = "Coach" }) {
-  const compare = useValue3($compareOpen);
-  const [peek, setPeek] = useState7(false);
-  useEffect6(() => {
-    if (!compare) setPeek(false);
-  }, [compare]);
-  if (!open) return null;
-  const folded = compare && !peek;
-  if (folded) {
-    return jsx7("aside", { className: "ldw-margin ldw-noprint", "data-folded": "", "aria-label": title, children: jsxs7("button", {
-      type: "button",
-      className: "ldw-margin-tab",
-      "aria-expanded": false,
-      onClick: () => setPeek(true),
-      title: `Open the ${title.toLowerCase()} beside the compare`,
-      children: [jsx7(CoachIcon, {}), jsx7("span", { children: title })]
-    }) });
-  }
-  return jsxs7("aside", { className: cls("ldw-margin ldw-noprint", compare && "ldw-margin-peek"), "aria-label": title, children: [
-    // Under 1,040 px the margin is a bottom sheet; the handle closes it.
-    jsx7("button", { type: "button", className: "ldw-margin-handle", "aria-label": `Close the ${title.toLowerCase()}`, onClick: onToggle, children: jsx7("span", { "aria-hidden": "true" }) }),
-    jsxs7("div", { className: "ldw-margin-head", children: [
-      jsx7("h2", { className: "ldw-margin-title", children: title }),
-      compare ? jsx7("button", { type: "button", className: "ldw-iconbtn", "aria-label": "Fold the coach beside the compare", onClick: () => setPeek(false), children: jsx7(Stroke, { d: "m9 18 6-6-6-6" }) }) : null,
-      jsx7("button", { type: "button", className: "ldw-iconbtn", "aria-label": `Close the ${title.toLowerCase()}`, onClick: onToggle, children: jsx7(CloseIcon, {}) })
-    ] }),
-    jsx7("div", { className: "ldw-margin-body", children })
   ] });
 }
 
@@ -3843,7 +4126,7 @@ function LinkMiss() {
     action: jsx10(Button6, { size: "sm", variant: "secondary", onClick: () => $linkMiss.set(null), children: "Close" })
   });
 }
-function useJudgedTake({ event, limit, question, outline, initial, onBallot }) {
+function useJudgedTake({ event, limit, question, outline, initial, onBallot, judgeExtra }) {
   const [take, setTake] = useState10(initial || null);
   const [ballot, setBallot] = useState10(null);
   const [busy, setBusy] = useState10(null);
@@ -3853,7 +4136,7 @@ function useJudgedTake({ event, limit, question, outline, initial, onBallot }) {
     setBusy("judging");
     setErr(null);
     try {
-      const b = await post(`speech/${t.id}/judge`, { question, outline });
+      const b = await post(`speech/${t.id}/judge`, { question, outline, ...judgeExtra && judgeExtra.current || {} });
       setBallot(b);
       if (onBallot) onBallot(b, t);
     } catch (e) {
@@ -4048,17 +4331,31 @@ function Slip({ kicker, question, side, tools }) {
 function DrillFloor({ home, modeSwitch }) {
   const q = useQuestion();
   const last = home.last_take && home.last_take.drill;
+  const extra = useRef6(null);
+  const [prev, setPrev] = useState10(null);
   const jt = useJudgedTake({ event: "drill", limit: DRILL, question: q.text, initial: last && last.prompt === q.text ? last : null, onBallot: () => {
     loadHome();
-  } });
+  }, judgeExtra: extra });
   const live = jt.recorder.state === "live" || jt.recorder.state === "armed";
   const shown = useRef6(q.text);
   useEffect8(() => {
     if (shown.current !== q.text) {
       shown.current = q.text;
       jt.reset();
+      setPrev(null);
+      extra.current = null;
     }
   }, [q.text]);
+  const again = (example) => {
+    setPrev({ take: jt.take, ballot: jt.ballot, example });
+    extra.current = { after_example: example.id };
+    jt.reset();
+  };
+  const plain = () => {
+    setPrev(null);
+    extra.current = null;
+    jt.reset();
+  };
   const fileEmpty = !home.file_count;
   const phase = jt.ballot ? "ballot" : live ? "live" : jt.take ? "taken" : "ready";
   const first = isFirstRun(home);
@@ -4084,8 +4381,9 @@ function DrillFloor({ home, modeSwitch }) {
     ] }),
     jsx10(Slip, { kicker: [`60-second answer, ${AREAS[q.area] || "United States"}`, modeSwitch], question: q.text, tools: jsx10(QuestionTools, { home, disabled: live }) }),
     jsx10(PrimerCards, { question: q.text }),
-    jt.ballot ? jsx10(ExtempSheet, { b: jt.ballot, take: jt.take, drillLabel: "Try it again", onDrill: () => jt.reset(), fileEmpty, showMe: false }) : null,
-    jt.ballot && jt.take ? jsx10(StrongExample, { kind: "answer", question: q.text, takeIds: [jt.take.id], onAgain: () => jt.reset() }) : null,
+    prev && jt.take && prev.take ? jsx10(TakeTwo, { take1: prev.take.id, take2: jt.take.id, exampleId: prev.example.id, ready: !!jt.ballot }) : null,
+    jt.ballot ? jsx10(ExtempSheet, { b: jt.ballot, take: jt.take, drillLabel: "Try it again", drillLink: true, onDrill: plain, fileEmpty, showMe: false }) : null,
+    jt.ballot && jt.take ? jsx10(StrongExample, { kind: "answer", question: q.text, takeIds: [jt.take.id], onAgain: again }) : null,
     jsx10(Floor, { limit: DRILL, label: null, jt, startLabel: "Start speaking", extra: jsx10(PrimerButton, { question: q.text }) }),
     first && phase === "ready" ? jsx10(FirstRun, {}) : null,
     first && phase === "ready" ? jsx10(SampleBallot, {}) : null,
@@ -5662,6 +5960,9 @@ button.ldw-brow-main:focus-visible{outline:2px solid var(--hk-accent);outline-of
 .ldw-chat-thread .ldw-prose{font-family:inherit;font-size:14px;line-height:1.55}
 .ldw-chat-foot{margin:0;font-size:12.5px;line-height:1.45}
 
+.ldw-line-removed{margin:6px 0 0;font-size:13px;font-style:italic}
+.ldw-drillrow .ldw-drill-link{white-space:nowrap;font-size:14.5px}
+.ldw-chip-find{display:inline-block;font-family:var(--hk-mono);font-size:12.5px;padding:0 6px;border:1px dashed var(--hk-stroke-strong);border-radius:var(--ldw-r)}
 .ldw-coachbox{border:1.5px dashed var(--hk-stroke-strong);border-radius:var(--ldw-r);padding:14px 16px;display:grid;gap:9px;max-width:760px;box-sizing:border-box;min-width:0}
 .ldw-coachbox-head{display:flex;align-items:baseline;gap:4px 14px;flex-wrap:wrap}
 .ldw-coachbox-label{font-family:var(--hk-mono);font-size:12px;font-weight:800;letter-spacing:.12em;text-transform:uppercase}

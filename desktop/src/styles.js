@@ -341,6 +341,9 @@ button.ldw-brow-main:focus-visible{outline:2px solid var(--hk-accent);outline-of
 .ldw-chat-thread .ldw-prose{font-family:inherit;font-size:14px;line-height:1.55}
 .ldw-chat-foot{margin:0;font-size:12.5px;line-height:1.45}
 
+.ldw-line-removed{margin:6px 0 0;font-size:13px;font-style:italic}
+.ldw-drillrow .ldw-drill-link{white-space:nowrap;font-size:14.5px}
+.ldw-chip-find{display:inline-block;font-family:var(--hk-mono);font-size:12.5px;padding:0 6px;border:1px dashed var(--hk-stroke-strong);border-radius:var(--ldw-r)}
 .ldw-coachbox{border:1.5px dashed var(--hk-stroke-strong);border-radius:var(--ldw-r);padding:14px 16px;display:grid;gap:9px;max-width:760px;box-sizing:border-box;min-width:0}
 .ldw-coachbox-head{display:flex;align-items:baseline;gap:4px 14px;flex-wrap:wrap}
 .ldw-coachbox-label{font-family:var(--hk-mono);font-size:12px;font-weight:800;letter-spacing:.12em;text-transform:uppercase}

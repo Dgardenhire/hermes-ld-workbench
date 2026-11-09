@@ -70,6 +70,11 @@ class Compare(unittest.TestCase):
         self.assertNotIn("2026)", s)  # the day is already said aloud: no written stamp after it
         self.assertNotIn("[S1]", s)
 
+    def test_a_token_after_the_period_still_sees_the_date_said(self):
+        items = extemp.file_items()
+        text, _ = coach.check("Reuters reported on November 6 that hiring held up. [S1] So prices come first.", items)
+        self.assertEqual(text, "Reuters reported on November 6 that hiring held up. So prices come first.")
+
     def test_notes_keep_their_two_halves_and_no_stamp(self):
         _, out = self.example()
         self.assertEqual(out["notes"][0], {"yours": "You opened by saying the question back.", "this": "This version starts with the answer."})

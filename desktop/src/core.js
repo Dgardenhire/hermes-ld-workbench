@@ -91,13 +91,15 @@ export function inlineChecked(text, label) {
 }
 export function inline(text, key) {
   const out = []
-  const re = /\*\*(.+?)\*\*|\*([^*\n]+)\*|\[\[not-found\]\]|\[\[not-in-file\]\]/g
+  // "[find a source: what it must show]" (the coach's way of marking a gap) shows as a quiet "Find:" chip, never raw brackets.
+  const re = /\*\*(.+?)\*\*|\*([^*\n]+)\*|\[\[not-found\]\]|\[\[not-in-file\]\]|\[find (a source|a card|evidence):\s*([^\]]+)\]/gi
   let last = 0
   let m
   let i = 0
   while ((m = re.exec(text))) {
     if (m.index > last) out.push(text.slice(last, m.index))
-    out.push(m[0] === NOT_FOUND ? jsx('span', { className: 'ldw-line-flag ldw-inline-flag', children: notFoundLabel }, `${key}-n${i++}`)
+    out.push(m[4] ? jsx('span', { className: 'ldw-chip-find', children: `${m[3].toLowerCase() === 'a card' ? 'Find a card' : 'Find'}: ${m[4].trim()}` }, `${key}-s${i++}`)
+      : m[0] === NOT_FOUND ? jsx('span', { className: 'ldw-line-flag ldw-inline-flag', children: notFoundLabel }, `${key}-n${i++}`)
       : m[0] === NOT_IN_FILE ? jsx('span', { className: 'ldw-line-flag ldw-inline-flag', children: NOT_IN_FILE_LABEL }, `${key}-f${i++}`)
       : m[1] ? jsx('strong', { children: m[1] }, `${key}-b${i++}`) : jsx('em', { children: m[2] }, `${key}-i${i++}`))
     last = re.lastIndex

@@ -215,7 +215,10 @@ def check(text, items, own=(), stamp=True):
         c["citations"] += 1
         i = items[n - 1]
         whole = extemp.citation(i)
-        before = re.split(r"[.!?](?:\s|$)|\n", m.string[:m.start()])[-1]
+        parts = re.split(r"[.!?](?:\s|$)|\n", m.string[:m.start()])
+        before = parts[-1]
+        if not before.strip() and len(parts) > 1:  # "...a strong jobs report. [S1]": the token belongs to the sentence before it
+            before = parts[-2]
         after = re.split(r"[.!?](?:\s|$)|\n", m.string[m.end():])[0]
         sentence = f"{before} {after}".lower()
         outlet = str(i.get("outlet") or "")
@@ -425,6 +428,10 @@ async def extemp_example(kind, question, takes, best, model):
                            max_tokens=3000, purpose=f"ld-workbench.coach.extemp.{kind}")
     out = tidy_example(raw)
     own = [question] + [_said(t) for t in takes]
+    cited = []  # the file sources the example cites, by its [S#] tokens, before the check turns them into stamps
+    for n in _CITE.findall(" ".join(x["text"] for x in out["sentences"]) if out["sentences"] else out["example"]):
+        if 1 <= int(n) <= len(items) and extemp.citation(items[int(n) - 1]) not in cited:
+            cited.append(extemp.citation(items[int(n) - 1]))
     checks = []
     if out["sentences"]:
         links = {"linked": 0, "new": 0, "links_dropped": 0}
@@ -443,22 +450,24 @@ async def extemp_example(kind, question, takes, best, model):
         out["example"], c = check(out["example"], items, own)
         checks.append(c)
 
+    own_notes = own + [out["example"]]  # a note may quote the example it explains
+
     def note(n):  # notes talk about the student's attempt: no stamp
         if isinstance(n, dict):
-            (y, c1), (t, c2) = check(n["yours"], items, own, stamp=False), check(n["this"], items, own, stamp=False)
+            (y, c1), (t, c2) = check(n["yours"], items, own, stamp=False), check(n["this"], items, own_notes, stamp=False)
             checks.extend([c1, c2])
             return {"yours": y, "this": t}
-        t, c = check(n, items, own, stamp=False)
+        t, c = check(n, items, own_notes, stamp=False)
         checks.append(c)
         return t
     out["notes"] = [note(n) for n in out["notes"]]
-    out["kept"], c2 = check(out["kept"], items, own, stamp=False)
+    out["kept"], c2 = check(out["kept"], items, own_notes, stamp=False)
     out["checks"] = _merge(c2, *checks)
     out["kind"] = kind
     out["sources"] = len(items)
     out["lines"] = lines
     out["moves"] = moves
-    out["cited"] = [extemp.citation(i) for n, i in enumerate(items, 1) if f"({extemp.citation(i)})" in out["example"] or extemp.citation(i).split(", ", 1)[-1] in out["example"]]
+    out["cited"] = cited
     out["id"] = _keep_example(out, question, tries[0].get("id"))
     return out
 
