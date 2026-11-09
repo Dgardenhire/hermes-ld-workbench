@@ -81,6 +81,11 @@ class Compare(unittest.TestCase):
         text, _ = coach.check("Reuters reported on November 6 that hiring held up. [S1] So prices come first.", items)
         self.assertEqual(text, "Reuters reported on November 6 that hiring held up. So prices come first.")
 
+    def test_a_stamp_stays_inside_the_sentence_it_cites(self):
+        text, _ = coach.check("Fed policymakers weigh a hike. [S1] So prices come first.", extemp.file_items())
+        self.assertTrue(text.startswith("Fed policymakers weigh a hike (Reuters, Nov "), text)
+        self.assertIn(", 2026). So prices come first.", text)
+
     def test_notes_keep_their_two_halves_and_no_stamp(self):
         _, out = self.example()
         self.assertEqual(out["notes"][0], {"yours": "You opened by saying the question back.", "this": "This version starts with the answer."})

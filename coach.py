@@ -235,7 +235,10 @@ def check(text, items, own=(), stamp=True):
         if named and whole.lower().startswith(outlet.lower() + ", "):
             return f"{lead}({whole[len(outlet) + 2:]})"
         return f"{lead}({whole})"
-    return _CITE_SUB.sub(cite, text), c
+    out = _CITE_SUB.sub(cite, text)
+    # A token the model put after the period ("...last month. [S2]") leaves its stamp inside the sentence it cites.
+    out = re.sub(r"([.!?])[ \t]+\(([^()\n]*\b\d{4})\)", r" (\2)\1", out)
+    return out, c
 
 
 def _merge(*checks):
