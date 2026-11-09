@@ -404,7 +404,7 @@ function PaperBallot({ b, roundNo }) {
   if (!b) {
     return jsxs('section', { className: 'ldw-panel ldw-side', 'aria-label': 'Last ballot', children: [
       jsx('h2', { className: 'ldw-h3', children: 'Last ballot' }),
-      jsx(Empty, { icon: 'law', title: 'No ballot yet', body: "Finish a round and the judge's ballot lands here, with the lines that decided it and three drills." }),
+      jsx(Empty, { icon: 'law', title: 'No ballot yet', body: "Finish a round and the judge's ballot shows up here, with the lines the judge quoted and three drills." }),
     ] })
   }
   const pts = b.speaker_points || {}

@@ -409,7 +409,7 @@ const ANSWERED = { yes: 'Yes', partly: 'Partly', no: 'No' }
 export const mentionsFile = d => /\byour (extemp )?file\b/i.test(`${(d && d.name) || ''} ${(d && d.how) || ''}`)
 export const FILE_EMPTY_NOTE = 'Your file is empty for now: in Full round, pull headlines on a topic and save a few, or use sources you can name with an outlet and a date.'
 
-// The extemp ballot: read in ten seconds, the full reason folded. fileEmpty: the student has no saved sources,
+// The extemp ballot: the verdict, points and the three lines the judge quoted up top; the full reason folded. fileEmpty: the student has no saved sources,
 // so a drill that sends them to "your file" says how to start one.
 export function ExtempSheet({ b, take, onDrill, drillLabel = 'Run the drill', drillLink = false, defaultOpen = false, fileEmpty = false, showMe = true, label = 'Practice ballot' }) {
   const [open, setOpen] = useState(defaultOpen)
@@ -436,7 +436,7 @@ export function ExtempSheet({ b, take, onDrill, drillLabel = 'Run the drill', dr
       jsx(PointsKey, { text: POINTS_KEY.extemp }),
     ] }),
     b.decisive && b.decisive.length ? jsxs('div', { className: 'ldw-declines', children: [
-      jsx('h4', { children: 'The lines that decided it' }),
+      jsx('h4', { children: 'What the judge quoted' }),
       ...b.decisive.map((d, i) => jsxs(QuoteLine, { take: take || (b.take_id ? { id: b.take_id } : null), line: d, index: i, className: 'ldw-line', children: [
         jsx('span', { className: 'ldw-line-said', children: `"${d.line}"` }),
         jsx('span', { className: 'ldw-line-effect', children: d.effect }),
@@ -465,7 +465,7 @@ const SIDE = { aff: 'Affirmative', neg: 'Negative' }
 const firstSentence = t => { const m = String(t || '').match(/^.{20,170}?[.!?](\s|$)/); return m ? m[0].trim() : clip2(t, 150) }
 const clip2 = (t, n) => { t = String(t || ''); return t.length > n ? `${t.slice(0, n - 1).trimEnd()}...` : t }
 
-// The Lincoln-Douglas ballot, read in ten seconds: the decision, your points, the three lines that decided
+// The Lincoln-Douglas ballot: the decision, your points, the three lines the judge quoted
 // it (checked against the speeches), one drill stamped. The full reason, framework and the rest are folded.
 export function LdSheet({ b, onLine, onDrill, defaultOpen = false }) {
   const [open, setOpen] = useState(defaultOpen)
@@ -501,7 +501,7 @@ export function LdSheet({ b, onLine, onDrill, defaultOpen = false }) {
       jsx(PointsKey, { text: POINTS_KEY.ld }),
     ] }),
     b.reason ? jsx('p', { className: 'ldw-sheet-why', children: firstSentence(b.reason) }) : null,
-    lines.length ? jsxs('div', { className: 'ldw-declines', children: [jsx('h4', { children: 'The lines that decided it' }), ...lines.map(line)] }) : null,
+    lines.length ? jsxs('div', { className: 'ldw-declines', children: [jsx('h4', { children: 'What the judge quoted' }), ...lines.map(line)] }) : null,
     drill ? jsxs('div', { className: 'ldw-drillrow', children: [
       jsx('span', { className: 'ldw-stamp2', children: 'Drill' }),
       jsxs('p', { children: [jsx('strong', { children: drill.name }), '. ', drill.how] }),

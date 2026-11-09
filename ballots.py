@@ -274,7 +274,7 @@ def _day(t):
 
 
 def as_text(items=None, student=""):
-    """Every ballot, newest first, the way a coach reads them: the result, points, the lines that decided it
+    """Every ballot, newest first, the way a coach reads them: the result, points, the lines the judge quoted
     (marked when the line was not found in what was said), the reason for decision, the drill, the patterns."""
     items = history() if items is None else items
     out = ["Debate Workbench: practice ballots" + (f" for {student}" if student else ""),
@@ -320,7 +320,7 @@ def as_text(items=None, student=""):
             out.append("Marked on this ballot: " + "; ".join(tags) + ".")
         lines = b.get("decisive") or []
         if lines:
-            out.append("The lines that decided it:")
+            out.append("What the judge quoted:")
             for d in lines:
                 code = f"{d['speech']}: " if d.get("speech") else ""
                 flag = "  [not found in what was said; check it]" if d.get("checked") is False else ""

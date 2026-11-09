@@ -1368,10 +1368,38 @@ function useCoachCall() {
       setBusy(false);
     }
   };
-  return { busy, err, out, setOut, call, reset: () => {
+  const run = async (make) => {
+    setBusy(true);
+    setErr(null);
+    try {
+      const o = await make();
+      setOut(o);
+      return o;
+    } catch (e) {
+      setErr(errText(e));
+      return null;
+    } finally {
+      setBusy(false);
+    }
+  };
+  return { busy, err, out, setOut, call, run, reset: () => {
     setOut(null);
     setErr(null);
   } };
+}
+var prepared = /* @__PURE__ */ new Map();
+var exampleKey = (takeId, question) => `${takeId}|${question}`;
+function prepareExample({ takeId, question }) {
+  if (!takeId || !$coachOn.get()) return null;
+  const key = exampleKey(takeId, question);
+  if (!prepared.has(key)) {
+    const p = post("coach/extemp/example", { kind: "answer", question, take_id: takeId });
+    p.catch(() => {
+      if (prepared.get(key) === p) prepared.delete(key);
+    });
+    prepared.set(key, p);
+  }
+  return prepared.get(key);
 }
 var EXAMPLE_STAGES = [[0, "Reading your take, line by line"], [3, "Writing a strong answer on your question"], [13, "Checking every source, quote and line link"]];
 function Stages({ stages = EXAMPLE_STAGES }) {
@@ -1557,7 +1585,7 @@ function StrongExample({ kind, question, takeIds, best, onAgain, onExample }) {
   }, [c.out]);
   if (!on) return null;
   const what = kind === "opening" ? "opening" : "answer";
-  const ask = () => c.call("coach/extemp/example", kind === "opening" ? { kind, question, take_ids: takeIds, best } : { kind, question, take_id: takeIds[0] });
+  const ask = () => kind === "opening" ? c.call("coach/extemp/example", { kind, question, take_ids: takeIds, best }) : c.run(() => prepareExample({ takeId: takeIds[0], question }) || post("coach/extemp/example", { kind, question, take_id: takeIds[0] }));
   if (!c.out) {
     return jsxs6("div", { className: "ldw-showme-row ldw-noprint", children: [
       jsx6(Button3, { className: "ldw-showme", disabled: c.busy, onClick: ask, children: jsxs6(Fragment3, { children: [jsx6(Codicon5, { name: "lightbulb" }), `Show me a strong ${what}`] }) }),
@@ -1578,7 +1606,7 @@ function StrongExample({ kind, question, takeIds, best, onAgain, onExample }) {
     onAgain ? jsx6("div", { children: jsx6(Button3, { size: "sm", variant: "secondary", onClick: () => onAgain(o), children: `Now give your own ${what} again` }) }) : null
   ] });
 }
-var CHANGE = { better: "Better", worse: "Worse", "the same": "Same", "not measured": "Not measured" };
+var CHANGE = { better: "Better", worse: "Worse", "the same": "Same", "about the same": "About the same", "not measured": "Not measured" };
 function cell(key, v) {
   if (v === null || v === void 0) return "none";
   if (key === "answer_at") return mmss(v);
@@ -1605,6 +1633,11 @@ function TakeTwo({ take1, take2, exampleId, ready }) {
   if (!out) return ready ? jsx6(Thinking, { label: "Measuring Take 2 against Take 1" }) : null;
   return jsxs6("section", { className: "ldw-take2", "aria-label": "Take 2 against Take 1", children: [
     jsx6("h3", { className: "ldw-take2-h", children: "Take 2, after the coach's example" }),
+    jsx6("ul", { className: "ldw-take2-moves", children: out.moves.map((m) => jsxs6("li", { "data-met": m.take2.met ? "" : void 0, children: [
+      jsx6("span", { className: "ldw-met", children: m.take2.met ? "Met" : "Not met" }),
+      jsx6("b", { children: m.label }),
+      jsx6("span", { children: ` Take 2: ${m.take2.value}. Take 1: ${m.take1.value}.` })
+    ] }, m.id)) }),
     jsxs6("table", { className: "ldw-take2-t", children: [
       jsx6("thead", { children: jsxs6("tr", { children: [jsx6("th", { scope: "col", children: "" }), jsx6("th", { scope: "col", children: "Take 1" }), jsx6("th", { scope: "col", children: "Take 2" }), jsx6("th", { scope: "col", children: "Change" })] }) }),
       jsx6("tbody", { children: out.rows.map((r) => jsxs6("tr", { "data-change": r.change, children: [
@@ -1613,12 +1646,7 @@ function TakeTwo({ take1, take2, exampleId, ready }) {
         jsx6("td", { children: cell(r.key, r.take2) }),
         jsx6("td", { children: CHANGE[r.change] || r.change })
       ] }, r.key)) })
-    ] }),
-    jsx6("ul", { className: "ldw-take2-moves", children: out.moves.map((m) => jsxs6("li", { "data-met": m.take2.met ? "" : void 0, children: [
-      jsx6("span", { className: "ldw-met", children: m.take2.met ? "Met" : "Not met" }),
-      jsx6("b", { children: m.label }),
-      jsx6("span", { children: ` Take 2: ${m.take2.value}. Take 1: ${m.take1.value}.` })
-    ] }, m.id)) })
+    ] })
   ] });
 }
 var COACH_CSS = `
@@ -2365,7 +2393,7 @@ function ExtempSheet({ b, take, onDrill, drillLabel = "Run the drill", drillLink
       jsx7(PointsKey, { text: POINTS_KEY.extemp })
     ] }),
     b.decisive && b.decisive.length ? jsxs7("div", { className: "ldw-declines", children: [
-      jsx7("h4", { children: "The lines that decided it" }),
+      jsx7("h4", { children: "What the judge quoted" }),
       ...b.decisive.map((d, i) => jsxs7(QuoteLine, { take: take || (b.take_id ? { id: b.take_id } : null), line: d, index: i, className: "ldw-line", children: [
         jsx7("span", { className: "ldw-line-said", children: `"${d.line}"` }),
         jsx7("span", { className: "ldw-line-effect", children: d.effect }),
@@ -2441,7 +2469,7 @@ function LdSheet({ b, onLine, onDrill, defaultOpen = false }) {
       jsx7(PointsKey, { text: POINTS_KEY.ld })
     ] }),
     b.reason ? jsx7("p", { className: "ldw-sheet-why", children: firstSentence(b.reason) }) : null,
-    lines.length ? jsxs7("div", { className: "ldw-declines", children: [jsx7("h4", { children: "The lines that decided it" }), ...lines.map(line)] }) : null,
+    lines.length ? jsxs7("div", { className: "ldw-declines", children: [jsx7("h4", { children: "What the judge quoted" }), ...lines.map(line)] }) : null,
     drill ? jsxs7("div", { className: "ldw-drillrow", children: [
       jsx7("span", { className: "ldw-stamp2", children: "Drill" }),
       jsxs7("p", { children: [jsx7("strong", { children: drill.name }), ". ", drill.how] }),
@@ -4063,7 +4091,7 @@ var sample_take_default = {
 // desktop/src/firstrun.js
 var SAMPLE_TAKE = sample_take_default.take;
 var SAMPLE_BALLOT = sample_take_default.ballot;
-var PROMISE = "Speak for a minute. Get a judge’s ballot. Hear the line that decided it.";
+var SAMPLE_LINE = "A judge’s ballot on a sample one-minute answer to this question";
 var isFirstRun = (home) => !!home && !(home.last_take && home.last_take.drill) && !home.ballots;
 function FirstRun() {
   return null;
@@ -4079,7 +4107,7 @@ function SampleBallot() {
   return jsxs9("section", { className: "ldw-sample", "aria-label": "Sample ballot", children: [
     jsxs9("div", { className: "ldw-sample-head", children: [
       jsx9("span", { className: "ldw-sample-tag", children: "Sample" }),
-      jsx9("p", { className: "ldw-promise", children: PROMISE })
+      jsx9("p", { className: "ldw-promise", children: SAMPLE_LINE })
     ] }),
     !whole ? jsx9(SampleLines, {}) : null,
     jsx9("button", { type: "button", className: "hk-link ldw-sample-more", "aria-expanded": whole, onClick: () => setWhole((v) => !v), children: whole ? "Show only the lines" : "See the whole sample ballot" }),
@@ -4371,6 +4399,9 @@ function DrillFloor({ home, modeSwitch }) {
     jt.reset();
   };
   const plain = () => shown2 ? again(shown2) : (setPrev(null), extra.current = null, jt.reset());
+  useEffect8(() => {
+    if (jt.ballot && jt.take) prepareExample({ takeId: jt.take.id, question: q.text });
+  }, [jt.ballot && jt.ballot.at]);
   const fileEmpty = !home.file_count;
   const phase = jt.ballot ? "ballot" : live ? "live" : jt.take ? "taken" : "ready";
   const first = isFirstRun(home);
@@ -5493,6 +5524,7 @@ function voiceLines(t) {
 var DISCLOSURE = [
   ["Your words", "The words of your speeches go to the model you chose in Hermes, for the opponent, the judge and the coach. When you ask the coach, the headlines and notes in your extemp file go with them, so it can cite them."],
   ["Headlines", "A pull asks Google News, or the outlet’s own feed, for headlines on your topic. Only titles, dates and links come back."],
+  ["The coach’s example", "After each 60-second answer is judged, the coach’s example is prepared in the background with the same model, so it is ready when you press Show me a strong answer. If you never open it, it is dropped. Turning Coach examples off in Settings stops it."],
   ["Hear it", "When you press it, the text being read, the opponent’s speech or the coach’s example, goes to the voice you set up in Hermes."],
   ["Get up to speed", "When you press it, your question goes to your Hermes web search, and up to 4 public pages are read."],
   ["Web search", "Only in a round you set to internet allowed, when you press Search. Your search words go to the web search you set up in Hermes."],
@@ -6716,7 +6748,7 @@ function PaperBallot({ b, roundNo }) {
   if (!b) {
     return jsxs15("section", { className: "ldw-panel ldw-side", "aria-label": "Last ballot", children: [
       jsx15("h2", { className: "ldw-h3", children: "Last ballot" }),
-      jsx15(Empty, { icon: "law", title: "No ballot yet", body: "Finish a round and the judge's ballot lands here, with the lines that decided it and three drills." })
+      jsx15(Empty, { icon: "law", title: "No ballot yet", body: "Finish a round and the judge's ballot shows up here, with the lines the judge quoted and three drills." })
     ] });
   }
   const pts = b.speaker_points || {};

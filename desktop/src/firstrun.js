@@ -15,12 +15,8 @@ import SAMPLE from '../../data/sample_take.json'
 
 export const SAMPLE_TAKE = SAMPLE.take
 export const SAMPLE_BALLOT = SAMPLE.ballot
-export const PROMISE = 'Speak for a minute. Get a judge’s ballot. Hear the line that decided it.'
-const STEPS = [
-  ['Speak for a minute', 'Answer the question out loud. The clock and the time cards keep you honest.'],
-  ['Get a judge’s ballot', 'A practice judge writes it on what you actually said, quoting your lines.'],
-  ['Hear the line that decided it', 'Play the exact sentence back, then hear a coach do it better.'],
-]
+// The Sample's one line: plain words for what it is (Damon, Nov 9: no taglines).
+export const SAMPLE_LINE = 'A judge’s ballot on a sample one-minute answer to this question'
 const LEVELS = [{ id: 'first', label: 'First year' }, { id: 'jv', label: 'JV' }, { id: 'varsity', label: 'Varsity' }]
 const LEVEL_KEY = 'ldw.level'
 
@@ -33,9 +29,9 @@ function readLevel() {
 
 // Loop 2: the first open shows only the promise and the Sample's three quoted lines, so the hero is on one
 // screen at 1280x800. The three-step strip and the level row are gone (the level changed nothing the judge
-// read: a dead control). STEPS and LEVELS stay exported for the level row's return after the first ballot.
+// read: a dead control). LEVELS stays for the level row's return after the first ballot.
 export function FirstRun() {
-  return null // the promise now heads the Sample (SampleBallot), one row instead of three
+  return null // the Sample heads itself with one plain line (SampleBallot)
 }
 
 function SampleLines() {
@@ -46,7 +42,7 @@ function SampleLines() {
 }
 
 // The Sample: labeled as a sample everywhere it shows, so no one mistakes it for their own ballot. On the first
-// open it is the promise and the three quoted lines that decided it, each playing in place; the whole sample
+// open it is one plain line and the three lines the judge quoted, each playing in place; the whole sample
 // ballot and its player open under them on a press. The player is always mounted (hidden until then), because
 // the lines play through it.
 export function SampleBallot() {
@@ -54,7 +50,7 @@ export function SampleBallot() {
   return jsxs('section', { className: 'ldw-sample', 'aria-label': 'Sample ballot', children: [
     jsxs('div', { className: 'ldw-sample-head', children: [
       jsx('span', { className: 'ldw-sample-tag', children: 'Sample' }),
-      jsx('p', { className: 'ldw-promise', children: PROMISE }),
+      jsx('p', { className: 'ldw-promise', children: SAMPLE_LINE }),
     ] }),
     !whole ? jsx(SampleLines, {}) : null,
     jsx('button', { type: 'button', className: 'hk-link ldw-sample-more', 'aria-expanded': whole, onClick: () => setWhole(v => !v), children: whole ? 'Show only the lines' : 'See the whole sample ballot' }),

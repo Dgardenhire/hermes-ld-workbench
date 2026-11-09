@@ -35,7 +35,7 @@ The film's structure is the round's own clock (from the film critique): speaking
 
 ### 3. The ballot slides in
 
-- **What happens:** "The judge is writing the ballot", then the ballot: Yes, Partly or No ticked in the judge's pen, points circled on the 20 to 30 scale, the one-line verdict, **The lines that decided it** (three of your own lines, underlined, each checked against the transcript), and a red **DRILL** stamped with its name and steps.
+- **What happens:** "The judge is writing the ballot", then the ballot: Yes, Partly or No ticked in the judge's pen, points circled on the 20 to 30 scale, the one-line verdict, **What the judge quoted** (three of your own lines, underlined, each checked against the transcript), and a red **DRILL** stamped with its name and steps.
 - **Hold** on the three lines and the stamp. These are the proof that it heard you.
 - **Then:** press **Try it again**. The same question reloads with the drill shown under the floor ("From your last ballot"). That is the loop: speak, judged, drill, redo.
 

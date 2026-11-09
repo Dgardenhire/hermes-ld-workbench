@@ -26,6 +26,7 @@ export function voiceLines(t) {
 export const DISCLOSURE = [
   ['Your words', 'The words of your speeches go to the model you chose in Hermes, for the opponent, the judge and the coach. When you ask the coach, the headlines and notes in your extemp file go with them, so it can cite them.'],
   ['Headlines', 'A pull asks Google News, or the outlet’s own feed, for headlines on your topic. Only titles, dates and links come back.'],
+  ['The coach’s example', 'After each 60-second answer is judged, the coach’s example is prepared in the background with the same model, so it is ready when you press Show me a strong answer. If you never open it, it is dropped. Turning Coach examples off in Settings stops it.'],
   ['Hear it', 'When you press it, the text being read, the opponent’s speech or the coach’s example, goes to the voice you set up in Hermes.'],
   ['Get up to speed', 'When you press it, your question goes to your Hermes web search, and up to 4 public pages are read.'],
   ['Web search', 'Only in a round you set to internet allowed, when you press Search. Your search words go to the web search you set up in Hermes.'],

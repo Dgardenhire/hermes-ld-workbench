@@ -147,6 +147,8 @@ class TakeTwo(unittest.TestCase):
         self.assertEqual(rows["answer_at"]["change"], "better")
         self.assertEqual(rows["fillers"]["change"], "better")
         self.assertEqual(rows["points"]["change"], "not measured")
+        self.assertEqual([coach.points_change(27.0, 27.5), coach.points_change(27.0, 28.0), coach.points_change(28.0, 26.5), coach.points_change(26.0, 27.5)],
+                         ["about the same", "about the same", "worse", "better"])  # a point or less is noise
         moves = {m["id"]: m for m in out["moves"]}
         self.assertFalse(moves["cite_early"]["take1"]["met"])
         self.assertTrue(moves["cite_early"]["take2"]["met"])
@@ -228,3 +230,16 @@ class JudgeNotesTruth(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class PreparedExample(unittest.TestCase):
+    """Damon, Nov 9: the example is prepared when the ballot lands, and Settings says so."""
+    def test_prepared_on_the_ballot_and_disclosed(self):
+        from pathlib import Path
+        src = Path(__file__).resolve().parent.parent / "desktop" / "src"
+        x, c, d = ((src / f).read_text(encoding="utf-8") for f in ("extemp.js", "coach.js", "disclosure.js"))
+        self.assertIn("prepareExample({ takeId: jt.take.id, question: q.text })", x)
+        self.assertIn("c.run(() => prepareExample({ takeId: takeIds[0], question })", c)
+        self.assertIn("if (!takeId || !$coachOn.get()) return null", c)  # off in Settings: nothing is prepared
+        self.assertIn("is prepared in the background with the same model", d)
+        self.assertIn("prepared after each take", (src.parent.parent / "README.md").read_text(encoding="utf-8"))

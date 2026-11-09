@@ -132,9 +132,9 @@ class FirstRun(unittest.TestCase):
         self.assertIn("children: 'Sample' }", f)
         self.assertIn("label: 'Sample ballot'", f)
         self.assertIn("showMe: false", f)  # no coach call on a sample
-        self.assertIn("Speak for a minute. Get a judge’s ballot. Hear the line that decided it.", f)
+        self.assertIn("A judge’s ballot on a sample one-minute answer to this question", f)  # one plain line, no tagline
         self.assertIn("first && phase === 'ready' ? jsx(SampleBallot, {}) : null", SRC["extemp.js"])
-        self.assertIn("Hear the line that decided it", BUNDLE)
+        self.assertNotIn("decided it", BUNDLE)  # Damon, Nov 9: no tagline anywhere on the page
 
 
 class Settings(unittest.TestCase):

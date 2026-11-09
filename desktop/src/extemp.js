@@ -7,7 +7,7 @@ import { Button, Codicon, Input, Textarea, atom, useValue } from '@hermes/plugin
 import { Notice } from 'hermes-ui-kit'
 import { Choices, Thinking, api, cls, errText, mmss, post, rest } from './core.js'
 import { Clock, ExtempSheet, FILE_EMPTY_NOTE, LastTake, LiveWave, SpeakControls, Strip, mentionsFile, sendTake, takeSettled, useRecorder, useTakePoll } from './floor.js'
-import { $coachOn, PrepCoach, StrongExample, TakeTwo, useCoachContext } from './coach.js'
+import { $coachOn, PrepCoach, StrongExample, TakeTwo, prepareExample, useCoachContext } from './coach.js'
 import { PrimerButton, PrimerCards } from './primer.js'
 import { FirstRun, SampleBallot, isFirstRun } from './firstrun.js'
 import { useMarginSpot } from './margin.js'
@@ -235,6 +235,8 @@ function DrillFloor({ home, modeSwitch }) {
     jt.reset()
   }
   const plain = () => (shown2 ? again(shown2) : (setPrev(null), extra.current = null, jt.reset()))
+  // The coach's example is prepared in the background when the ballot lands (said in Settings, What leaves your computer).
+  useEffect(() => { if (jt.ballot && jt.take) prepareExample({ takeId: jt.take.id, question: q.text }) }, [jt.ballot && jt.ballot.at])
   const fileEmpty = !home.file_count
   const phase = jt.ballot ? 'ballot' : live ? 'live' : jt.take ? 'taken' : 'ready'
   const first = isFirstRun(home)

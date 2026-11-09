@@ -64,7 +64,27 @@ export function useCoachCall() {
     setBusy(true); setErr(null)
     try { const o = await post(path, body); setOut(o); return o } catch (e) { setErr(errText(e)); return null } finally { setBusy(false) }
   }
-  return { busy, err, out, setOut, call, reset: () => { setOut(null); setErr(null) } }
+  const run = async make => { // the same, for a call that may already be on its way (a prepared example)
+    setBusy(true); setErr(null)
+    try { const o = await make(); setOut(o); return o } catch (e) { setErr(errText(e)); return null } finally { setBusy(false) }
+  }
+  return { busy, err, out, setOut, call, run, reset: () => { setOut(null); setErr(null) } }
+}
+
+// The coach's example is prepared as soon as a 60-second answer's ballot lands (Damon, Nov 9), so it is usually
+// ready when the student presses Show me a strong answer. One request per take and question; a failed one is
+// forgotten, so the press asks again. An example prepared and never opened is simply dropped.
+const prepared = new Map()
+const exampleKey = (takeId, question) => `${takeId}|${question}`
+export function prepareExample({ takeId, question }) {
+  if (!takeId || !$coachOn.get()) return null
+  const key = exampleKey(takeId, question)
+  if (!prepared.has(key)) {
+    const p = post('coach/extemp/example', { kind: 'answer', question, take_id: takeId })
+    p.catch(() => { if (prepared.get(key) === p) prepared.delete(key) })
+    prepared.set(key, p)
+  }
+  return prepared.get(key)
 }
 
 /* ------------------------------------------------------------------ extemp: a strong one -- */
@@ -202,7 +222,8 @@ export function StrongExample({ kind, question, takeIds, best, onAgain, onExampl
   useEffect(() => { if (onExample) onExample(c.out) }, [c.out])
   if (!on) return null
   const what = kind === 'opening' ? 'opening' : 'answer'
-  const ask = () => c.call('coach/extemp/example', kind === 'opening' ? { kind, question, take_ids: takeIds, best } : { kind, question, take_id: takeIds[0] })
+  const ask = () => (kind === 'opening' ? c.call('coach/extemp/example', { kind, question, take_ids: takeIds, best })
+    : c.run(() => prepareExample({ takeId: takeIds[0], question }) || post('coach/extemp/example', { kind, question, take_id: takeIds[0] })))
   if (!c.out) {
     return jsxs('div', { className: 'ldw-showme-row ldw-noprint', children: [
       jsx(Button, { className: 'ldw-showme', disabled: c.busy, onClick: ask, children: jsxs(Fragment, { children: [jsx(Codicon, { name: 'lightbulb' }), `Show me a strong ${what}`] }) }),
@@ -226,7 +247,7 @@ export function StrongExample({ kind, question, takeIds, best, onAgain, onExampl
 
 // Take 2 against Take 1, after the coach's example: the numbers, and each move the example showed, met or not
 // met, measured in code (POST coach/extemp/take2).
-const CHANGE = { better: 'Better', worse: 'Worse', 'the same': 'Same', 'not measured': 'Not measured' }
+const CHANGE = { better: 'Better', worse: 'Worse', 'the same': 'Same', 'about the same': 'About the same', 'not measured': 'Not measured' }
 function cell(key, v) {
   if (v === null || v === undefined) return 'none'
   if (key === 'answer_at') return mmss(v)
@@ -247,13 +268,13 @@ export function TakeTwo({ take1, take2, exampleId, ready }) {
   if (!out) return ready ? jsx(Thinking, { label: 'Measuring Take 2 against Take 1' }) : null
   return jsxs('section', { className: 'ldw-take2', 'aria-label': 'Take 2 against Take 1', children: [
     jsx('h3', { className: 'ldw-take2-h', children: "Take 2, after the coach's example" }),
+    jsx('ul', { className: 'ldw-take2-moves', children: out.moves.map(m => jsxs('li', { 'data-met': m.take2.met ? '' : undefined, children: [
+      jsx('span', { className: 'ldw-met', children: m.take2.met ? 'Met' : 'Not met' }), jsx('b', { children: m.label }), jsx('span', { children: ` Take 2: ${m.take2.value}. Take 1: ${m.take1.value}.` })] }, m.id)) }),
     jsxs('table', { className: 'ldw-take2-t', children: [
       jsx('thead', { children: jsxs('tr', { children: [jsx('th', { scope: 'col', children: '' }), jsx('th', { scope: 'col', children: 'Take 1' }), jsx('th', { scope: 'col', children: 'Take 2' }), jsx('th', { scope: 'col', children: 'Change' })] }) }),
       jsx('tbody', { children: out.rows.map(r => jsxs('tr', { 'data-change': r.change, children: [
         jsx('th', { scope: 'row', children: r.label }), jsx('td', { children: cell(r.key, r.take1) }), jsx('td', { children: cell(r.key, r.take2) }), jsx('td', { children: CHANGE[r.change] || r.change })] }, r.key)) }),
     ] }),
-    jsx('ul', { className: 'ldw-take2-moves', children: out.moves.map(m => jsxs('li', { 'data-met': m.take2.met ? '' : undefined, children: [
-      jsx('span', { className: 'ldw-met', children: m.take2.met ? 'Met' : 'Not met' }), jsx('b', { children: m.label }), jsx('span', { children: ` Take 2: ${m.take2.value}. Take 1: ${m.take1.value}.` })] }, m.id)) }),
   ] })
 }
 

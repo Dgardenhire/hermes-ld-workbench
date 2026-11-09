@@ -67,7 +67,7 @@ The question you chose stays when you switch to **Openings** or **Full round**.
   - **Spot fallacies** under the opponent's speech finds fallacies in it. Every "Exact words" quote is checked against the speech; a quote that is not there is marked "Not found in the speech. Check it before you use it."
   - **Hear it** reads the opponent's speech aloud with the voice you set up in Hermes.
   - Your answers in cross-examination count: the opponent will use them.
-- **The ballot.** The decision, your points, the three lines that decided it (each tagged with its speech), and a drill. **Show me** under the drill finds the weakest moment and models a redo of it. **Read the full reason for decision** opens the rest. **Ask another judge** gets a second ruling on the same round. **Redo a speech** lets you give one speech again for the same judge.
+- **The ballot.** The decision, your points, three of your lines the judge quoted (each tagged with its speech), and a drill. **Show me** under the drill finds the weakest moment and models a redo of it. **Read the full reason for decision** opens the rest. **Ask another judge** gets a second ruling on the same round. **Redo a speech** lets you give one speech again for the same judge.
 - **Fallacies.** A guide to 15 common fallacies, a practice drill, and a checker for any argument. The checker's quotes are checked against what you pasted, the same way.
 - **The points on the LD ballot** run 20 to 30; most rounds land between 26 and 30. 28.0 is a typical good round, 29.0 and up is excellent, and below 27.0 means serious problems.
 
@@ -83,7 +83,7 @@ The question you chose stays when you switch to **Openings** or **Full round**.
 
 Every ballot from every event. At the top, the patterns judges keep writing over your last six rounds, for example "You drop arguments in the 2AR, 4 of 6", with R1 to R6 marked W or L. An outlined chip means the judge wrote that on that ballot; a plain one means not (the key is on the page). R is a Lincoln-Douglas round and # an extemp speech or 60-second answer. These counts are made in code from a fixed list, not guessed by the model. Patterns marked "measured from your recordings" come from the clock and the transcript.
 
-- Click any ballot to open its full sheet: the decision, the points, the lines that decided it, the reason for decision and the drill.
+- Click any ballot to open its full sheet: the decision, the points, the lines the judge quoted, the reason for decision and the drill.
 - Each ballot's drill has a checkbox. Tick it when you have done the drill.
 - **Show me** under a ballot's drill: the coach finds the weakest moment in what you said, says what went wrong there, and models a redo. It is kept with the ballot.
 - **Print ballots** shows every sheet open, ready to print or save as a PDF.
@@ -95,7 +95,7 @@ Every ballot from every event. At the top, the patterns judges keep writing over
 
 ## Everything the coach writes
 
-You go first; the coach shows after you try. Every example and suggestion sits in a dashed box labeled as the coach's (Coach's example, Coach's suggestion, Coach's redo, Coach's versions, Coach's picks). Under it, a line says what code checked: every citation, every quoted run of four or more words, every figure and every date, against your extemp file and your own words. Anything it cannot find is marked:
+The coach shows an example only after you try. Every example and suggestion sits in a dashed box labeled as the coach's (Coach's example, Coach's suggestion, Coach's redo, Coach's versions, Coach's picks). Under it, a line says what code checked: every citation, every quoted run of four or more words, every figure and every date, against your extemp file and your own words. Anything it cannot find is marked:
 
 - "Not a source in your file. Do not cite it." The coach named a source or a news outlet you have not saved.
 - "Not in your sources or your words. Check it before you use it." A quote, a number or a date the coach could not find.

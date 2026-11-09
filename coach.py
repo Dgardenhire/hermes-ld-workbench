@@ -275,7 +275,7 @@ The example:
 - It must show the three moves listed under MOVES TO SHOW, because the student practices exactly those next.
 
 "sentences": the example, one sentence per item, in order. "from" is the number of the student's line that sentence builds on (2 for [L2]), when it keeps or rewrites that line's idea or words; 0 when the sentence is new. Never give a number that is not one of the student's lines.
-"notes": three notes. Each is {"yours": what the student's attempt did, starting with "You", from their lines only (say "your line 2", never "[L2]"); "this": what this version does instead and why a judge rewards it, starting with "This version"}. Never say the student did something only the example does.
+"notes": three notes. Each is {"yours": what the student's attempt did, starting with "You", from their lines only (say "your line 2", never "[L2]"); "this": what this version does instead and why a judge rewards it, starting with "This version"}. Each half is ONE short sentence, 20 words at most. Never say the student did something only the example does.
 "kept": one sentence on what the example kept from the student's attempt, or "" if nothing could be kept.
 
 Return JSON only: {"sentences": [{"text": "...", "from": 2}], "notes": [{"yours": "...", "this": "..."}], "kept": "..."}"""
@@ -510,6 +510,18 @@ def speakable(text):
     t = re.sub(r"\s*\((?:[A-Z][\w .&'-]*, )?[A-Z][a-z]{2} \d{1,2}, \d{4}\)", "", t)
     t = re.sub(r"\[find a (?:source|card):[^\]]*\]", "", t, flags=re.I)
     return " ".join(t.split())[:1500]
+
+
+# The judge's points move by up to a point on the same take (Loop 2: one Take 2 drew 28.0, 27.0 and 27.5), so a
+# change of a point or less is "about the same", never "better" or "worse". The moves, measured in code, lead.
+POINTS_NOISE = 1.0
+
+
+def points_change(p1, p2):
+    if p1 is None or p2 is None:
+        return "not measured"
+    d = float(p2) - float(p1)
+    return "about the same" if abs(d) <= POINTS_NOISE else "better" if d > 0 else "worse"
 
 
 def take2(take1, take2_, example):
@@ -785,7 +797,7 @@ EVENT_TEXT = {"ld": "a Lincoln-Douglas round", "extemp": "a 7-minute extemp spee
 
 
 def ballot_text(b):
-    """The ballot as the coach reads it: the decision, the lines that decided it, the reason, the drill."""
+    """The ballot as the coach reads it: the decision, the lines the judge quoted, the reason, the drill."""
     parts = []
     if b.get("event") == "ld":
         parts.append(f"Decision: {'won' if b.get('decision') == b.get('side') else 'lost'} on the {engine.side_name(b.get('side'))}. Judge: {b.get('judge') or ''}.")

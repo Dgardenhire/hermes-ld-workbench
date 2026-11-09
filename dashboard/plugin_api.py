@@ -1416,9 +1416,7 @@ async def post_coach_extemp_take2(body: dict):
             raise ValueError("Take 2 is measured on the 60-second answer.")
         out = coach.take2(t1, t2, coach.kept_example(b.get("example_id")))
         pts = {x.get("take_id"): x.get("points") for x in ballots.history() if x.get("take_id") in (t1["id"], t2["id"])}
-        out["rows"].append({"key": "points", "label": "Points", "take1": pts.get(t1["id"]), "take2": pts.get(t2["id"]),
-                            "change": "not measured" if pts.get(t1["id"]) is None or pts.get(t2["id"]) is None else
-                            "the same" if pts[t1["id"]] == pts[t2["id"]] else "better" if pts[t2["id"]] > pts[t1["id"]] else "worse"})
+        out["rows"].append({"key": "points", "label": "Points", "take1": pts.get(t1["id"]), "take2": pts.get(t2["id"]), "change": coach.points_change(pts.get(t1["id"]), pts.get(t2["id"]))})
         return out
     except Exception as e:
         _fail(e)
