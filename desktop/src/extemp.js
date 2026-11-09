@@ -223,16 +223,18 @@ function DrillFloor({ home, modeSwitch }) {
   const last = home.last_take && home.last_take.drill
   const extra = useRef(null) // { after_example } once the student tries again after the coach's example
   const [prev, setPrev] = useState(null) // Take 1 and the example it got, kept for the Take 2 row
+  const [shown2, setShown2] = useState(null) // the coach's example open on this take, if any: either Try it again keeps Take 1 then
   const jt = useJudgedTake({ event: 'drill', limit: DRILL, question: q.text, initial: last && last.prompt === q.text ? last : null, onBallot: () => { loadHome() }, judgeExtra: extra }) // the new drill goes under the floor
   const live = jt.recorder.state === 'live' || jt.recorder.state === 'armed'
   const shown = useRef(q.text)
-  useEffect(() => { if (shown.current !== q.text) { shown.current = q.text; jt.reset(); setPrev(null); extra.current = null } }, [q.text]) // a new question, a clean floor
+  useEffect(() => { if (shown.current !== q.text) { shown.current = q.text; jt.reset(); setPrev(null); setShown2(null); extra.current = null } }, [q.text]) // a new question, a clean floor
   const again = example => { // Try it again from the compare: Take 1 and its example stay for the Take 2 row
     setPrev({ take: jt.take, ballot: jt.ballot, example })
     extra.current = { after_example: example.id }
+    setShown2(null)
     jt.reset()
   }
-  const plain = () => { setPrev(null); extra.current = null; jt.reset() }
+  const plain = () => (shown2 ? again(shown2) : (setPrev(null), extra.current = null, jt.reset()))
   const fileEmpty = !home.file_count
   const phase = jt.ballot ? 'ballot' : live ? 'live' : jt.take ? 'taken' : 'ready'
   const first = isFirstRun(home)
@@ -245,11 +247,11 @@ function DrillFloor({ home, modeSwitch }) {
       { key: 'ballot', code: 'Ballot', sub: jt.busy === 'judging' ? 'Writing' : jt.ballot ? `${jt.ballot.points ?? ''} points` : '', minutes: 0.45, min: 120, state: phase === 'ballot' ? 'now' : 'later' },
     ] }),
     jsx(Slip, { kicker: [`60-second answer, ${AREAS[q.area] || 'United States'}`, modeSwitch], question: q.text, tools: jsx(QuestionTools, { home, disabled: live }) }),
-    jsx(PrimerCards, { question: q.text }),
     prev && jt.take && prev.take ? jsx(TakeTwo, { take1: prev.take.id, take2: jt.take.id, exampleId: prev.example.id, ready: !!jt.ballot }) : null,
     jt.ballot ? jsx(ExtempSheet, { b: jt.ballot, take: jt.take, drillLabel: 'Try it again', drillLink: true, onDrill: plain, fileEmpty, showMe: false }) : null,
-    jt.ballot && jt.take ? jsx(StrongExample, { kind: 'answer', question: q.text, takeIds: [jt.take.id], onAgain: again }) : null,
+    jt.ballot && jt.take ? jsx(StrongExample, { kind: 'answer', question: q.text, takeIds: [jt.take.id], onAgain: again, onExample: setShown2 }) : null,
     jsx(Floor, { limit: DRILL, label: null, jt, startLabel: 'Start speaking', extra: jsx(PrimerButton, { question: q.text }) }),
+    jsx(PrimerCards, { question: q.text }), // under the clock (C3): Start speaking stays above the fold while the primer runs
     first && phase === 'ready' ? jsx(FirstRun, {}) : null,
     first && phase === 'ready' ? jsx(SampleBallot, {}) : null,
     !jt.take && !live && home.next_drill ? jsxs('div', { className: 'ldw-upnext', children: [

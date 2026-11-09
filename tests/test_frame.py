@@ -50,7 +50,7 @@ class Seams(unittest.TestCase):
     def test_stubs_are_mounted(self):
         x = SRC["extemp.js"]
         self.assertIn("extra: jsx(PrimerButton, { question: q.text })", x)  # beside Start speaking
-        self.assertIn("jsx(PrimerCards, { question: q.text })", x)  # directly under the question
+        self.assertIn("jsx(PrimerCards, { question: q.text }), // under the clock", x)  # Loop 2 (C3): under the clock, never above it
         self.assertIn("jsx(TakePlayer, { take }),", SRC["floor.js"].split("export function LastTake(", 1)[1].split("\nexport ", 1)[0])  # every take goes through the player
         self.assertNotIn("jsx(Wave, { levels: take.levels", SRC["floor.js"])  # the player's waveform replaces the old one
         self.assertGreaterEqual(SRC["floor.js"].count("jsx(QuoteLine") + SRC["floor.js"].count("jsxs(QuoteLine"), 2)  # each quoted line, extemp and LD

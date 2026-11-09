@@ -4347,6 +4347,7 @@ function DrillFloor({ home, modeSwitch }) {
   const last = home.last_take && home.last_take.drill;
   const extra = useRef6(null);
   const [prev, setPrev] = useState10(null);
+  const [shown2, setShown2] = useState10(null);
   const jt = useJudgedTake({ event: "drill", limit: DRILL, question: q.text, initial: last && last.prompt === q.text ? last : null, onBallot: () => {
     loadHome();
   }, judgeExtra: extra });
@@ -4357,19 +4358,17 @@ function DrillFloor({ home, modeSwitch }) {
       shown.current = q.text;
       jt.reset();
       setPrev(null);
+      setShown2(null);
       extra.current = null;
     }
   }, [q.text]);
   const again = (example) => {
     setPrev({ take: jt.take, ballot: jt.ballot, example });
     extra.current = { after_example: example.id };
+    setShown2(null);
     jt.reset();
   };
-  const plain = () => {
-    setPrev(null);
-    extra.current = null;
-    jt.reset();
-  };
+  const plain = () => shown2 ? again(shown2) : (setPrev(null), extra.current = null, jt.reset());
   const fileEmpty = !home.file_count;
   const phase = jt.ballot ? "ballot" : live ? "live" : jt.take ? "taken" : "ready";
   const first = isFirstRun(home);
@@ -4394,11 +4393,12 @@ function DrillFloor({ home, modeSwitch }) {
       { key: "ballot", code: "Ballot", sub: jt.busy === "judging" ? "Writing" : jt.ballot ? `${jt.ballot.points ?? ""} points` : "", minutes: 0.45, min: 120, state: phase === "ballot" ? "now" : "later" }
     ] }),
     jsx10(Slip, { kicker: [`60-second answer, ${AREAS[q.area] || "United States"}`, modeSwitch], question: q.text, tools: jsx10(QuestionTools, { home, disabled: live }) }),
-    jsx10(PrimerCards, { question: q.text }),
     prev && jt.take && prev.take ? jsx10(TakeTwo, { take1: prev.take.id, take2: jt.take.id, exampleId: prev.example.id, ready: !!jt.ballot }) : null,
     jt.ballot ? jsx10(ExtempSheet, { b: jt.ballot, take: jt.take, drillLabel: "Try it again", drillLink: true, onDrill: plain, fileEmpty, showMe: false }) : null,
-    jt.ballot && jt.take ? jsx10(StrongExample, { kind: "answer", question: q.text, takeIds: [jt.take.id], onAgain: again }) : null,
+    jt.ballot && jt.take ? jsx10(StrongExample, { kind: "answer", question: q.text, takeIds: [jt.take.id], onAgain: again, onExample: setShown2 }) : null,
     jsx10(Floor, { limit: DRILL, label: null, jt, startLabel: "Start speaking", extra: jsx10(PrimerButton, { question: q.text }) }),
+    jsx10(PrimerCards, { question: q.text }),
+    // under the clock (C3): Start speaking stays above the fold while the primer runs
     first && phase === "ready" ? jsx10(FirstRun, {}) : null,
     first && phase === "ready" ? jsx10(SampleBallot, {}) : null,
     !jt.take && !live && home.next_drill ? jsxs10("div", { className: "ldw-upnext", children: [
