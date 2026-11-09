@@ -10,7 +10,7 @@ import { useState } from 'react'
 import { jsx, jsxs } from 'react/jsx-runtime'
 import { Choices, api } from './core.js'
 import { ExtempSheet } from './floor.js'
-import { TakePlayer } from './player.js'
+import { QuoteLine, TakePlayer } from './player.js'
 import SAMPLE from '../../data/sample_take.json'
 
 export const SAMPLE_TAKE = SAMPLE.take
@@ -31,30 +31,34 @@ function readLevel() {
   try { return (api && api.storage && api.storage.get(LEVEL_KEY, null)) || 'first' } catch (e) { return 'first' }
 }
 
-export function FirstRun({ showLevel = true }) {
-  const [level, setLevel] = useState(readLevel)
-  const pick = v => { setLevel(v); try { if (api && api.storage) api.storage.set(LEVEL_KEY, v) } catch (e) { /* kept for this visit */ } }
-  return jsxs('section', { className: 'ldw-first', 'aria-label': 'How it works', children: [
-    jsx('p', { className: 'ldw-promise', children: PROMISE }),
-    jsx('ol', { className: 'ldw-steps', children: STEPS.map(([t, d], i) => jsxs('li', { children: [
-      jsx('span', { className: 'ldw-step-n', 'aria-hidden': 'true', children: String(i + 1) }),
-      jsxs('div', { children: [jsx('b', { children: t }), jsx('span', { children: d })] }),
-    ] }, t)) }),
-    showLevel ? jsxs('div', { className: 'ldw-levelrow', children: [
-      jsx('span', { className: 'ldw-eyebrow', id: 'ldw-level-l', children: 'Your level' }),
-      jsx(Choices, { label: 'Your level', value: level, onChange: pick, options: LEVELS }),
-    ] }) : null,
-  ] })
+// Loop 2: the first open shows only the promise and the Sample's three quoted lines, so the hero is on one
+// screen at 1280x800. The three-step strip and the level row are gone (the level changed nothing the judge
+// read: a dead control). STEPS and LEVELS stay exported for the level row's return after the first ballot.
+export function FirstRun() {
+  return null // the promise now heads the Sample (SampleBallot), one row instead of three
 }
 
-// The Sample: labeled as a sample everywhere it shows, so no one mistakes it for their own ballot.
+function SampleLines() {
+  return jsx('div', { className: 'ldw-sample-lines', children: SAMPLE_BALLOT.decisive.map((d, i) => jsxs(QuoteLine, { take: SAMPLE_TAKE, line: d, index: i, className: 'ldw-line', children: [
+    jsx('span', { className: 'ldw-line-said', children: `"${d.line}"` }),
+    jsx('span', { className: 'ldw-line-effect', children: d.effect }),
+  ] }, i)) })
+}
+
+// The Sample: labeled as a sample everywhere it shows, so no one mistakes it for their own ballot. On the first
+// open it is the promise and the three quoted lines that decided it, each playing in place; the whole sample
+// ballot and its player open under them on a press. The player is always mounted (hidden until then), because
+// the lines play through it.
 export function SampleBallot() {
+  const [whole, setWhole] = useState(false)
   return jsxs('section', { className: 'ldw-sample', 'aria-label': 'Sample ballot', children: [
     jsxs('div', { className: 'ldw-sample-head', children: [
       jsx('span', { className: 'ldw-sample-tag', children: 'Sample' }),
-      jsx('p', { children: 'What you get after one minute: a ballot on the words you said, quoting your own lines. This one judged a sample answer.' }),
+      jsx('p', { className: 'ldw-promise', children: PROMISE }),
     ] }),
-    jsx(ExtempSheet, { b: SAMPLE_BALLOT, take: SAMPLE_TAKE, showMe: false, label: 'Sample ballot' }),
-    jsx(TakePlayer, { take: SAMPLE_TAKE }),
+    !whole ? jsx(SampleLines, {}) : null,
+    jsx('button', { type: 'button', className: 'hk-link ldw-sample-more', 'aria-expanded': whole, onClick: () => setWhole(v => !v), children: whole ? 'Show only the lines' : 'See the whole sample ballot' }),
+    whole ? jsx(ExtempSheet, { b: SAMPLE_BALLOT, take: SAMPLE_TAKE, showMe: false, label: 'Sample ballot' }) : null,
+    jsx('div', { hidden: !whole, children: jsx(TakePlayer, { take: SAMPLE_TAKE }) }),
   ] })
 }

@@ -790,7 +790,7 @@ function lineSpan(tl, line) {
   const a = tl.tokens[m.first];
   const b = tl.tokens[m.last];
   if (a.t === null || a.t === void 0) return null;
-  return { at: a.t, from: Math.max(0, round2(a.t - LEAD)), to: round2((b.e || b.t || a.t) + TAIL) };
+  return { at: a.t, from: Math.max(0, round2(a.t - LEAD)), to: round2((b.e || b.t || a.t) + TAIL), first: m.first, last: m.last };
 }
 var FILLER_WORDS = /* @__PURE__ */ new Set(["um", "uh", "erm", "er", "ah", "hmm", "mm"]);
 var FILLER_PHRASES = /* @__PURE__ */ new Set(["you know", "i mean", "kind of", "sort of"]);
@@ -852,6 +852,7 @@ function timelineOf(take) {
 }
 var quoteClickOn = (tl) => !!tl && (tl.method === "words" || tl.method === "pauses" && QUOTE_CLICK_TEXT_ONLY);
 var $nowPlaying = atom3(null);
+var $playhead = atom3(null);
 function claimPlayback(key) {
   $nowPlaying.set(key);
 }
@@ -998,14 +999,14 @@ function PlayerWave({ take, tl, view, marks, headRef, playedRef, onSeek }) {
           ...marks.map((m) => jsx5("line", { className: "ldw-pwave-q", "data-on": m.on ? "" : void 0, x1: x(m.at), x2: x(m.at), y1: 0, y2: H }, `q${m.n}`)),
           jsx5("line", { className: "ldw-pwave-head", ref: headRef.line, x1: 0, x2: 0, y1: 0, y2: H })
         ] }),
-        answer !== null ? jsx5("span", { className: "ldw-pwave-tag", "data-left": x(answer) < 0.06 * W ? "" : void 0, style: { left: `${x(answer) / W * 100}%` }, children: `Answer ${mmss(s.answer_at)}` }) : null,
+        answer !== null ? jsx5("span", { className: "ldw-pwave-tag", "data-left": x(answer) < 0.85 * W ? "" : void 0, style: { left: `${x(answer) / W * 100}%` }, children: `Answer ${mmss(s.answer_at)}` }) : null,
         ...marks.map((m) => jsx5("span", { className: "ldw-pwave-qn", "data-on": m.on ? "" : void 0, style: { left: `${x(m.at) / W * 100}%` }, children: m.n }, `n${m.n}`))
       ]
     }),
     jsx5("div", { className: "ldw-pwave-ticks", "aria-hidden": "true", children: ticks.map((t) => jsx5("span", { style: { left: `${x(t + view.zero) / W * 100}%` }, children: mmss(t) }, t)) })
   ] });
 }
-function Transcript({ tl, now, onWord, live }) {
+function Transcript({ tl, now, onWord, live, title = "What you said" }) {
   const toks = tl.tokens;
   const n = toks.filter((t) => norm(t.w)).length;
   const kids = [];
@@ -1022,7 +1023,7 @@ function Transcript({ tl, now, onWord, live }) {
     if (i < toks.length - 1) kids.push(" ");
   });
   return jsxs5("details", { className: "ldw-ptx", open: true, children: [
-    jsxs5("summary", { children: ["What you said", jsx5("span", { children: ` · ${n} words` })] }),
+    jsx5("summary", { children: title }),
     jsx5("p", { className: "ldw-ptx-words", "data-live": live ? "" : void 0, children: kids })
   ] });
 }
@@ -1061,6 +1062,7 @@ function TakePlayer({ take, audioSrc, startAt, onTime }) {
     }
     const i = nowIndex(tl.tokens, t);
     setNow(i);
+    if (take && take.id) $playhead.set({ id: take.id, t, i });
     if (onTime) onTime(t);
   };
   useEffect4(() => {
@@ -1141,6 +1143,7 @@ function TakePlayer({ take, audioSrc, startAt, onTime }) {
       startsAt,
       live,
       playing: () => lineOn,
+      levels: take && take.levels || [],
       playLine: (span, index) => go(span.from, true, span.to, index),
       stop: () => {
         if (el.current) el.current.pause();
@@ -1192,7 +1195,7 @@ function TakePlayer({ take, audioSrc, startAt, onTime }) {
       err ? jsx5("span", { className: "ldw-pstate", role: "alert", children: err }) : null
     ] }),
     !gone ? jsx5(PlayerWave, { take, tl, view, marks: tlMarks, headRef: head, playedRef: played, onSeek: seek }) : null,
-    tl.tokens.length ? jsx5(Transcript, { tl, now, live: !gone && tl.method !== "none", onWord: (t) => seek(Math.max(0, t - 0.05)) }) : null,
+    tl.tokens.length ? jsx5(Transcript, { tl, now, live: !gone && tl.method !== "none", title: take.sample ? "The sample answer" : "What you said", onWord: (t) => seek(Math.max(0, t - 0.05)) }) : null,
     ["failed", "unavailable", "cancelled"].includes(st) && !gone ? jsx5("p", { className: "ldw-pnote", children: "The recording still plays. Its words light up once there is a transcript." }) : null,
     tl.method === "pauses" && !gone ? jsx5("p", { className: "ldw-pnote", children: textOnlyOff ? "This transcript has no word times, so the quoted lines do not play from the ballot. The recording still plays." : "On this transcript, each sentence is placed by the pauses in your recording, so a line may start a moment early or late." }) : null
   ] });
@@ -1223,7 +1226,32 @@ function QuoteLine({ take, line, index = 0, className, children }) {
       jsx5("span", { children: mmss(Math.max(0, span.at - p.startsAt)) })
     ]
   }) : jsx5("span", { className: "ldw-quote-mark ldw-quote-none", "aria-hidden": "true" });
-  return jsxs5("div", { className: ["ldw-qline", className].filter(Boolean).join(" "), "data-on": playing ? "" : void 0, children: [mark, jsx5("div", { className: "ldw-qline-body", children })] });
+  const kids = (Array.isArray(children) ? children : [children]).filter(Boolean);
+  const body = playing && span && kids.length ? [jsx5(LiveQuote, { id, tl, span, levels: p.levels, className: kids[0].props && kids[0].props.className }, "live"), ...kids.slice(1)] : kids;
+  return jsxs5("div", { className: ["ldw-qline", className].filter(Boolean).join(" "), "data-on": playing ? "" : void 0, children: [mark, jsx5("div", { className: "ldw-qline-body", children: body })] });
+}
+function LiveQuote({ id, tl, span, levels, className }) {
+  const head = useValue2($playhead);
+  const t = head && head.id === id ? head.t : span.from;
+  const i = head && head.id === id ? head.i : -1;
+  const toks = tl.tokens.slice(span.first, span.last + 1);
+  const n = 48;
+  const bars = [];
+  for (let k = 0; k < n; k++) {
+    const a = Math.floor((span.from + k / n * (span.to - span.from)) * 10);
+    const b = Math.max(a + 1, Math.floor((span.from + (k + 1) / n * (span.to - span.from)) * 10));
+    let m = 0;
+    for (let j = a; j < b && j < levels.length; j++) m = Math.max(m, levels[j]);
+    const h = Math.max(2, Math.min(1, m * 1.6) * 22);
+    bars.push(jsx5("rect", { x: k * 10 + 1, y: (24 - h) / 2, width: 7, height: h, "data-played": (k + 0.5) / n <= (t - span.from) / (span.to - span.from) ? "" : void 0 }, k));
+  }
+  return jsxs5(Fragment2, { children: [
+    jsxs5("span", { className: className || "ldw-line-said", "aria-live": "off", children: ['"', ...toks.flatMap((x, k) => [
+      k ? " " : null,
+      jsx5("span", { className: span.first + k === i ? "ldw-word ldw-word-now" : "ldw-word", children: x.w }, k)
+    ]), '"'] }),
+    jsx5("svg", { className: "ldw-qslice", viewBox: `0 0 ${n * 10} 24`, preserveAspectRatio: "none", "aria-hidden": "true", children: bars })
+  ] });
 }
 var PLAYER_CSS = `
 .ldw-player{display:grid;gap:10px;padding:14px 0 4px;border-top:1px solid var(--hk-stroke);min-width:0}
@@ -1276,7 +1304,9 @@ var PLAYER_CSS = `
 .ldw-quote-mark:hover{background:color-mix(in srgb,currentColor 16%,transparent)}
 .ldw-quote-mark[data-on]{background:var(--hk-accent);color:var(--ui-bg-chrome,#fff)}
 .ldw-quote-none{background:transparent;cursor:default}
-.ldw-qline[data-on] .ldw-line-said{text-decoration-thickness:3px}
+.ldw-qslice{display:block;width:min(100%,420px);height:24px;margin:4px 0 2px}
+.ldw-qslice rect{fill:color-mix(in srgb,currentColor 30%,transparent)}
+.ldw-qslice rect[data-played]{fill:var(--hk-accent)}
 @media (prefers-reduced-motion:reduce){.ldw-word,.ldw-play,.ldw-quote-mark{transition:none}}
 @media (max-width:640px){.ldw-qline{grid-template-columns:54px minmax(0,1fr);gap:6px}.ldw-ptx-words{font-size:16px}}
 `;
@@ -2174,8 +2204,8 @@ function Stats({ take, limit, fastOk }) {
   } else {
     items.push({ v: mmss(s.speaking || 0), k: `of ${mmss(limit)}`, bad: limit && s.speaking > limit + 5 });
     if (s.wpm) items.push({ v: String(s.wpm), k: s.wpm > 175 && fastOk ? "words a minute, fine for your judge" : "words a minute", bad: s.wpm > 175 && !fastOk || s.wpm < 115 });
-    if (s.fillers !== void 0 && take.transcript.status === "done") items.push({ v: String(s.fillers), k: s.fillers === 1 ? "filler the transcript caught" : "fillers the transcript caught", bad: s.speaking >= 20 && s.fillers / (s.speaking / 60) > 4 });
-    items.push({ v: String((s.pauses || []).length), k: "pauses over 2 seconds", bad: (s.pauses || []).length >= 3 });
+    if (s.fillers !== void 0 && take.transcript.status === "done") items.push({ v: String(s.fillers), k: s.fillers === 1 ? "filler" : "fillers", bad: s.speaking >= 20 && s.fillers / (s.speaking / 60) > 4 });
+    items.push({ v: String((s.pauses || []).length), k: (s.pauses || []).length === 1 ? "pause over 2 seconds" : "pauses over 2 seconds", bad: (s.pauses || []).length >= 3 });
   }
   if (s.answer_at !== void 0 && s.answer_at !== null) {
     const aim = limit <= 90 ? 20 : 60;
@@ -2192,7 +2222,7 @@ function transcriptLine(t) {
   if (st === "done") {
     if (tr.local === false) return `Transcript by ${tr.label || tr.provider}, through Hermes`;
     if (tr.engine === "hermes" && tr.local !== true) return "Transcript by Hermes's speech-to-text";
-    return "Transcript, on this computer";
+    return "";
   }
   if (st === "typed") return t.typed ? "Typed, not recorded" : "Your words, typed";
   if (st === "waiting" || st === "working") return "Making the transcript";
@@ -4025,50 +4055,27 @@ var sample_take_default = {
 var SAMPLE_TAKE = sample_take_default.take;
 var SAMPLE_BALLOT = sample_take_default.ballot;
 var PROMISE = "Speak for a minute. Get a judge’s ballot. Hear the line that decided it.";
-var STEPS2 = [
-  ["Speak for a minute", "Answer the question out loud. The clock and the time cards keep you honest."],
-  ["Get a judge’s ballot", "A practice judge writes it on what you actually said, quoting your lines."],
-  ["Hear the line that decided it", "Play the exact sentence back, then hear a coach do it better."]
-];
-var LEVELS = [{ id: "first", label: "First year" }, { id: "jv", label: "JV" }, { id: "varsity", label: "Varsity" }];
-var LEVEL_KEY = "ldw.level";
 var isFirstRun = (home) => !!home && !(home.last_take && home.last_take.drill) && !home.ballots;
-function readLevel() {
-  try {
-    return api && api.storage && api.storage.get(LEVEL_KEY, null) || "first";
-  } catch (e) {
-    return "first";
-  }
+function FirstRun() {
+  return null;
 }
-function FirstRun({ showLevel = true }) {
-  const [level, setLevel] = useState9(readLevel);
-  const pick = (v) => {
-    setLevel(v);
-    try {
-      if (api && api.storage) api.storage.set(LEVEL_KEY, v);
-    } catch (e) {
-    }
-  };
-  return jsxs9("section", { className: "ldw-first", "aria-label": "How it works", children: [
-    jsx9("p", { className: "ldw-promise", children: PROMISE }),
-    jsx9("ol", { className: "ldw-steps", children: STEPS2.map(([t, d], i) => jsxs9("li", { children: [
-      jsx9("span", { className: "ldw-step-n", "aria-hidden": "true", children: String(i + 1) }),
-      jsxs9("div", { children: [jsx9("b", { children: t }), jsx9("span", { children: d })] })
-    ] }, t)) }),
-    showLevel ? jsxs9("div", { className: "ldw-levelrow", children: [
-      jsx9("span", { className: "ldw-eyebrow", id: "ldw-level-l", children: "Your level" }),
-      jsx9(Choices, { label: "Your level", value: level, onChange: pick, options: LEVELS })
-    ] }) : null
-  ] });
+function SampleLines() {
+  return jsx9("div", { className: "ldw-sample-lines", children: SAMPLE_BALLOT.decisive.map((d, i) => jsxs9(QuoteLine, { take: SAMPLE_TAKE, line: d, index: i, className: "ldw-line", children: [
+    jsx9("span", { className: "ldw-line-said", children: `"${d.line}"` }),
+    jsx9("span", { className: "ldw-line-effect", children: d.effect })
+  ] }, i)) });
 }
 function SampleBallot() {
+  const [whole, setWhole] = useState9(false);
   return jsxs9("section", { className: "ldw-sample", "aria-label": "Sample ballot", children: [
     jsxs9("div", { className: "ldw-sample-head", children: [
       jsx9("span", { className: "ldw-sample-tag", children: "Sample" }),
-      jsx9("p", { children: "What you get after one minute: a ballot on the words you said, quoting your own lines. This one judged a sample answer." })
+      jsx9("p", { className: "ldw-promise", children: PROMISE })
     ] }),
-    jsx9(ExtempSheet, { b: SAMPLE_BALLOT, take: SAMPLE_TAKE, showMe: false, label: "Sample ballot" }),
-    jsx9(TakePlayer, { take: SAMPLE_TAKE })
+    !whole ? jsx9(SampleLines, {}) : null,
+    jsx9("button", { type: "button", className: "hk-link ldw-sample-more", "aria-expanded": whole, onClick: () => setWhole((v) => !v), children: whole ? "Show only the lines" : "See the whole sample ballot" }),
+    whole ? jsx9(ExtempSheet, { b: SAMPLE_BALLOT, take: SAMPLE_TAKE, showMe: false, label: "Sample ballot" }) : null,
+    jsx9("div", { hidden: !whole, children: jsx9(TakePlayer, { take: SAMPLE_TAKE }) })
   ] });
 }
 
@@ -5661,7 +5668,7 @@ var FRAME_CSS = `
 .ldw-rec-stop{background:var(--hk-ink);color:var(--hk-bg)}
 .ldw-level{width:14px;height:14px;border-radius:50%;background:var(--hk-bad-fill);transform:scale(calc(.55 + var(--lv,0) * 1.4));transition:transform 60ms linear}
 
-.ldw-last{background:var(--hk-surface);border:1px solid var(--hk-stroke);border-radius:var(--ldw-r);padding:14px 16px 12px;display:grid;gap:10px}
+.ldw-last{background:var(--hk-surface);border:1px solid var(--hk-stroke);border-radius:var(--ldw-r);padding:14px 16px 12px;display:grid;gap:10px;max-width:760px;box-sizing:border-box}
 .ldw-last-head{display:flex;justify-content:space-between;align-items:baseline;gap:10px;flex-wrap:wrap}
 .ldw-prov{font-size:13px}
 .ldw-wave{position:relative;padding-top:14px}
@@ -5708,7 +5715,7 @@ var FRAME_CSS = `
 .ldw-declines{padding:22px 0 4px;display:grid;gap:2px;font-style:normal}
 .ldw-declines h4,.ldw-sheet-rfd h4{margin:0 0 4px;font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase}
 .ldw-line{display:grid;gap:2px;padding:7px 0;border-bottom:1px dashed var(--ldw-paper-rule)}
-.ldw-line-said{font-family:var(--ldw-serif);font-size:15.5px;line-height:1.4;text-decoration:underline;text-decoration-color:var(--hk-accent);text-decoration-thickness:2px;text-underline-offset:3px}
+.ldw-line-said{font-family:var(--ldw-serif);font-size:15.5px;line-height:1.4}
 .ldw-line-effect{font-size:13.5px}
 .ldw-line-flag{font-size:13px;font-weight:700}
 .ldw-drillrow{display:flex;align-items:center;gap:16px;margin-top:14px}
@@ -6064,9 +6071,19 @@ button.ldw-brow-main:focus-visible{outline:2px solid var(--hk-accent);outline-of
 .ldw-steps li span:not(.ldw-step-n){font-size:13.5px;line-height:1.45}
 .ldw-step-n{font-family:var(--ldw-cond);font-weight:700;font-size:22px;line-height:1;min-width:20px;color:color-mix(in srgb,var(--hk-accent) 86%,var(--hk-ink))}
 .ldw-levelrow{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
-.ldw-sample{display:grid;gap:14px;max-width:760px}
-.ldw-sample-head{display:flex;align-items:baseline;gap:12px}
-.ldw-sample-head p{margin:0;font-size:14px;line-height:1.45}
+.ldw-sample{display:grid;gap:6px;max-width:1040px;padding-top:12px;border-top:1px solid var(--hk-stroke)}
+.ldw-sample-head{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap}
+.ldw-sample-head .ldw-promise{font-size:18px}
+.ldw-sample-lines{display:grid}
+.ldw-sample-lines .ldw-line{padding:3px 0;border-bottom:1px dashed var(--hk-stroke)}
+.ldw-sample-lines .ldw-quote-mark{margin-top:2px}
+.ldw-sample-lines .ldw-line:last-child{border-bottom:0}
+.ldw-sample-lines .ldw-qline-body{display:grid;grid-template-columns:minmax(0,1fr) minmax(220px,300px);gap:2px 22px;align-items:baseline}
+.ldw-sample-lines .ldw-qslice{grid-column:1}
+.ldw-sample-lines .ldw-line-effect{font-size:13.5px;line-height:1.35}
+.ldw-sample-lines .ldw-line-said{line-height:1.35}
+.ldw-sample-more{justify-self:start;font-size:14px}
+@container (max-width:760px){.ldw-sample-lines .ldw-qline-body{grid-template-columns:1fr}}
 .ldw-sample-tag{font-family:var(--ldw-cond);font-weight:700;font-size:15px;text-transform:uppercase;letter-spacing:.08em;padding:2px 8px;border:1.5px solid currentColor;border-radius:var(--ldw-r);
   color:color-mix(in srgb,var(--hk-accent) 86%,var(--hk-ink));white-space:nowrap}
 .ldw-sample .ldw-sheet{max-width:none}

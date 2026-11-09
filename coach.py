@@ -224,7 +224,10 @@ def check(text, items, own=(), stamp=True):
         outlet = str(i.get("outlet") or "")
         named = bool(outlet) and _fold(outlet) in sentence
         if not stamp or _ABOUT_THEIR_CITING.search(sentence):
-            return "" if named or not outlet else f"{lead}({outlet})"
+            if named or not outlet:
+                return ""
+            # "on screen in [S2]" reads "on screen in NPR", not "in (NPR)"
+            return f"{lead}{outlet}" if re.search(r"\b(?:in|from|by|per|see|at|on|to|of)\s*$", before, re.I) else f"{lead}({outlet})"
         # "Reuters reported on November 6 that ... [S1]": the outlet and the day are already said aloud, so no stamp.
         if named and _item_date(i) and _item_date(i) in _dates(sentence):
             return ""
@@ -268,7 +271,7 @@ The example:
 - It must show the three moves listed under MOVES TO SHOW, because the student practices exactly those next.
 
 "sentences": the example, one sentence per item, in order. "from" is the number of the student's line that sentence builds on (2 for [L2]), when it keeps or rewrites that line's idea or words; 0 when the sentence is new. Never give a number that is not one of the student's lines.
-"notes": three notes. Each is {"yours": what the student's attempt did, starting with "You", from their lines only; "this": what this version does instead and why a judge rewards it, starting with "This version"}. Never say the student did something only the example does.
+"notes": three notes. Each is {"yours": what the student's attempt did, starting with "You", from their lines only (say "your line 2", never "[L2]"); "this": what this version does instead and why a judge rewards it, starting with "This version"}. Never say the student did something only the example does.
 "kept": one sentence on what the example kept from the student's attempt, or "" if nothing could be kept.
 
 Return JSON only: {"sentences": [{"text": "...", "from": 2}], "notes": [{"yours": "...", "this": "..."}], "kept": "..."}"""
@@ -305,12 +308,20 @@ def link(sentence, n, lines):
     return k
 
 
+_LINE_ID = re.compile(r"\[\s*L\s*(\d{1,2})\s*\]")
+
+
+def _lines_said(text):
+    """"[L6]" as the page says it: "line 6" (never a raw bracket on screen)."""
+    return _LINE_ID.sub(lambda m: f"line {m.group(1)}", str(text or ""))
+
+
 def _note(x):
     """A note as {"yours", "this"} (the two halves labeled on the page), or a plain string from an older answer."""
     if isinstance(x, dict):
-        yours, this = _s(x.get("yours"), 400), _s(x.get("this"), 400)
+        yours, this = _s(_lines_said(x.get("yours")), 400), _s(_lines_said(x.get("this")), 400)
         return {"yours": yours, "this": this} if yours or this else None
-    return _s(x, 400) if isinstance(x, str) and x.strip() else None
+    return _s(_lines_said(x), 400) if isinstance(x, str) and x.strip() else None
 
 
 def tidy_example(raw):
@@ -325,7 +336,10 @@ def tidy_example(raw):
     if len(ex.split()) < 20:
         raise _unreadable()
     notes = [n for n in (_note(x) for x in raw["notes"]) if n][:4] if isinstance(raw.get("notes"), list) else []
-    return {"example": ex, "sentences": sentences, "notes": notes, "kept": _s(raw.get("kept"), 400)}
+    for x in sentences:
+        x["text"] = _LINE_ID.sub("", x["text"]).replace("  ", " ").strip()
+    ex = _LINE_ID.sub("", ex)
+    return {"example": ex, "sentences": sentences, "notes": notes, "kept": _s(_lines_said(raw.get("kept")), 400)}
 
 
 # ---------- the moves Take 2 is measured on: a fixed list, measured in code, never by the model ----------

@@ -282,8 +282,8 @@ export function Stats({ take, limit, fastOk }) {
   } else {
     items.push({ v: mmss(s.speaking || 0), k: `of ${mmss(limit)}`, bad: limit && s.speaking > limit + 5 })
     if (s.wpm) items.push({ v: String(s.wpm), k: s.wpm > 175 && fastOk ? 'words a minute, fine for your judge' : 'words a minute', bad: (s.wpm > 175 && !fastOk) || s.wpm < 115 })
-    if (s.fillers !== undefined && take.transcript.status === 'done') items.push({ v: String(s.fillers), k: s.fillers === 1 ? 'filler the transcript caught' : 'fillers the transcript caught', bad: s.speaking >= 20 && s.fillers / (s.speaking / 60) > 4 })
-    items.push({ v: String((s.pauses || []).length), k: 'pauses over 2 seconds', bad: (s.pauses || []).length >= 3 })
+    if (s.fillers !== undefined && take.transcript.status === 'done') items.push({ v: String(s.fillers), k: s.fillers === 1 ? 'filler' : 'fillers', bad: s.speaking >= 20 && s.fillers / (s.speaking / 60) > 4 })
+    items.push({ v: String((s.pauses || []).length), k: (s.pauses || []).length === 1 ? 'pause over 2 seconds' : 'pauses over 2 seconds', bad: (s.pauses || []).length >= 3 })
   }
   if (s.answer_at !== undefined && s.answer_at !== null) {
     const aim = limit <= 90 ? 20 : 60
@@ -302,7 +302,7 @@ export function transcriptLine(t) {
   if (st === 'done') {
     if (tr.local === false) return `Transcript by ${tr.label || tr.provider}, through Hermes`
     if (tr.engine === 'hermes' && tr.local !== true) return "Transcript by Hermes's speech-to-text"
-    return 'Transcript, on this computer'
+    return '' // on this computer: nothing to disclose, nothing to say
   }
   if (st === 'typed') return t.typed ? 'Typed, not recorded' : 'Your words, typed'
   if (st === 'waiting' || st === 'working') return 'Making the transcript'

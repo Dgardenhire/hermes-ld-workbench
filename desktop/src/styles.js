@@ -42,7 +42,7 @@ export const FRAME_CSS = `
 .ldw-rec-stop{background:var(--hk-ink);color:var(--hk-bg)}
 .ldw-level{width:14px;height:14px;border-radius:50%;background:var(--hk-bad-fill);transform:scale(calc(.55 + var(--lv,0) * 1.4));transition:transform 60ms linear}
 
-.ldw-last{background:var(--hk-surface);border:1px solid var(--hk-stroke);border-radius:var(--ldw-r);padding:14px 16px 12px;display:grid;gap:10px}
+.ldw-last{background:var(--hk-surface);border:1px solid var(--hk-stroke);border-radius:var(--ldw-r);padding:14px 16px 12px;display:grid;gap:10px;max-width:760px;box-sizing:border-box}
 .ldw-last-head{display:flex;justify-content:space-between;align-items:baseline;gap:10px;flex-wrap:wrap}
 .ldw-prov{font-size:13px}
 .ldw-wave{position:relative;padding-top:14px}
@@ -89,7 +89,7 @@ export const FRAME_CSS = `
 .ldw-declines{padding:22px 0 4px;display:grid;gap:2px;font-style:normal}
 .ldw-declines h4,.ldw-sheet-rfd h4{margin:0 0 4px;font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase}
 .ldw-line{display:grid;gap:2px;padding:7px 0;border-bottom:1px dashed var(--ldw-paper-rule)}
-.ldw-line-said{font-family:var(--ldw-serif);font-size:15.5px;line-height:1.4;text-decoration:underline;text-decoration-color:var(--hk-accent);text-decoration-thickness:2px;text-underline-offset:3px}
+.ldw-line-said{font-family:var(--ldw-serif);font-size:15.5px;line-height:1.4}
 .ldw-line-effect{font-size:13.5px}
 .ldw-line-flag{font-size:13px;font-weight:700}
 .ldw-drillrow{display:flex;align-items:center;gap:16px;margin-top:14px}
@@ -445,9 +445,19 @@ button.ldw-brow-main:focus-visible{outline:2px solid var(--hk-accent);outline-of
 .ldw-steps li span:not(.ldw-step-n){font-size:13.5px;line-height:1.45}
 .ldw-step-n{font-family:var(--ldw-cond);font-weight:700;font-size:22px;line-height:1;min-width:20px;color:color-mix(in srgb,var(--hk-accent) 86%,var(--hk-ink))}
 .ldw-levelrow{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
-.ldw-sample{display:grid;gap:14px;max-width:760px}
-.ldw-sample-head{display:flex;align-items:baseline;gap:12px}
-.ldw-sample-head p{margin:0;font-size:14px;line-height:1.45}
+.ldw-sample{display:grid;gap:6px;max-width:1040px;padding-top:12px;border-top:1px solid var(--hk-stroke)}
+.ldw-sample-head{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap}
+.ldw-sample-head .ldw-promise{font-size:18px}
+.ldw-sample-lines{display:grid}
+.ldw-sample-lines .ldw-line{padding:3px 0;border-bottom:1px dashed var(--hk-stroke)}
+.ldw-sample-lines .ldw-quote-mark{margin-top:2px}
+.ldw-sample-lines .ldw-line:last-child{border-bottom:0}
+.ldw-sample-lines .ldw-qline-body{display:grid;grid-template-columns:minmax(0,1fr) minmax(220px,300px);gap:2px 22px;align-items:baseline}
+.ldw-sample-lines .ldw-qslice{grid-column:1}
+.ldw-sample-lines .ldw-line-effect{font-size:13.5px;line-height:1.35}
+.ldw-sample-lines .ldw-line-said{line-height:1.35}
+.ldw-sample-more{justify-self:start;font-size:14px}
+@container (max-width:760px){.ldw-sample-lines .ldw-qline-body{grid-template-columns:1fr}}
 .ldw-sample-tag{font-family:var(--ldw-cond);font-weight:700;font-size:15px;text-transform:uppercase;letter-spacing:.08em;padding:2px 8px;border:1.5px solid currentColor;border-radius:var(--ldw-r);
   color:color-mix(in srgb,var(--hk-accent) 86%,var(--hk-ink));white-space:nowrap}
 .ldw-sample .ldw-sheet{max-width:none}

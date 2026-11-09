@@ -70,6 +70,12 @@ class Compare(unittest.TestCase):
         self.assertNotIn("2026)", s)  # the day is already said aloud: no written stamp after it
         self.assertNotIn("[S1]", s)
 
+    def test_line_ids_never_show_as_brackets(self):
+        raw = dict(EXAMPLE, notes=[{"yours": "You named Reuters in [L3] but gave no date.", "this": "This version keeps [L 2] and adds the day."}], kept="Your [L2].")
+        _, out = self.example(raw)
+        self.assertEqual(out["notes"][0], {"yours": "You named Reuters in line 3 but gave no date.", "this": "This version keeps line 2 and adds the day."})
+        self.assertEqual(out["kept"], "Your line 2.")
+
     def test_a_token_after_the_period_still_sees_the_date_said(self):
         items = extemp.file_items()
         text, _ = coach.check("Reuters reported on November 6 that hiring held up. [S1] So prices come first.", items)

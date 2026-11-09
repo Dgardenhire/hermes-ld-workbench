@@ -86,7 +86,7 @@ export function lineSpan(tl, line) {
   const a = tl.tokens[m.first]
   const b = tl.tokens[m.last]
   if (a.t === null || a.t === undefined) return null
-  return { at: a.t, from: Math.max(0, round2(a.t - LEAD)), to: round2((b.e || b.t || a.t) + TAIL) }
+  return { at: a.t, from: Math.max(0, round2(a.t - LEAD)), to: round2((b.e || b.t || a.t) + TAIL), first: m.first, last: m.last }
 }
 
 /* ------------------------------------------------------------------ the timeline -- */
@@ -151,6 +151,7 @@ export const quoteClickOn = tl => !!tl && (tl.method === 'words' || (tl.method =
 /* ------------------------------------------------------------------ one thing plays at a time -- */
 
 export const $nowPlaying = atom(null) // the key of whatever is making sound, or null
+const $playhead = atom(null) // { id, t } of the take playing, every frame: a quoted line lights its own words in place
 export function claimPlayback(key) { $nowPlaying.set(key) }
 export function releasePlayback(key) { if ($nowPlaying.get() === key) $nowPlaying.set(null) }
 
@@ -265,7 +266,7 @@ function PlayerWave({ take, tl, view, marks, headRef, playedRef, onSeek }) {
           ...marks.map(m => jsx('line', { className: 'ldw-pwave-q', 'data-on': m.on ? '' : undefined, x1: x(m.at), x2: x(m.at), y1: 0, y2: H }, `q${m.n}`)),
           jsx('line', { className: 'ldw-pwave-head', ref: headRef.line, x1: 0, x2: 0, y1: 0, y2: H }),
         ] }),
-        answer !== null ? jsx('span', { className: 'ldw-pwave-tag', 'data-left': x(answer) < 0.06 * W ? '' : undefined, style: { left: `${(x(answer) / W) * 100}%` }, children: `Answer ${mmss(s.answer_at)}` }) : null,
+        answer !== null ? jsx('span', { className: 'ldw-pwave-tag', 'data-left': x(answer) < 0.85 * W ? '' : undefined, style: { left: `${(x(answer) / W) * 100}%` }, children: `Answer ${mmss(s.answer_at)}` }) : null,
         ...marks.map(m => jsx('span', { className: 'ldw-pwave-qn', 'data-on': m.on ? '' : undefined, style: { left: `${(x(m.at) / W) * 100}%` }, children: m.n }, `n${m.n}`)),
       ] }),
     jsx('div', { className: 'ldw-pwave-ticks', 'aria-hidden': 'true', children: ticks.map(t => jsx('span', { style: { left: `${(x(t + view.zero) / W) * 100}%` }, children: mmss(t) }, t)) }),
@@ -274,7 +275,7 @@ function PlayerWave({ take, tl, view, marks, headRef, playedRef, onSeek }) {
 
 /* ------------------------------------------------------------------ the transcript -- */
 
-function Transcript({ tl, now, onWord, live }) {
+function Transcript({ tl, now, onWord, live, title = 'What you said' }) {
   const toks = tl.tokens
   const n = toks.filter(t => norm(t.w)).length
   const kids = []
@@ -287,7 +288,7 @@ function Transcript({ tl, now, onWord, live }) {
     if (i < toks.length - 1) kids.push(' ')
   })
   return jsxs('details', { className: 'ldw-ptx', open: true, children: [
-    jsxs('summary', { children: ['What you said', jsx('span', { children: ` · ${n} words` })] }),
+    jsx('summary', { children: title }),
     jsx('p', { className: 'ldw-ptx-words', 'data-live': live ? '' : undefined, children: kids }),
   ] })
 }
@@ -326,6 +327,7 @@ export function TakePlayer({ take, audioSrc, startAt, onTime }) {
     if (head.slider.current) { head.slider.current.setAttribute('aria-valuenow', Math.round(Math.max(0, t - startsAt))); head.slider.current.setAttribute('aria-valuetext', mmss(Math.max(0, t - startsAt))) }
     const i = nowIndex(tl.tokens, t)
     setNow(i)
+    if (take && take.id) $playhead.set({ id: take.id, t, i })
     if (onTime) onTime(t)
   }
 
@@ -392,7 +394,7 @@ export function TakePlayer({ take, audioSrc, startAt, onTime }) {
   useEffect(() => {
     if (!take || !take.id) return undefined
     return register(take.id, {
-      timeline: tl, startsAt, live, playing: () => lineOn,
+      timeline: tl, startsAt, live, playing: () => lineOn, levels: (take && take.levels) || [],
       playLine: (span, index) => go(span.from, true, span.to, index),
       stop: () => { if (el.current) el.current.pause() },
       mark: (index, at) => setMarks(m => (m[index] === at ? m : { ...m, [index]: at })),
@@ -423,7 +425,7 @@ export function TakePlayer({ take, audioSrc, startAt, onTime }) {
       err ? jsx('span', { className: 'ldw-pstate', role: 'alert', children: err }) : null,
     ] }),
     !gone ? jsx(PlayerWave, { take, tl, view, marks: tlMarks, headRef: head, playedRef: played, onSeek: seek }) : null,
-    tl.tokens.length ? jsx(Transcript, { tl, now, live: !gone && tl.method !== 'none', onWord: t => seek(Math.max(0, t - 0.05)) }) : null,
+    tl.tokens.length ? jsx(Transcript, { tl, now, live: !gone && tl.method !== 'none', title: take.sample ? 'The sample answer' : 'What you said', onWord: t => seek(Math.max(0, t - 0.05)) }) : null,
     ['failed', 'unavailable', 'cancelled'].includes(st) && !gone ? jsx('p', { className: 'ldw-pnote', children: 'The recording still plays. Its words light up once there is a transcript.' }) : null,
     tl.method === 'pauses' && !gone ? jsx('p', { className: 'ldw-pnote', children: textOnlyOff
       ? 'This transcript has no word times, so the quoted lines do not play from the ballot. The recording still plays.'
@@ -458,7 +460,35 @@ export function QuoteLine({ take, line, index = 0, className, children }) {
       jsx(Codicon, { name: playing ? 'debug-pause' : 'play' }),
       jsx('span', { children: mmss(Math.max(0, span.at - p.startsAt)) }),
     ] }) : jsx('span', { className: 'ldw-quote-mark ldw-quote-none', 'aria-hidden': 'true' })
-  return jsxs('div', { className: ['ldw-qline', className].filter(Boolean).join(' '), 'data-on': playing ? '' : undefined, children: [mark, jsx('div', { className: 'ldw-qline-body', children })] })
+  // Playing: the line plays in place. Its own words light up on the paper (the first child is the quoted words)
+  // and a slim slice of the waveform opens under it, so the line, the playhead and the word are seen together.
+  const kids = (Array.isArray(children) ? children : [children]).filter(Boolean)
+  const body = playing && span && kids.length ? [jsx(LiveQuote, { id, tl, span, levels: p.levels, className: kids[0].props && kids[0].props.className }, 'live'), ...kids.slice(1)] : kids
+  return jsxs('div', { className: ['ldw-qline', className].filter(Boolean).join(' '), 'data-on': playing ? '' : undefined, children: [mark, jsx('div', { className: 'ldw-qline-body', children: body })] })
+}
+
+// The quoted line while it plays: its words with the one being said underlined, and the waveform for just
+// that line under it, played part in the accent.
+function LiveQuote({ id, tl, span, levels, className }) {
+  const head = useValue($playhead)
+  const t = head && head.id === id ? head.t : span.from
+  const i = head && head.id === id ? head.i : -1
+  const toks = tl.tokens.slice(span.first, span.last + 1)
+  const n = 48
+  const bars = []
+  for (let k = 0; k < n; k++) {
+    const a = Math.floor((span.from + (k / n) * (span.to - span.from)) * 10)
+    const b = Math.max(a + 1, Math.floor((span.from + ((k + 1) / n) * (span.to - span.from)) * 10))
+    let m = 0
+    for (let j = a; j < b && j < levels.length; j++) m = Math.max(m, levels[j])
+    const h = Math.max(2, Math.min(1, m * 1.6) * 22)
+    bars.push(jsx('rect', { x: k * 10 + 1, y: (24 - h) / 2, width: 7, height: h, 'data-played': (k + 0.5) / n <= (t - span.from) / (span.to - span.from) ? '' : undefined }, k))
+  }
+  return jsxs(Fragment, { children: [
+    jsxs('span', { className: className || 'ldw-line-said', 'aria-live': 'off', children: ['"', ...toks.flatMap((x, k) => [k ? ' ' : null,
+      jsx('span', { className: span.first + k === i ? 'ldw-word ldw-word-now' : 'ldw-word', children: x.w }, k)]), '"'] }),
+    jsx('svg', { className: 'ldw-qslice', viewBox: `0 0 ${n * 10} 24`, preserveAspectRatio: 'none', 'aria-hidden': 'true', children: bars }),
+  ] })
 }
 
 /* ------------------------------------------------------------------ styles -- */
@@ -517,7 +547,9 @@ export const PLAYER_CSS = `
 .ldw-quote-mark:hover{background:color-mix(in srgb,currentColor 16%,transparent)}
 .ldw-quote-mark[data-on]{background:var(--hk-accent);color:var(--ui-bg-chrome,#fff)}
 .ldw-quote-none{background:transparent;cursor:default}
-.ldw-qline[data-on] .ldw-line-said{text-decoration-thickness:3px}
+.ldw-qslice{display:block;width:min(100%,420px);height:24px;margin:4px 0 2px}
+.ldw-qslice rect{fill:color-mix(in srgb,currentColor 30%,transparent)}
+.ldw-qslice rect[data-played]{fill:var(--hk-accent)}
 @media (prefers-reduced-motion:reduce){.ldw-word,.ldw-play,.ldw-quote-mark{transition:none}}
 @media (max-width:640px){.ldw-qline{grid-template-columns:54px minmax(0,1fr);gap:6px}.ldw-ptx-words{font-size:16px}}
 `
