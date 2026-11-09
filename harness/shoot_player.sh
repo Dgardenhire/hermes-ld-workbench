@@ -16,9 +16,9 @@ set -e
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 OUT="${1:-$HOME/Desktop/claude-test/.planning/hackathon-2026-11/premium-plan/debate/lanes/player-shots}"
 KIT="${KIT:-$HOME/products/hermes-ui-kit}"
-FREE() { /usr/bin/python3 -c 'import socket; s = socket.socket(); s.bind(("127.0.0.1", 0)); print(s.getsockname()[1])'; }
-PORT="${PORT:-$(FREE)}"  # never a fixed port: other lanes serve their own harness builds
-DBG="$(FREE)"
+# A port for this run: from the process id, so two lanes shooting at once do not collide (no helper process to find a free port).
+PORT="${PORT:-$((20000 + $$ % 20000))}"
+DBG="$((PORT + 1))"
 VOICE="${TMPDIR:-/private/tmp}/ldw-player-voice"  # the said words, kept between runs
 BUILD="$(mktemp -d "${TMPDIR:-/private/tmp}/ldw-player-build.XXXXXX")"
 mkdir -p "$OUT"

@@ -67,7 +67,7 @@ FETCH = None  # the page reader; None means engine.run_source (tests replace eng
 # ---------- text ----------
 _PUNCT = str.maketrans({"“": '"', "”": '"', "„": '"', "″": '"', "‘": "'", "’": "'",
                         "‚": "'", "′": "'", "–": "-", "—": "-", "‒": "-", "−": "-",
-                        " ": " ", " ": " ", " ": " ", "​": "", "…": "..."})
+                        "\u00a0": " ", "\u2009": " ", "\u202f": " ", "\u200b": "", "\u2026": "..."})
 
 
 def normalize(text):
