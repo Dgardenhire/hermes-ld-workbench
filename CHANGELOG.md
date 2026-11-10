@@ -2,6 +2,10 @@
 
 ## 0.2.0 (November 2026)
 
+### Rhetoric teaches the figures it marks (Nov 9, 2026)
+
+Press or Tab to any underlined line in a bundled speech and a panel beside the text gives the figure's name, a one-line definition, and why it works in that exact line. The notes are written once and stored (`data/figure_notes.json`, every quote tested against its speech); the model is not used to mark them. Under each, Try it: write your own line and the coach answers with questions, never wording. Pasted text is still marked by the model.
+
 ### More coaching built in (Nov 8, 2026)
 
 You still go first. After you try, the coach can now show and suggest, and everything it writes is marked as the coach's.

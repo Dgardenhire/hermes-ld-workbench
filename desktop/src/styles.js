@@ -149,7 +149,7 @@ export const FRAME_CSS = `
 .ldw-srcs .hk-notice{margin-top:6px}
 
 /* rhetoric */
-.ldw-read{display:grid;grid-template-columns:220px minmax(0,1fr) 230px;gap:24px;align-items:start}
+.ldw-read{display:grid;grid-template-columns:220px minmax(0,1fr) 300px;gap:24px;align-items:start}
 .ldw-library ul{list-style:none;margin:6px 0;padding:0;display:grid;gap:2px}
 .ldw-lib-item{all:unset;box-sizing:border-box;display:grid;gap:2px;width:100%;padding:8px 10px;border-radius:var(--ldw-r);cursor:pointer;font-size:13px}
 .ldw-lib-item b{font-size:13.5px}
@@ -159,11 +159,25 @@ export const FRAME_CSS = `
 .ldw-readtext{display:grid;gap:12px;min-width:0}
 .ldw-docmeta{display:grid;gap:2px}
 .ldw-marked{font-family:var(--ldw-serif);font-size:17px;line-height:1.75;white-space:pre-wrap;max-width:68ch}
-.ldw-mk{text-decoration:underline;text-decoration-color:var(--hk-accent);text-decoration-thickness:2px;text-underline-offset:4px;cursor:help}
+.ldw-mk{text-decoration:underline;text-decoration-color:var(--hk-accent);text-decoration-thickness:2px;text-underline-offset:4px;cursor:pointer;border-radius:2px}
+.ldw-mk:hover{background:color-mix(in srgb,var(--hk-accent) 12%,transparent)}
+.ldw-mk:focus-visible{outline:2px solid var(--hk-accent);outline-offset:2px}
+.ldw-mk-sel{background:color-mix(in srgb,var(--hk-accent) 24%,transparent)}
 .ldw-mk[data-n]{text-decoration-thickness:3.5px}
 .ldw-mk-appeal{text-decoration-style:dashed}
 .ldw-mk-focus{background:color-mix(in srgb,var(--hk-accent) 18%,transparent)}
-.ldw-counts{display:grid;gap:10px;position:sticky;top:0}
+.ldw-counts{display:grid;gap:10px;position:sticky;top:0;max-height:100vh;overflow:auto;align-content:start}
+.ldw-lesson{display:grid;gap:8px;padding:14px;border:1px solid var(--hk-stroke-strong);border-left:3px solid var(--hk-accent);border-radius:var(--ldw-r)}
+.ldw-lesson-head{display:flex;justify-content:space-between;align-items:flex-start;gap:10px}
+.ldw-lesson-kind{font-family:var(--hk-mono);font-size:11.5px;text-transform:uppercase;letter-spacing:.06em;opacity:.8}
+.ldw-lesson-name{margin:2px 0 0;font-size:20px;line-height:1.2;outline:none}
+.ldw-lesson-def{margin:0;font-size:14px;line-height:1.5}
+.ldw-lesson-quote{margin:0;font-family:var(--ldw-serif);font-size:14.5px;line-height:1.5;border-left:2px solid var(--hk-stroke-strong);padding-left:10px}
+.ldw-lesson-h{margin:6px 0 0;font-size:12.5px;text-transform:uppercase;letter-spacing:.05em}
+.ldw-lesson-why{margin:0;font-family:var(--ldw-serif);font-size:15px;line-height:1.55}
+.ldw-lesson-hint{margin:0}
+.ldw-tryit{display:grid;gap:8px;border-top:1px solid var(--hk-stroke);padding-top:8px}
+.ldw-tryit-out{display:grid;gap:4px;font-size:14px}
 .ldw-countlist{list-style:none;margin:0;padding:0;display:grid;gap:2px}
 .ldw-count{all:unset;box-sizing:border-box;display:flex;gap:10px;align-items:baseline;width:100%;padding:4px 8px;border-radius:var(--ldw-r);cursor:pointer;font-size:13.5px}
 .ldw-count b{font-family:var(--hk-mono);min-width:2ch;text-align:right}

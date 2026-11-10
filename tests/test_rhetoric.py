@@ -135,19 +135,127 @@ class Finder(unittest.TestCase):
         marks, _ = R.check_marks(text, [{"figure": "Anaphora", "quote": f"line number {i} here"} for i in range(60)] * 2)
         self.assertEqual(len(marks), R.MAX_MARKS)
 
-    def test_route_with_a_library_speech(self):
+    def test_pasted_text_still_goes_to_the_model(self):
         reset()
         llm = fake_model()
-        llm.queue.append(json.dumps({"marks": [{"figure": "Epistrophe", "quote": "of the people, by the people, for the people", "why": "w"},
+        text = "We can not dedicate, we can not consecrate, we can not hallow this ground, and the brave men who struggled here did it."
+        llm.queue.append(json.dumps({"marks": [{"figure": "Anaphora", "quote": "We can not dedicate, we can not consecrate", "why": "w"},
                                                {"figure": "Anaphora", "quote": "made up words", "why": "x"}]}))
-        out = run(api.post_rhetoric_marks({"speech_id": "gettysburg"}))
-        self.assertEqual(out["counts"], {"epistrophe": 1})
+        out = run(api.post_rhetoric_marks({"text": text}))
+        self.assertEqual(out["counts"], {"anaphora": 1})
         self.assertEqual(out["dropped"], 1)
         self.assertIn("Use only these names", llm.calls[-1]["system_prompt"])
+
+    def test_a_bundled_speech_is_marked_from_the_stored_notes_with_no_model(self):
+        reset()
+        llm = fake_model()
+        out = run(api.post_rhetoric_marks({"speech_id": "gettysburg"}))
+        self.assertEqual(llm.calls, [])
+        self.assertTrue(out["stored"])
+        self.assertEqual(out["text"], R.speech("gettysburg")["text"])
+        self.assertEqual(out["counts"]["tricolon"], 2)
+        for m in out["marks"]:
+            self.assertEqual(out["text"][m["start"]:m["end"]], m["quote"])
+            self.assertTrue(m["why"])
 
     def test_short_paste_refused(self):
         with self.assertRaises(HTTPException):
             run(api.post_rhetoric_marks({"text": "too short"}))
+
+
+class Notes(unittest.TestCase):
+    """The written notes: why each marked figure works in its own line (data/figure_notes.json)."""
+
+    def test_every_bundled_speech_has_notes_and_every_note_is_exact(self):
+        notes = R.figure_notes()["speeches"]
+        self.assertEqual(set(notes), {s["id"] for s in R.speeches()})
+        for sid, items in notes.items():
+            text = R.speech(sid)["text"]
+            self.assertGreaterEqual(len(items), 8, sid)
+            for n in items:
+                self.assertIn(n["figure"], R.FIGURE_IDS | R.APPEAL_IDS, (sid, n["figure"]))
+                self.assertIsNotNone(R.find_span(text, n["quote"]), (sid, n["quote"]))
+                # a quote that is found once, so the mark lands on the line the note is about
+                norm = R._fold(" ".join(text.split()))
+                self.assertEqual(norm.count(R._fold(" ".join(n["quote"].split()))), 1, (sid, n["quote"]))
+
+    def test_each_note_is_one_or_two_plain_sentences_and_unique(self):
+        seen = set()
+        for sid, items in R.figure_notes()["speeches"].items():
+            for n in items:
+                sentences = [x for x in re.split(r"(?<=[.!?])\s+", n["why"].strip()) if x]
+                self.assertLessEqual(len(sentences), 3, n["why"])  # one or two, a closing quote can add a fragment
+                self.assertGreater(len(n["why"].split()), 12, n["why"])
+                self.assertLess(len(n["why"]), 400, n["why"])
+                self.assertNotIn(n["why"], seen)
+                seen.add(n["why"])
+                self.assertNotRegex(n["why"], r"[\U0001F300-\U0001FAFF]")
+
+    def test_marks_carry_a_name_and_a_definition_from_the_figure_list(self):
+        for f in ("anaphora", "ethos"):
+            self.assertTrue(R.kind_info(f)["definition"])
+        self.assertIsNone(R.kind_info("snark"))
+
+    def test_scripture_and_play_attributions_are_the_checked_ones(self):
+        """No invented attributions: each allusion note names only the sources that were looked up."""
+        blob = " ".join(n["why"] for items in R.figure_notes()["speeches"].values() for n in items)
+        for ref in re.findall(r"(Genesis|Matthew|Exodus|Psalm)s? (\d+(?::\d+)?)", blob):
+            self.assertIn(" ".join(ref), {"Genesis 3:19", "Matthew 7:1", "Matthew 18:7", "Matthew 20:28", "Matthew 21:12", "Exodus 10"}, ref)
+
+    def test_note_for_ties_try_it_to_a_real_marked_line(self):
+        ok = R.note_for("gettysburg", "merism", "The brave men, living and dead")
+        self.assertEqual(ok["figure"], "merism")
+        for bad in (("gettysburg", "merism", "made up line"), ("gettysburg", "anaphora", "The brave men, living and dead"), ("nope", "merism", "x")):
+            with self.assertRaises(ValueError):
+                R.note_for(*bad)
+
+
+class Try(unittest.TestCase):
+    LINE = "Prices pinch every paycheck, and patience will not pay the rent."
+
+    def test_try_it_asks_the_model_only_for_the_students_own_line_and_never_writes_it(self):
+        reset()
+        llm = fake_model()
+        llm.queue.append('You use it partly: "Prices pinch every paycheck" works. Try "We will not wait for a better economy." What should the listener feel?')
+        out = run(api.post_rhetoric_critique({"speech_id": "gettysburg", "figure": "merism", "quote": "The brave men, living and dead", "line": self.LINE}))
+        prompt = llm.calls[-1]["messages"][0]["content"]
+        self.assertIn("never write, rewrite, complete or suggest wording", prompt)
+        self.assertIn("The brave men, living and dead", prompt)  # the speaker's line, with why
+        self.assertIn(R.note_for("gettysburg", "merism", "The brave men, living and dead")["why"], prompt)
+        self.assertIn("Prices pinch every paycheck", out["text"])        # their own words are kept
+        self.assertNotIn("We will not wait", out["text"])               # a line the model invented is dropped
+        self.assertTrue(out["text"].endswith("?"))
+
+    def test_the_reply_always_ends_on_a_question(self):
+        self.assertTrue(R.socratic_guard("This is a good line.", self.LINE, "x y z w").endswith("?"))
+        kept = R.socratic_guard('Good start with "patience will not pay the rent". Which word is heaviest?', self.LINE, "x")
+        self.assertIn("patience will not pay the rent", kept)
+
+    def test_try_it_refuses_a_line_that_is_not_marked_and_a_short_line(self):
+        reset()
+        fake_model()
+        with self.assertRaises(HTTPException):
+            run(api.post_rhetoric_critique({"speech_id": "gettysburg", "figure": "merism", "quote": "invented", "line": self.LINE}))
+        with self.assertRaises(HTTPException):
+            run(api.post_rhetoric_critique({"speech_id": "gettysburg", "figure": "merism", "quote": "The brave men, living and dead", "line": "short"}))
+
+    def test_appeals_can_be_tried_too(self):
+        reset()
+        llm = fake_model()
+        run(api.post_rhetoric_critique({"speech_id": "douglass-fourth", "figure": "ethos",
+                                        "quote": "He who could address this audience without a quailing sensation, has stronger nerves than I have.", "line": self.LINE}))
+        self.assertIn("Trust in the speaker", llm.calls[-1]["messages"][0]["content"])
+
+    def test_the_older_critique_route_is_unchanged(self):
+        reset()
+        llm = fake_model()
+        run(api.post_rhetoric_critique({"figure": "anaphora", "line": self.LINE}))
+        self.assertIn("Never write a new line", llm.calls[-1]["messages"][0]["content"])
+        self.assertTrue(coach_remembers("anaphora", self.LINE))
+
+
+def coach_remembers(figure, line):
+    return api.coach.was_critiqued(figure, line)
 
 
 class Drill(unittest.TestCase):

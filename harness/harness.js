@@ -21,7 +21,7 @@ import { jsx, jsxs } from 'react/jsx-runtime'
 import { BRIEFING, CONFIG, DRILL, SPOT, SPOT_INPUT, STATE } from './fixtures.js'
 import { BALLOT, BALLOTS, DRAW, HOME, JUDGES, MARKS, OUTLETS, PULL, RHETORIC, SPEECHES, SPOT as FIGSPOT, SPOT_NR, SPOT_NR_MISS, TAKE } from './fixtures02.js'
 import { COACH } from './fixtures_coach.js'
-const LANES = (await Promise.all(['./fixtures_frame.js', './fixtures_player.js', './fixtures_evidence.js', './fixtures_hermes.js'].map(f => import(f).catch(() => null)))).filter(Boolean).map(m => m.answer ? m : m.playerRest ? { answer: (p, o, c) => m.playerRest(p, o, c.home) } : m.handle ? { answer: (p, o, c) => m.handle(p, o, c.params) } : null).filter(Boolean) // each lane's fixtures: export async function answer(path, options, { params, clone, home }); undefined when not theirs
+const LANES = (await Promise.all(['./fixtures_frame.js', './fixtures_player.js', './fixtures_evidence.js', './fixtures_hermes.js', './fixtures_figures.js'].map(f => import(f).catch(() => null)))).filter(Boolean).map(m => m.answer ? m : m.playerRest ? { answer: (p, o, c) => m.playerRest(p, o, c.home) } : m.handle ? { answer: (p, o, c) => m.handle(p, o, c.params) } : null).filter(Boolean) // each lane's fixtures: export async function answer(path, options, { params, clone, home }); undefined when not theirs
 
 const params = new URLSearchParams(location.search)
 const dark = params.get('theme') !== 'light'

@@ -2,7 +2,7 @@
 
 Updated Nov 8, 2026, evening, after the coach pass (below), on branch `v0.2-ai-coach` from `v0.2` (5a04923). Neither branch is pushed. Packet: `claude-test/.planning/hackathon-2026-11/debate-workbench/` (SPEC.md, DESIGN.md with the step 7 review at ship). Build deadline: Monday Nov 9, 6 PM CT. Tuesday: live test and filming.
 
-**Tests: 332, all passing** (`/usr/bin/python3 -m unittest discover -s tests`, about 3 s; 284 before the coach pass, 48 in `tests/test_coach.py`, 5 of them from the citation-date fix). The desktop bundle is rebuilt and current (`build.mjs . --check`). gitleaks: no leaks (commits v0.2..HEAD and the staged change). Hermes's admission validator was not run (it imports Hermes for real); expect the one disclosed warning, the private import of `tools.voice_mode`.
+**Tests: 467 on figures1 (332 before)** (`/usr/bin/python3 -m unittest discover -s tests`, about 3 s; 284 before the coach pass, 48 in `tests/test_coach.py`, 5 of them from the citation-date fix). The desktop bundle is rebuilt and current (`build.mjs . --check`). gitleaks: no leaks (commits v0.2..HEAD and the staged change). Hermes's admission validator was not run (it imports Hermes for real); expect the one disclosed warning, the private import of `tools.voice_mode`.
 
 ## Nov 8, evening: more coaching built in (Damon: "there is not enough AI tooling built in")
 

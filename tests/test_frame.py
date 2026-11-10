@@ -59,7 +59,7 @@ class Seams(unittest.TestCase):
 
     def test_harness_lets_each_lane_answer_its_own_routes(self):
         h = (ROOT / "harness" / "harness.js").read_text(encoding="utf-8")
-        self.assertIn("'./fixtures_player.js', './fixtures_evidence.js', './fixtures_hermes.js'].map(f => import(f).catch(() => null))", h)
+        self.assertIn("'./fixtures_player.js', './fixtures_evidence.js', './fixtures_hermes.js', './fixtures_figures.js'].map(f => import(f).catch(() => null))", h)
         hook = h.index("for (const lane of LANES)")
         self.assertLess(h.index("async function rest("), hook)
         self.assertLess(hook, h.index("if (path === 'home') return home()"))  # a lane answers first; undefined falls through

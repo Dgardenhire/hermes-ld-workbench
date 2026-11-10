@@ -1149,7 +1149,14 @@ async def post_rhetoric_marks(body: dict):
     exact substring of the text before it is shown."""
     try:
         b = _body(body)
-        text = R.speech(b["speech_id"])["text"] if b.get("speech_id") else engine._s(b.get("text"), R.FINDER_LIMIT, "Text")
+        if b.get("speech_id"):
+            # A bundled speech: the notes were written once and checked. No model call.
+            text = R.speech(b["speech_id"])["text"]
+            stored = R.annotated_marks(b["speech_id"])
+            if stored:
+                return {"marks": stored, "counts": R.counts(stored), "checked": True, "dropped": 0, "stored": True, "text": text}
+        else:
+            text = engine._s(b.get("text"), R.FINDER_LIMIT, "Text")
         out = await _once(("marks", hash(text)), lambda: engine.run_marks(text, MODEL))
         return out | {"text": text}
     except Exception as e:
@@ -1170,6 +1177,13 @@ async def post_rhetoric_spot():
 async def post_rhetoric_critique(body: dict):
     try:
         b = _body(body)
+        if b.get("speech_id"):  # "Try it" beside a marked line in a bundled speech: the Socratic reply
+            ref = R.note_for(b["speech_id"], b.get("figure"), b.get("quote"))
+            return await engine.run_critique(ref["figure"], b.get("line"), MODEL, ref)
+        if b.get("quote"):  # "Try it" beside a figure the finder marked in the student's own pasted text
+            fid = engine._pick(b.get("figure"), R.FIGURE_IDS | R.APPEAL_IDS, "figure")
+            ref = {"figure": fid, "quote": engine._s(b.get("quote"), 400, "Quote"), "why": engine._s(b.get("why"), 300, "Note") or "A clear case of the figure."}
+            return await engine.run_critique(fid, b.get("line"), MODEL, ref)
         figure = engine._pick(b.get("figure"), R.FIGURE_IDS, "figure")
         out = await engine.run_critique(figure, b.get("line"), MODEL)
         coach.remember_critique(figure, b.get("line"))  # three versions follow only a critique

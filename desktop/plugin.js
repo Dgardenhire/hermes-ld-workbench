@@ -3,11 +3,11 @@
 
 
 // desktop/src/plugin.js
-import { useEffect as useEffect11, useRef as useRef7, useState as useState14 } from "react";
+import { useEffect as useEffect11, useRef as useRef8, useState as useState14 } from "react";
 import { Fragment as Fragment10, jsx as jsx15, jsxs as jsxs15 } from "react/jsx-runtime";
 import { Button as Button10, Codicon as Codicon10, Input as Input3, Textarea as Textarea5, atom as atom8, host as host2, useValue as useValue8 } from "@hermes/plugin-sdk";
 
-// ../../../products/hermes-ui-kit/src/tokens.js
+// ../hermes-ui-kit/src/tokens.js
 var KIT_VERSION = "0.1.0";
 var KIT_CSS = `
 .hk{
@@ -202,7 +202,7 @@ var KIT_CSS = `
 @media (prefers-reduced-motion:reduce){.hk *,.hk{animation:none !important;transition:none !important}}
 `;
 
-// ../../../products/hermes-ui-kit/src/styles.js
+// ../hermes-ui-kit/src/styles.js
 var ATTR = "data-hermes-ui-kit";
 function acquire(key, css) {
   const head = document.head;
@@ -242,7 +242,7 @@ function installStyles(ctx, pluginId, pluginCss) {
   return release;
 }
 
-// ../../../products/hermes-ui-kit/src/helpers.js
+// ../hermes-ui-kit/src/helpers.js
 function describeError(error) {
   const message = String(error && error.message || error || "");
   const match2 = message.match(/(\d{3}):\s*([\s\S]*)$/);
@@ -257,7 +257,7 @@ function describeError(error) {
   return { status: Number(match2[1]), detail: String(detail || "") };
 }
 
-// ../../../products/hermes-ui-kit/src/primitives.js
+// ../hermes-ui-kit/src/primitives.js
 import { useState } from "react";
 import { jsx, jsxs } from "react/jsx-runtime";
 import { Codicon, DisclosureCaret, KbdGroup, RowButton } from "@hermes/plugin-sdk";
@@ -296,7 +296,7 @@ function Notice({ tone = "info", icon, title, children, action, live }) {
   ] });
 }
 
-// ../../../products/hermes-ui-kit/src/states.js
+// ../hermes-ui-kit/src/states.js
 import { jsx as jsx2, jsxs as jsxs2 } from "react/jsx-runtime";
 import { Button, Codicon as Codicon2, ErrorState, PanelEmpty, Skeleton } from "@hermes/plugin-sdk";
 function Empty({ icon = "inbox", title, body, action }) {
@@ -325,11 +325,11 @@ function Failure({ title, body, error, onRetry, retryLabel = "Try again", childr
   }) });
 }
 
-// ../../../products/hermes-ui-kit/src/hooks.js
+// ../hermes-ui-kit/src/hooks.js
 import { useCallback, useEffect, useRef, useState as useState2 } from "react";
 import { isSubmitEnter, useMutation, useQuery, useQueryClient } from "@hermes/plugin-sdk";
 
-// ../../../products/hermes-ui-kit/src/register.js
+// ../hermes-ui-kit/src/register.js
 import { KEYBINDS_AREA, PALETTE_AREA, ROUTES_AREA, SIDEBAR_NAV_AREA, STATUSBAR_AREAS, host } from "@hermes/plugin-sdk";
 function registerPage(ctx, opts) {
   const { id, route, label, codicon, render, css, palette = [], keybinds = [], status, extra = [] } = opts;
@@ -341,14 +341,7 @@ function registerPage(ctx, opts) {
     ...palette.map((p, i) => ({
       id: p.contributionId || (i === 0 ? "open" : `palette-${i}`),
       area: PALETTE_AREA,
-      data: {
-        id: p.id,
-        label: p.label,
-        // The host calls detail on every palette open; static plugin copy needs the same contract.
-        detail: typeof p.detail === "function" ? p.detail : typeof p.detail === "string" ? () => p.detail : void 0,
-        keywords: p.keywords,
-        run: p.run || open
-      }
+      data: { id: p.id, label: p.label, detail: p.detail, keywords: p.keywords, run: p.run || open }
     })),
     ...keybinds.map((k) => ({
       id: `kb:${k.id}`,
@@ -4873,7 +4866,7 @@ function ExtempView() {
 }
 
 // desktop/src/rhetoric.js
-import { useEffect as useEffect9, useState as useState11 } from "react";
+import { useEffect as useEffect9, useRef as useRef7, useState as useState11 } from "react";
 import { Fragment as Fragment6, jsx as jsx11, jsxs as jsxs11 } from "react/jsx-runtime";
 import { Button as Button7, Textarea as Textarea4, atom as atom7, useValue as useValue6 } from "@hermes/plugin-sdk";
 var $rh = atom7(null);
@@ -4891,7 +4884,7 @@ function figureOf(id) {
   const rh = $rh.get() || {};
   return (rh.figures || []).find((f) => f.id === id) || (rh.appeals || []).find((a) => a.id === id) || { id, name: id };
 }
-function Marked({ text, marks, hidden, focus }) {
+function Marked({ text, marks, hidden, focus, sel, onPick }) {
   const vis = marks.filter((m) => !hidden.has(m.figure));
   const cuts = /* @__PURE__ */ new Set([0, text.length]);
   vis.forEach((m) => {
@@ -4909,15 +4902,88 @@ function Marked({ text, marks, hidden, focus }) {
       out.push(piece);
       continue;
     }
-    const title = on.map((m) => `${figureOf(m.figure).name}: ${m.why}`).join("\n");
+    const names = on.map((m) => figureOf(m.figure).name).join(", ");
+    const open = (e) => onPick(on, e.currentTarget);
     out.push(jsx11("span", {
-      className: cls("ldw-mk", on.some((m) => m.kind === "appeal") && "ldw-mk-appeal", focus && on.some((m) => m.figure === focus) && "ldw-mk-focus"),
-      title,
+      role: "button",
+      tabIndex: 0,
+      className: cls("ldw-mk", on.some((m) => m.kind === "appeal") && "ldw-mk-appeal", focus && on.some((m) => m.figure === focus) && "ldw-mk-focus", sel && on.some((m) => m.i === sel.i) && "ldw-mk-sel"),
+      "aria-label": `${names}: ${piece}. Open the lesson`,
+      "aria-pressed": sel ? on.some((m) => m.i === sel.i) : false,
       "data-n": on.length > 1 ? on.length : void 0,
+      onClick: open,
+      onKeyDown: (e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          open(e);
+        }
+      },
       children: piece
     }, a));
   }
   return jsx11("div", { className: "ldw-marked", children: out });
+}
+function Lesson({ group, active, onActive, onClose, speechId, speech }) {
+  const m = active;
+  const info = figureOf(m.figure);
+  const [line, setLine] = useState11("");
+  const [out, setOut] = useState11(null);
+  const [busy, setBusy] = useState11(false);
+  const [err, setErr] = useState11(null);
+  const ref = useRef7(null);
+  useEffect9(() => {
+    setLine("");
+    setOut(null);
+    setErr(null);
+  }, [m.i]);
+  useEffect9(() => {
+    ref.current && ref.current.focus({ preventScroll: true });
+  }, [group]);
+  useEffect9(() => {
+    const el = ref.current;
+    if (el && getComputedStyle(el.closest(".ldw-counts")).position !== "sticky") el.scrollIntoView({ block: "nearest" });
+  }, [m.i]);
+  useCoachContext({ floor: "rhetoric", figure: m.figure, line, critique: out || "", sees: [info.name, `the line: ${m.quote}`, words(line) >= 4 && "your line", out && "the coach's questions"] }, [m.i, line, out]);
+  const ask = async () => {
+    setBusy(true);
+    setErr(null);
+    try {
+      setOut((await post("rhetoric/critique", speechId ? { speech_id: speechId, figure: m.figure, quote: m.quote, line } : { figure: m.figure, quote: m.quote, why: m.why, line })).text);
+    } catch (e) {
+      setErr(errText(e));
+    } finally {
+      setBusy(false);
+    }
+  };
+  const kind = m.kind === "appeal" ? "Appeal" : "Figure";
+  return jsxs11("section", { className: "ldw-lesson", "aria-label": `Lesson: ${info.name}`, onKeyDown: (e) => {
+    if (e.key === "Escape") {
+      e.stopPropagation();
+      onClose();
+    }
+  }, children: [
+    jsxs11("div", { className: "ldw-lesson-head", children: [
+      jsxs11("div", { children: [jsx11("span", { className: "ldw-lesson-kind", children: kind }), jsx11("h3", { className: "ldw-lesson-name", tabIndex: -1, ref, children: info.name })] }),
+      jsx11("button", { type: "button", className: "hk-link", onClick: onClose, "aria-label": "Close the lesson", children: "Close" })
+    ] }),
+    group.length > 1 ? jsx11("div", { className: "ldw-chips", role: "group", "aria-label": "Figures in this line", children: group.map((g) => jsx11("button", { type: "button", className: "ldw-chip", "aria-pressed": g.i === m.i, onClick: () => onActive(g), children: figureOf(g.figure).name }, g.i)) }) : null,
+    jsx11("p", { className: "ldw-lesson-def", children: info.definition }),
+    jsx11("blockquote", { className: "ldw-lesson-quote", children: m.quote }),
+    jsx11("h4", { className: "ldw-lesson-h", children: "Why it works in this line" }),
+    jsx11("p", { className: "ldw-lesson-why", children: m.why || "This is a clear case of the figure." }),
+    speech ? jsx11("p", { className: "ldw-meta", children: `${speech.speaker}, ${speech.title}, ${speech.year}` }) : null,
+    jsxs11("div", { className: "ldw-tryit", children: [
+      jsx11("h4", { className: "ldw-lesson-h", children: "Try it" }),
+      jsx11("label", { className: "ldw-meta", htmlFor: "ldw-tryit-line", children: `Write your own line using ${info.name.toLowerCase()}, on any topic you debate.` }),
+      jsx11(Textarea4, { id: "ldw-tryit-line", className: "ldw-speechbox ldw-short", "aria-label": `Your line using ${info.name}`, value: line, onChange: (e) => {
+        setLine(e.target.value);
+        setOut(null);
+      }, placeholder: "Your line" }),
+      jsx11("div", { className: "hk-actions", children: jsx11(Button7, { size: "sm", loading: busy, disabled: words(line) < 4, onClick: ask, children: "Ask the coach" }) }),
+      err ? jsx11(Notice, { tone: "bad", children: err }) : null,
+      out ? jsxs11("div", { className: "ldw-helper ldw-tryit-out", role: "status", children: [jsx11("span", { className: "ldw-lesson-kind", children: "Coach" }), renderText(out)] }) : null
+    ] })
+  ] });
 }
 function ReadStage() {
   const rh = useValue6($rh);
@@ -4929,10 +4995,13 @@ function ReadStage() {
   const [err, setErr] = useState11(null);
   const [hidden, setHidden] = useState11(/* @__PURE__ */ new Set());
   const [focus, setFocus] = useState11(null);
+  const [sel, setSel] = useState11(null);
+  const from = useRef7(null);
   useEffect9(() => {
     if (paste === null) {
       setDoc(null);
       setFound(null);
+      setSel(null);
       rest(`rhetoric/speech/${sid}`).then(setDoc, (e) => setErr(errText(e)));
     }
   }, [sid, paste === null]);
@@ -4940,8 +5009,10 @@ function ReadStage() {
     setBusy(true);
     setErr(null);
     try {
-      setFound(await post("rhetoric/marks", paste !== null ? { text: paste } : { speech_id: sid }));
+      const f = await post("rhetoric/marks", paste !== null ? { text: paste } : { speech_id: sid });
+      setFound({ ...f, marks: f.marks.map((m, i) => ({ ...m, i })) });
       setHidden(/* @__PURE__ */ new Set());
+      setSel(null);
     } catch (e) {
       setErr(errText(e));
     } finally {
@@ -4952,6 +5023,16 @@ function ReadStage() {
   const counts = found ? Object.entries(found.counts).sort((a, b) => b[1] - a[1]) : [];
   const figs = counts.filter(([k]) => figureOf(k).effect);
   const appeals = counts.filter(([k]) => !figureOf(k).effect);
+  const pick = (group, el) => {
+    from.current = el;
+    setSel({ group, i: group[0].i });
+  };
+  const close = () => {
+    setSel(null);
+    const el = from.current;
+    if (el && el.isConnected) el.focus();
+  };
+  const active = sel && found ? found.marks.find((m) => m.i === sel.i) : null;
   const toggle = (k) => {
     const h = new Set(hidden);
     h.has(k) ? h.delete(k) : h.add(k);
@@ -4999,19 +5080,22 @@ function ReadStage() {
         jsx11("h2", { className: "ldw-question", children: doc.title }),
         jsx11("span", { className: "ldw-meta", children: `${doc.speaker} · ${doc.where} · ${doc.year}${doc.excerpt ? " · excerpt" : ""}` })
       ] }) : null,
-      (paste === null || found) && text ? jsx11(Marked, { text, marks: found ? found.marks : [], hidden, focus }) : null,
+      (paste === null || found) && text ? jsx11(Marked, { text, marks: found ? found.marks : [], hidden, focus, sel: active, onPick: pick }) : null,
       !doc && paste === null && !err ? jsx11(Thinking, { label: "Opening the speech" }) : null
     ] }),
     jsxs11("aside", { className: "ldw-counts", "aria-label": "Figures found", children: [
       !found ? jsxs11(Fragment6, { children: [
         jsx11(Button7, { loading: busy, disabled: paste !== null && words(paste) < 12, onClick: mark, children: "Mark the figures" }),
-        busy ? jsx11(Thinking, { label: "Reading for figures" }) : null
+        busy && paste !== null ? jsx11(Thinking, { label: "Reading for figures" }) : null
       ] }) : jsxs11(Fragment6, { children: [
+        active ? jsx11(Lesson, { group: sel.group, active, onActive: (g) => setSel({ group: sel.group, i: g.i }), onClose: close, speechId: found.stored && paste === null ? sid : null, speech: found.stored && doc ? doc : null }) : null,
         jsx11("h3", { className: "ldw-h3", children: `${found.marks.length} marks, each checked against the text` }),
+        !active ? jsx11("p", { className: "ldw-meta ldw-lesson-hint", children: "Press any underlined words to see what the figure is and why it works there." }) : null,
         figs.length ? jsx11("ul", { className: "ldw-countlist", children: figs.map(countRow) }) : jsx11("p", { className: "ldw-meta", children: "No clear figures found." }),
         appeals.length ? jsxs11(Fragment6, { children: [jsx11("h3", { className: "ldw-h3", children: "Appeals" }), jsx11("ul", { className: "ldw-countlist", children: appeals.map(countRow) })] }) : null,
         jsx11("button", { type: "button", className: "hk-link", onClick: () => {
           setFound(null);
+          setSel(null);
         }, children: paste !== null ? "Edit the text" : "Clear the marks" })
       ] }),
       err ? jsx11(Notice, { tone: "bad", children: err }) : null
@@ -5664,7 +5748,7 @@ var FRAME_CSS = `
 .ldw-srcs .hk-notice{margin-top:6px}
 
 /* rhetoric */
-.ldw-read{display:grid;grid-template-columns:220px minmax(0,1fr) 230px;gap:24px;align-items:start}
+.ldw-read{display:grid;grid-template-columns:220px minmax(0,1fr) 300px;gap:24px;align-items:start}
 .ldw-library ul{list-style:none;margin:6px 0;padding:0;display:grid;gap:2px}
 .ldw-lib-item{all:unset;box-sizing:border-box;display:grid;gap:2px;width:100%;padding:8px 10px;border-radius:var(--ldw-r);cursor:pointer;font-size:13px}
 .ldw-lib-item b{font-size:13.5px}
@@ -5674,11 +5758,25 @@ var FRAME_CSS = `
 .ldw-readtext{display:grid;gap:12px;min-width:0}
 .ldw-docmeta{display:grid;gap:2px}
 .ldw-marked{font-family:var(--ldw-serif);font-size:17px;line-height:1.75;white-space:pre-wrap;max-width:68ch}
-.ldw-mk{text-decoration:underline;text-decoration-color:var(--hk-accent);text-decoration-thickness:2px;text-underline-offset:4px;cursor:help}
+.ldw-mk{text-decoration:underline;text-decoration-color:var(--hk-accent);text-decoration-thickness:2px;text-underline-offset:4px;cursor:pointer;border-radius:2px}
+.ldw-mk:hover{background:color-mix(in srgb,var(--hk-accent) 12%,transparent)}
+.ldw-mk:focus-visible{outline:2px solid var(--hk-accent);outline-offset:2px}
+.ldw-mk-sel{background:color-mix(in srgb,var(--hk-accent) 24%,transparent)}
 .ldw-mk[data-n]{text-decoration-thickness:3.5px}
 .ldw-mk-appeal{text-decoration-style:dashed}
 .ldw-mk-focus{background:color-mix(in srgb,var(--hk-accent) 18%,transparent)}
-.ldw-counts{display:grid;gap:10px;position:sticky;top:0}
+.ldw-counts{display:grid;gap:10px;position:sticky;top:0;max-height:100vh;overflow:auto;align-content:start}
+.ldw-lesson{display:grid;gap:8px;padding:14px;border:1px solid var(--hk-stroke-strong);border-left:3px solid var(--hk-accent);border-radius:var(--ldw-r)}
+.ldw-lesson-head{display:flex;justify-content:space-between;align-items:flex-start;gap:10px}
+.ldw-lesson-kind{font-family:var(--hk-mono);font-size:11.5px;text-transform:uppercase;letter-spacing:.06em;opacity:.8}
+.ldw-lesson-name{margin:2px 0 0;font-size:20px;line-height:1.2;outline:none}
+.ldw-lesson-def{margin:0;font-size:14px;line-height:1.5}
+.ldw-lesson-quote{margin:0;font-family:var(--ldw-serif);font-size:14.5px;line-height:1.5;border-left:2px solid var(--hk-stroke-strong);padding-left:10px}
+.ldw-lesson-h{margin:6px 0 0;font-size:12.5px;text-transform:uppercase;letter-spacing:.05em}
+.ldw-lesson-why{margin:0;font-family:var(--ldw-serif);font-size:15px;line-height:1.55}
+.ldw-lesson-hint{margin:0}
+.ldw-tryit{display:grid;gap:8px;border-top:1px solid var(--hk-stroke);padding-top:8px}
+.ldw-tryit-out{display:grid;gap:4px;font-size:14px}
 .ldw-countlist{list-style:none;margin:0;padding:0;display:grid;gap:2px}
 .ldw-count{all:unset;box-sizing:border-box;display:flex;gap:10px;align-items:baseline;width:100%;padding:4px 8px;border-radius:var(--ldw-r);cursor:pointer;font-size:13.5px}
 .ldw-count b{font-family:var(--hk-mono);min-width:2ch;text-align:right}
@@ -6132,7 +6230,7 @@ function Board({ r }) {
 function usePrep(r) {
   const [left, setLeft] = useState14(r ? r.prep : 0);
   const [running2, setRunning] = useState14(false);
-  const ref = useRef7(left);
+  const ref = useRef8(left);
   ref.current = left;
   useEffect11(() => {
     if (!running2 && r) setLeft(r.prep);
@@ -6244,8 +6342,8 @@ function StudentSpeech({ r, stop, flowBeside, onHideFlow, onShowFlow }) {
   const target = stop.minutes * 60;
   const clock = useCountdown(target, `${r.round_no}-${stop.id}`);
   const prep = usePrep(r);
-  const timer2 = useRef7(null);
-  const merged = useRef7(null);
+  const timer2 = useRef8(null);
+  const merged = useRef8(null);
   const save = (v) => {
     clearTimeout(timer2.current);
     timer2.current = setTimeout(() => post("round/draft", { speech_id: stop.id, text: v }).catch(() => {
@@ -6387,9 +6485,9 @@ function Listen({ id }) {
   const [playing, setPlaying] = useState14(false);
   const [rate, setRate] = useState14("1");
   const [t, setT] = useState14({ at: 0, of: 0 });
-  const audio = useRef7(null);
-  const urls = useRef7([]);
-  const part = useRef7(0);
+  const audio = useRef8(null);
+  const urls = useRef8([]);
+  const part = useRef8(0);
   useEffect11(() => () => {
     try {
       audio.current && audio.current.pause();
@@ -6519,7 +6617,7 @@ function CrossEx({ r, stop }) {
   const [err, setErr] = useState14(null);
   const clock = useCountdown(stop.minutes * 60, `${r.round_no}-${stop.id}`);
   const prep = usePrep(r);
-  const box = useRef7(null);
+  const box = useRef8(null);
   const send = async (body) => {
     setBusy(true);
     setErr(null);
@@ -6886,7 +6984,7 @@ async function pickSave(title, name, filter) {
 }
 function CaseSwitcher({ wb }) {
   const c = wb.case;
-  const fileRef = useRef7(null);
+  const fileRef = useRef8(null);
   const bench = useValue8($bench);
   const [name, setName] = useState14(c.name);
   useEffect11(() => {
@@ -6961,7 +7059,7 @@ function ResolutionRow({ c, source }) {
   const [url, setUrl] = useState14("");
   const [busy, setBusy] = useState14(false);
   const [err, setErr] = useState14(null);
-  const timer2 = useRef7(null);
+  const timer2 = useRef8(null);
   useEffect11(() => {
     setText(c.resolution || "");
   }, [c.id]);
@@ -7042,7 +7140,7 @@ function ImportPanel({ c }) {
   const [file, setFile] = useState14("");
   const [busy, setBusy] = useState14(false);
   const [msg, setMsg] = useState14(null);
-  const fileRef = useRef7(null);
+  const fileRef = useRef8(null);
   const pick = async (e) => {
     const f = e.target.files && e.target.files[0];
     e.target.value = "";
@@ -7281,7 +7379,7 @@ function SectionCard({ c, k }) {
 function CoachPanel({ c }) {
   const coach = useValue8($coach);
   const [text, setText] = useState14("");
-  const box = useRef7(null);
+  const box = useRef8(null);
   const thread = c.thread || [];
   useEffect11(() => {
     if (box.current) box.current.scrollTop = box.current.scrollHeight;

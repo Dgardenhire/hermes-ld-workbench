@@ -1083,13 +1083,16 @@ async def run_marks(text, model):
     return {"marks": marks, "counts": R.counts(marks), "checked": True, "dropped": dropped}
 
 
-async def run_critique(figure, line, model):
+async def run_critique(figure, line, model, ref=None):
+    """The coach's reply to a student's own line. With ``ref`` (a stored mark from a bundled speech) it is the
+    Socratic "Try it" reply: a verdict, then questions, and never wording for the student."""
     R = _mod("rhetoric_method")
     line = " ".join(str(line or "").split())
     if len(line.split()) < 4:
         raise ValueError("Write a full line first.")
     if len(line) > 600:
         raise ValueError("Keep it to one or two sentences.")
-    text = await model.text(R.critique_prompt(figure), [{"role": "user", "content": f"The student's line:\n<<<\n{line}\n>>>"}],
-                            max_tokens=1500, purpose="ld-workbench.rhetoric.critique")
-    return {"text": text}
+    prompt = R.try_prompt(figure, ref["quote"], ref["why"]) if ref else R.critique_prompt(figure)
+    text = await model.text(prompt, [{"role": "user", "content": f"The student's line:\n<<<\n{fenced(line)}\n>>>"}],
+                            max_tokens=1500, purpose="ld-workbench.rhetoric.try" if ref else "ld-workbench.rhetoric.critique")
+    return {"text": R.socratic_guard(text, line, ref["quote"]) if ref else text}

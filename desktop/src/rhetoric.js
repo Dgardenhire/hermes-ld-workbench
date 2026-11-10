@@ -1,7 +1,7 @@
 // Rhetoric: read a great speech with its figures marked (every mark checked against the text), learn the
 // figures by the effect they make, spot one in a real line, write your own, then say it out loud.
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Fragment, jsx, jsxs } from 'react/jsx-runtime'
 import { Button, Textarea, atom, useValue } from '@hermes/plugin-sdk'
 import { Notice } from 'hermes-ui-kit'
@@ -24,8 +24,9 @@ function figureOf(id) {
 
 /* ------------------------------------------------------------------ read and mark -- */
 
-// The student's text with marks drawn as underlines; overlapping marks share a span.
-function Marked({ text, marks, hidden, focus }) {
+// The student's text with marks drawn as underlines; overlapping marks share a span. Every mark is a button:
+// click, tap, Enter or Space opens the lesson for it in the side panel.
+function Marked({ text, marks, hidden, focus, sel, onPick }) {
   const vis = marks.filter(m => !hidden.has(m.figure))
   const cuts = new Set([0, text.length])
   vis.forEach(m => { cuts.add(m.start); cuts.add(m.end) })
@@ -37,11 +38,56 @@ function Marked({ text, marks, hidden, focus }) {
     const on = vis.filter(m => m.start <= a && m.end >= b)
     const piece = text.slice(a, b)
     if (!on.length) { out.push(piece); continue }
-    const title = on.map(m => `${figureOf(m.figure).name}: ${m.why}`).join('\n')
-    out.push(jsx('span', { className: cls('ldw-mk', on.some(m => m.kind === 'appeal') && 'ldw-mk-appeal', focus && on.some(m => m.figure === focus) && 'ldw-mk-focus'),
-      title, 'data-n': on.length > 1 ? on.length : undefined, children: piece }, a))
+    const names = on.map(m => figureOf(m.figure).name).join(', ')
+    const open = e => onPick(on, e.currentTarget)
+    out.push(jsx('span', { role: 'button', tabIndex: 0, className: cls('ldw-mk', on.some(m => m.kind === 'appeal') && 'ldw-mk-appeal', focus && on.some(m => m.figure === focus) && 'ldw-mk-focus', sel && on.some(m => m.i === sel.i) && 'ldw-mk-sel'),
+      'aria-label': `${names}: ${piece}. Open the lesson`, 'aria-pressed': sel ? on.some(m => m.i === sel.i) : false, 'data-n': on.length > 1 ? on.length : undefined,
+      onClick: open, onKeyDown: e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); open(e) } }, children: piece }, a))
   }
   return jsx('div', { className: 'ldw-marked', children: out })
+}
+
+// Beside the text: the figure's name and plain definition, why it works in this line, and a try-it.
+function Lesson({ group, active, onActive, onClose, speechId, speech }) {
+  const m = active
+  const info = figureOf(m.figure)
+  const [line, setLine] = useState('')
+  const [out, setOut] = useState(null)
+  const [busy, setBusy] = useState(false)
+  const [err, setErr] = useState(null)
+  const ref = useRef(null)
+  useEffect(() => { setLine(''); setOut(null); setErr(null) }, [m.i])
+  useEffect(() => { ref.current && ref.current.focus({ preventScroll: true }) }, [group])
+  useEffect(() => {
+    const el = ref.current
+    if (el && getComputedStyle(el.closest('.ldw-counts')).position !== 'sticky') el.scrollIntoView({ block: 'nearest' }) // stacked under the text on a narrow window
+  }, [m.i])
+  useCoachContext({ floor: 'rhetoric', figure: m.figure, line, critique: out || '', sees: [info.name, `the line: ${m.quote}`, words(line) >= 4 && 'your line', out && "the coach's questions"] }, [m.i, line, out])
+  const ask = async () => {
+    setBusy(true); setErr(null)
+    try { setOut((await post('rhetoric/critique', speechId ? { speech_id: speechId, figure: m.figure, quote: m.quote, line } : { figure: m.figure, quote: m.quote, why: m.why, line })).text) } catch (e) { setErr(errText(e)) } finally { setBusy(false) }
+  }
+  const kind = m.kind === 'appeal' ? 'Appeal' : 'Figure'
+  return jsxs('section', { className: 'ldw-lesson', 'aria-label': `Lesson: ${info.name}`, onKeyDown: e => { if (e.key === 'Escape') { e.stopPropagation(); onClose() } }, children: [
+    jsxs('div', { className: 'ldw-lesson-head', children: [
+      jsxs('div', { children: [jsx('span', { className: 'ldw-lesson-kind', children: kind }), jsx('h3', { className: 'ldw-lesson-name', tabIndex: -1, ref, children: info.name })] }),
+      jsx('button', { type: 'button', className: 'hk-link', onClick: onClose, 'aria-label': 'Close the lesson', children: 'Close' }),
+    ] }),
+    group.length > 1 ? jsx('div', { className: 'ldw-chips', role: 'group', 'aria-label': 'Figures in this line', children: group.map(g => jsx('button', { type: 'button', className: 'ldw-chip', 'aria-pressed': g.i === m.i, onClick: () => onActive(g), children: figureOf(g.figure).name }, g.i)) }) : null,
+    jsx('p', { className: 'ldw-lesson-def', children: info.definition }),
+    jsx('blockquote', { className: 'ldw-lesson-quote', children: m.quote }),
+    jsx('h4', { className: 'ldw-lesson-h', children: 'Why it works in this line' }),
+    jsx('p', { className: 'ldw-lesson-why', children: m.why || 'This is a clear case of the figure.' }),
+    speech ? jsx('p', { className: 'ldw-meta', children: `${speech.speaker}, ${speech.title}, ${speech.year}` }) : null,
+    jsxs('div', { className: 'ldw-tryit', children: [
+      jsx('h4', { className: 'ldw-lesson-h', children: 'Try it' }),
+      jsx('label', { className: 'ldw-meta', htmlFor: 'ldw-tryit-line', children: `Write your own line using ${info.name.toLowerCase()}, on any topic you debate.` }),
+      jsx(Textarea, { id: 'ldw-tryit-line', className: 'ldw-speechbox ldw-short', 'aria-label': `Your line using ${info.name}`, value: line, onChange: e => { setLine(e.target.value); setOut(null) }, placeholder: 'Your line' }),
+      jsx('div', { className: 'hk-actions', children: jsx(Button, { size: 'sm', loading: busy, disabled: words(line) < 4, onClick: ask, children: 'Ask the coach' }) }),
+      err ? jsx(Notice, { tone: 'bad', children: err }) : null,
+      out ? jsxs('div', { className: 'ldw-helper ldw-tryit-out', role: 'status', children: [jsx('span', { className: 'ldw-lesson-kind', children: 'Coach' }), renderText(out)] }) : null,
+    ] }),
+  ] })
 }
 
 function ReadStage() {
@@ -54,15 +100,20 @@ function ReadStage() {
   const [err, setErr] = useState(null)
   const [hidden, setHidden] = useState(new Set())
   const [focus, setFocus] = useState(null)
-  useEffect(() => { if (paste === null) { setDoc(null); setFound(null); rest(`rhetoric/speech/${sid}`).then(setDoc, e => setErr(errText(e))) } }, [sid, paste === null])
+  const [sel, setSel] = useState(null) // { group: the marks under the pressed words, i: the one shown }
+  const from = useRef(null) // the words that opened the lesson, to give focus back on close
+  useEffect(() => { if (paste === null) { setDoc(null); setFound(null); setSel(null); rest(`rhetoric/speech/${sid}`).then(setDoc, e => setErr(errText(e))) } }, [sid, paste === null])
   const mark = async () => {
     setBusy(true); setErr(null)
-    try { setFound(await post('rhetoric/marks', paste !== null ? { text: paste } : { speech_id: sid })); setHidden(new Set()) } catch (e) { setErr(errText(e)) } finally { setBusy(false) }
+    try { const f = await post('rhetoric/marks', paste !== null ? { text: paste } : { speech_id: sid }); setFound({ ...f, marks: f.marks.map((m, i) => ({ ...m, i })) }); setHidden(new Set()); setSel(null) } catch (e) { setErr(errText(e)) } finally { setBusy(false) }
   }
   const text = found ? found.text : paste !== null ? paste : doc ? doc.text : ''
   const counts = found ? Object.entries(found.counts).sort((a, b) => b[1] - a[1]) : []
   const figs = counts.filter(([k]) => figureOf(k).effect)
   const appeals = counts.filter(([k]) => !figureOf(k).effect)
+  const pick = (group, el) => { from.current = el; setSel({ group, i: group[0].i }) }
+  const close = () => { setSel(null); const el = from.current; if (el && el.isConnected) el.focus() }
+  const active = sel && found ? found.marks.find(m => m.i === sel.i) : null
   const toggle = k => { const h = new Set(hidden); h.has(k) ? h.delete(k) : h.add(k); setHidden(h) }
   const countRow = ([k, n]) => jsx('li', { children: jsxs('button', { type: 'button', className: 'ldw-count', 'aria-pressed': !hidden.has(k),
     onClick: () => toggle(k), onMouseEnter: () => setFocus(k), onMouseLeave: () => setFocus(null), children: [
@@ -79,18 +130,20 @@ function ReadStage() {
         placeholder: 'Paste a speech, an essay or your own case' }) : null,
       paste === null && doc ? jsxs('div', { className: 'ldw-docmeta', children: [jsx('h2', { className: 'ldw-question', children: doc.title }),
         jsx('span', { className: 'ldw-meta', children: `${doc.speaker} · ${doc.where} · ${doc.year}${doc.excerpt ? ' · excerpt' : ''}` })] }) : null,
-      (paste === null || found) && text ? jsx(Marked, { text, marks: found ? found.marks : [], hidden, focus }) : null,
+      (paste === null || found) && text ? jsx(Marked, { text, marks: found ? found.marks : [], hidden, focus, sel: active, onPick: pick }) : null,
       !doc && paste === null && !err ? jsx(Thinking, { label: 'Opening the speech' }) : null,
     ] }),
     jsxs('aside', { className: 'ldw-counts', 'aria-label': 'Figures found', children: [
       !found ? jsxs(Fragment, { children: [
         jsx(Button, { loading: busy, disabled: paste !== null && words(paste) < 12, onClick: mark, children: 'Mark the figures' }),
-        busy ? jsx(Thinking, { label: 'Reading for figures' }) : null,
+        busy && paste !== null ? jsx(Thinking, { label: 'Reading for figures' }) : null,
       ] }) : jsxs(Fragment, { children: [
+        active ? jsx(Lesson, { group: sel.group, active, onActive: g => setSel({ group: sel.group, i: g.i }), onClose: close, speechId: found.stored && paste === null ? sid : null, speech: found.stored && doc ? doc : null }) : null,
         jsx('h3', { className: 'ldw-h3', children: `${found.marks.length} marks, each checked against the text` }),
+        !active ? jsx('p', { className: 'ldw-meta ldw-lesson-hint', children: 'Press any underlined words to see what the figure is and why it works there.' }) : null,
         figs.length ? jsx('ul', { className: 'ldw-countlist', children: figs.map(countRow) }) : jsx('p', { className: 'ldw-meta', children: 'No clear figures found.' }),
         appeals.length ? jsxs(Fragment, { children: [jsx('h3', { className: 'ldw-h3', children: 'Appeals' }), jsx('ul', { className: 'ldw-countlist', children: appeals.map(countRow) })] }) : null,
-        jsx('button', { type: 'button', className: 'hk-link', onClick: () => { setFound(null) }, children: paste !== null ? 'Edit the text' : 'Clear the marks' }),
+        jsx('button', { type: 'button', className: 'hk-link', onClick: () => { setFound(null); setSel(null) }, children: paste !== null ? 'Edit the text' : 'Clear the marks' }),
       ] }),
       err ? jsx(Notice, { tone: 'bad', children: err }) : null,
     ] }),

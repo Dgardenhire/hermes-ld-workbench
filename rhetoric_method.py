@@ -314,6 +314,82 @@ def critique_prompt(fid):
     return CRITIQUE_PROMPT.format(name=f["name"], definition=f["definition"])
 
 
+# ---------- the written notes for the bundled speeches ----------
+def figure_notes():
+    """data/figure_notes.json: for each bundled speech, why each marked figure works in its own line.
+    Written once, checked by tests; no model writes these."""
+    path = Path(__file__).resolve().parent / "data" / "figure_notes.json"
+    return json.loads(path.read_text(encoding="utf-8"))
+
+
+def kind_info(kid):
+    """A figure or appeal by id: {id, name, definition}, or None."""
+    return next(({"id": x["id"], "name": x["name"], "definition": x["definition"]} for x in FIGURES + APPEALS if x["id"] == kid), None)
+
+
+def annotated_marks(sid):
+    """The stored marks for a bundled speech, in the shape check_marks returns, each with the note on why
+    that figure works in that line. [] for a speech with no notes. Every quote is located in the text."""
+    text = speech(sid)["text"]
+    out = []
+    for n in figure_notes()["speeches"].get(sid, []):
+        span = find_span(text, n["quote"])
+        if not span or n["figure"] not in FIGURE_IDS | APPEAL_IDS:
+            raise ValueError(f"The note for {n['figure']} in {sid} does not match the speech.")
+        out.append({"figure": n["figure"], "kind": "appeal" if n["figure"] in APPEAL_IDS else "figure", "quote": text[span[0]:span[1]],
+                    "why": n["why"], "start": span[0], "end": span[1]})
+    out.sort(key=lambda m: (m["start"], -m["end"]))
+    return out
+
+
+def note_for(sid, figure, quote):
+    """The stored mark a student is practicing from, or an error. Keeps 'Try it' tied to a real line."""
+    q = " ".join(str(quote or "").split())
+    for m in annotated_marks(sid) if sid in {s["id"] for s in speeches()} else []:
+        if m["figure"] == figure and " ".join(m["quote"].split()) == q:
+            return m
+    raise ValueError("That line is not one of the marked figures.")
+
+
+TRY_PROMPT = """You coach a high school student who just read how a famous speaker used one rhetorical figure and now tried it in their own line. You teach by asking, the way a good coach does.
+
+Figure: {name}. Definition: {definition}
+The speaker's line, for reference only: "{quote}"
+Why it works there: {why}
+
+Reply in plain text, at an 8th-grade level, in this shape: first one short sentence on whether the student's line really uses the figure (yes, partly, or not yet) and one specific thing that works, quoting their own words. Then ask two or three short questions that lead them to the next change themselves, such as what the listener should feel, which word carries the weight, or what would happen if one part moved. End on a question.
+
+Rules: never write, rewrite, complete or suggest wording for the student's line, not even a single phrase. Never put new words in quotation marks except the student's own and the speaker's line above. No lists, no headings, no emoji."""
+
+
+def try_prompt(figure, quote, why):
+    info = kind_info(figure)
+    if not info:
+        raise ValueError("Unknown figure.")
+    return TRY_PROMPT.format(name=info["name"], definition=info["definition"], quote=quote.replace('"', "'"), why=why)
+
+
+FALLBACK_QUESTION = "What should your listener feel when they hear this line, and which word does the most work to make that happen?"
+_QUOTED = re.compile(r'"([^"\n]+)"|\u201c([^\u201d\n]+)\u201d')
+
+
+def socratic_guard(text, line, quote):
+    """Keep the reply a coach's, not a ghostwriter's: drop any sentence that puts four or more new words in
+    quotation marks (a rewrite for the student), and end on a question."""
+    text = " ".join(str(text or "").split())
+    allowed = [" ".join(line.lower().split()), " ".join(quote.lower().split())]
+    keep = []
+    for sent in re.split(r"(?<=[.!?])\s+", text):
+        bad = any(len(q.split()) >= 4 and not any(_fold(" ".join(q.lower().split())) in _fold(a) for a in allowed)
+                  for q in (a or b for a, b in _QUOTED.findall(sent)))
+        if not bad:
+            keep.append(sent)
+    out = " ".join(keep).strip()
+    if not out.endswith("?"):
+        out = (out + " " if out else "") + FALLBACK_QUESTION
+    return out
+
+
 def spot_item(rng):
     """A model-free "spot the figure" item: a real line with a known answer and three wrong choices
     from other effect groups, so the right answer is never a near twin."""
