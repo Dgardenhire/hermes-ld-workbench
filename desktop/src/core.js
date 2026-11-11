@@ -219,7 +219,7 @@ export function Choices({ value, onChange, options, label, disabled, className }
     if (next) next.focus()
   }
   return jsx('div', { className: cls('ldw-choices', className), role: 'radiogroup', 'aria-label': label, children: options.map((o, i) => jsxs('button', {
-    type: 'button', role: 'radio', 'aria-checked': value === o.id, tabIndex: value === o.id || (i === 0 && !options.some(x => x.id === value)) ? 0 : -1,
+    type: 'button', role: 'radio', title: o.title, 'aria-checked': value === o.id, tabIndex: value === o.id || (i === 0 && !options.some(x => x.id === value)) ? 0 : -1,
     className: 'ldw-choice', disabled, onClick: () => onChange(o.id), onKeyDown: e => pick(e, i), children: [
       jsx(Codicon, { name: 'check', className: 'ldw-choice-check' }), jsx('span', { children: o.label })] }, o.id)) })
 }

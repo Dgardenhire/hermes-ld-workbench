@@ -20,6 +20,7 @@ import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { Fragment, jsx, jsxs } from 'react/jsx-runtime'
 import { Button, Codicon, Input, Textarea, atom, host, useValue } from '@hermes/plugin-sdk'
 import { Empty, Failure, Notice, describeError, installStyles, registerPage } from 'hermes-ui-kit'
+import { Term, termFor } from './terms.js'
 import { Clock, LastTake, LdSheet, LiveWave, SpeakControls, Strip, sendTake, toggleSpeaking, useRecorder, useTakePoll } from './floor.js'
 import { $compareOpen, $marginSpot, BookIcon, CoachIcon, StartIcon, MARGIN_DEFAULT, Margin, marginState, useMarginSpot } from './margin.js'
 import { $extempMode, $home, ExtempView, loadHome, openLink, showHome } from './extemp.js'
@@ -539,8 +540,8 @@ function Setup() {
       jsx(Choices, { label: 'Opponent', value: level, onChange: setLevel, options: [{ id: 'novice', label: 'Novice' }, { id: 'jv', label: 'JV' }, { id: 'varsity', label: 'Varsity' }] }),
       jsx('p', { className: 'ldw-meta', children: 'Start one level below where you compete, then move up.' }),
       jsx('h3', { className: 'ldw-h3', children: 'Judge' }),
-      jsx(Choices, { label: 'Judge', value: judge, onChange: setJudge, options: Object.entries(cfg.judges).map(([k, j]) => ({ id: k, label: j.label })) }),
-      jsx('p', { className: 'ldw-meta', children: cfg.judges[judge].summary }),
+      jsx(Choices, { label: 'Judge', value: judge, onChange: setJudge, options: Object.entries(cfg.judges).map(([k, j]) => ({ id: k, label: j.label, title: k === 'circuit' ? termFor('circuit judge') : undefined })) }),
+      jsx('p', { className: 'ldw-meta', title: judge === 'circuit' ? termFor('circuit judge') : undefined, children: cfg.judges[judge].summary }),
       chosen && !chosen.words ? jsx(Notice, { tone: 'warn', children: 'This case is empty. You can still debate, but you will write your constructive from scratch.' }) : null,
       err ? jsx(Notice, { tone: 'bad', children: err }) : null,
     ] }),
@@ -550,9 +551,9 @@ function Setup() {
 function Flow({ r, hit }) {
   const cols = stops().filter(s => s.kind === 'speech')
   return jsxs('section', { className: 'ldw-panel ldw-flow', 'aria-label': 'Flow', children: [
-    jsx('h2', { className: 'ldw-h3', children: 'Flow' }),
+    jsx('h2', { className: 'ldw-h3', children: jsx(Term, { term: 'flow', children: 'Flow' }) }),
     jsx('div', { className: 'ldw-flow-scroll', children: jsxs('table', { children: [
-      jsx('thead', { children: jsx('tr', { children: cols.map(s => jsxs('th', { scope: 'col', children: [s.id, jsx('span', { children: `${speakerOf(s, r.side) === 'student' ? 'You' : 'Opponent'} · ${s.side}` })] }, s.id)) }) }),
+      jsx('thead', { children: jsx('tr', { children: cols.map(s => jsxs('th', { scope: 'col', title: termFor(s.id) || undefined, children: [s.id, jsx('span', { children: `${speakerOf(s, r.side) === 'student' ? 'You' : 'Opponent'} · ${s.side}` })] }, s.id)) }) }),
       jsx('tbody', { children: jsx('tr', { children: cols.map(s => {
         const pts = r.flow[s.id]
         const done = r.transcript.some(t => t.id === s.id)
@@ -827,7 +828,7 @@ function PathBar({ c }) {
   }
   return jsx('nav', { 'aria-label': 'Writing path', children: jsx('ol', { className: 'ldw-path', children: PATH.map((st, i) => jsx('li', { children: jsxs('button', {
     type: 'button', className: 'ldw-pstep', 'data-done': states[i] ? '' : undefined, 'aria-current': i === current ? 'step' : undefined,
-    title: `${st.title}: ${st.desc}`, disabled: !!coach.busy, onClick: () => start(i), children: [
+    title: `${st.title}: ${st.desc}${st.short === 'Framework' ? `. ${termFor('framework')}` : ''}`, disabled: !!coach.busy, onClick: () => start(i), children: [
       jsx('span', { className: 'ldw-pnum', children: states[i] ? jsx(Codicon, { name: 'check' }) : String(i + 1) }),
       jsx('span', { children: st.short }),
     ] }) }, i)) }) })
@@ -892,7 +893,7 @@ function SectionCard({ c, k }) {
   const run = t => { $coach.set({ ...$coach.get(), focus: k }); runTool(c, t, k, '', true) }
   const [main, ...more] = SECTION_TOOLS[k] || []
   return jsxs('div', { className: 'ldw-sec', id: `ldw-sec-${k.replace(/\W+/g, '-')}`, 'data-focus': focus ? '' : undefined, children: [
-    jsxs('div', { className: 'ldw-row-between', children: [jsx('h3', { className: 'ldw-sec-title', children: k }), jsx('span', { className: 'ldw-meta', children: words(text) ? `${words(text)} words` : '' })] }),
+    jsxs('div', { className: 'ldw-row-between', children: [jsx('h3', { className: 'ldw-sec-title', children: jsx(Term, { term: k, children: k }) }), jsx('span', { className: 'ldw-meta', children: words(text) ? `${words(text)} words` : '' })] }),
     jsx('p', { className: 'ldw-hint', children: SECTION_HINTS[k] }),
     jsx(Textarea, { className: 'ldw-sec-text', 'aria-label': k, value: text, onChange: e => change(e.target.value), onFocus: () => $coach.set({ ...$coach.get(), focus: k }),
       onSelect: e => setSel(e.target.value.slice(e.target.selectionStart, e.target.selectionEnd)) }),
@@ -904,7 +905,7 @@ function SectionCard({ c, k }) {
       ...more.map(t => jsxs('button', { type: 'button', key: t, className: 'ldw-chip', disabled: !!coach.busy, onClick: () => run(t),
         children: [jsx(Codicon, { name: ICONS[t] || 'question' }), cfg.tools[t]] })),
       ...kinds.map(kind => jsxs('button', { type: 'button', key: `s-${kind}`, className: 'ldw-chip ldw-chip-coach', disabled: !!sug.busy, onClick: () => suggest(kind),
-        title: kind === 'card' ? (words(sel) >= 20 ? 'Uses the card you selected' : 'Select the card first, or the whole section is used') : undefined,
+        title: kind === 'card' ? `${words(sel) >= 20 ? 'Uses the card you selected.' : 'Select the card first, or the whole section is used.'} ${termFor('card')}` : undefined,
         children: [jsx(Codicon, { name: 'lightbulb' }), SUGGEST_LABEL[kind]] })),
     ] }),
     attack !== null ? jsxs('div', { className: 'ldw-attackbox', children: [

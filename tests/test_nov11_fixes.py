@@ -28,3 +28,29 @@ class SpeaksToYou(unittest.TestCase):
         rnd = [{"id": "AC", "speaker": "student", "text": "I value justice because it gives each person their due."}]
         out = engine.check_ld_lines(rnd, [{"speech": "AC", "line": "justice because it gives"}, {"speech": "AC", "line": "my due"}])
         self.assertEqual([d["checked"] for d in out], [True, None])  # a line under three words is left unchecked
+
+
+class PlainWords(unittest.TestCase):
+    def test_every_term_has_one_plain_sentence(self):
+        src = SRC["terms.js"]
+        for key in ("ac", "nc", "'1ar'", "nr", "'2ar'", "cx", "card", "value", "criterion", "flow", "'circuit judge'", "'saved sources'"):
+            self.assertRegex(src, rf"\n  {re.escape(key)}: '[^\n]*\.',?\n", key)
+
+    def test_labels_carry_the_meaning(self):
+        self.assertIn("title: termFor(s.code)", SRC["floor.js"])  # every strip: AC 6:00, CX 3:00 ...
+        self.assertIn("title: termFor(d.speech)", SRC["floor.js"])  # the speech code on a quoted LD line
+        self.assertIn("'Saved sources you named'", SRC["floor.js"])
+        self.assertNotIn("Filed sources named", SRC["floor.js"])
+        for bit in ("term: 'flow'", "jsx(Term, { term: k", "termFor('card')", "termFor('circuit judge')", "termFor(s.id)"):
+            self.assertIn(bit, SRC["plugin.js"], bit)
+
+    def test_term_lookup_reads_codes_with_times(self):
+        import shutil, subprocess
+        node = shutil.which("node")
+        if not node:
+            self.skipTest("node is not installed")
+        js = ("const src = require('fs').readFileSync(process.argv[1], 'utf8').replace(/^import .*$/m, 'const jsx = () => null')"
+              ".replace(/export /g, ''); eval(src + ';globalThis.t = termFor');"
+              "console.log(JSON.stringify(['AC 6:00', 'CX2', 'CX 3:00', '2AR 3:00', 'Criterion', 'Prep 30:00'].map(x => !!t(x))))")
+        out = subprocess.run([node, "-e", js, str(ROOT / "desktop" / "src" / "terms.js")], capture_output=True, text=True, timeout=30)
+        self.assertEqual(out.stdout.strip(), "[true,true,true,true,true,false]", out.stderr)

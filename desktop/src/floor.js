@@ -12,6 +12,7 @@ import { Notice } from 'hermes-ui-kit'
 import { Thinking, cls, errText, mmss, points as fmtPoints, post, rest, words } from './core.js'
 import { ShowMe } from './coach.js'
 import { QuoteLine, TakePlayer } from './player.js'
+import { termFor } from './terms.js'
 
 /* ------------------------------------------------------------------ the strip -- */
 
@@ -23,7 +24,7 @@ export function Strip({ segments, label }) {
     const body = s.onClick
       ? jsxs('button', { type: 'button', className: 'ldw-seg-btn', onClick: s.onClick, children: [fill, ...inner] })
       : jsxs(Fragment, { children: [fill, ...inner] })
-    return jsx('li', { className: 'ldw-seg', 'data-state': s.state || 'later', 'aria-current': s.state === 'now' ? 'step' : undefined,
+    return jsx('li', { className: 'ldw-seg', title: termFor(s.code) || undefined, 'data-state': s.state || 'later', 'aria-current': s.state === 'now' ? 'step' : undefined,
       style: { flexGrow: s.minutes || 1, minWidth: s.min || 64 }, children: body }, s.key)
   }) })
 }
@@ -461,7 +462,7 @@ export function ExtempSheet({ b, take, onDrill, drillLabel = 'Run the drill', dr
     jsxs('div', { className: 'ldw-sheet-fields', children: [
       jsxs('div', { children: [jsx('i', { children: 'Judge' }), 'Extemp judge'] }),
       jsxs('div', { children: [jsx('i', { children: 'Time' }), m.typed ? 'typed' : `${mmss(m.speaking || 0)} of ${mmss(m.limit || 0)}`] }),
-      jsxs('div', { children: [jsx('i', { children: 'Filed sources named' }), String((b.sources_cited || []).length)] }),
+      jsxs('div', { children: [jsx('i', { title: termFor('saved sources'), children: 'Saved sources you named' }), String((b.sources_cited || []).length)] }),
       jsxs('div', { children: [jsx('i', { children: 'Pace' }), m.wpm ? `${m.wpm} words a minute` : m.typed ? 'typed' : 'no transcript'] }),
     ] }),
     jsx('div', { className: 'ldw-sheet-q', children: b.question }),
@@ -516,7 +517,7 @@ export function LdSheet({ b, onLine, onDrill, defaultOpen = false }) {
   const more = (b.decisive || []).slice(3)
   const [drill, ...drills] = b.drills || []
   const line = (d, i) => {
-    const said = jsxs(Fragment, { children: [jsx('span', { className: 'ldw-line-code', children: d.speech }),
+    const said = jsxs(Fragment, { children: [jsx('span', { className: 'ldw-line-code', title: termFor(d.speech) || undefined, children: d.speech }),
       jsx(QuoteLine, { take: null, line: d, index: i, children: jsx('span', { className: 'ldw-line-said', children: `"${d.line}"` }) })] })
     return jsxs('div', { className: 'ldw-line', children: [
       onLine ? jsx('button', { type: 'button', className: 'ldw-line-btn', onClick: () => onLine(d.speech), title: `Find the ${d.speech} on the flow`, children: said }) : jsx('div', { children: said }),

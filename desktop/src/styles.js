@@ -255,6 +255,8 @@ export const FRAME_CSS = `
 .ldw-line-btn{all:unset;cursor:pointer;display:flex;gap:10px;align-items:baseline}
 .ldw-line-btn:hover .ldw-line-said{text-decoration-thickness:3px}
 .ldw-line-btn:focus-visible{outline:2px solid var(--hk-accent);outline-offset:2px}
+.ldw-term{text-decoration:underline dotted;text-decoration-thickness:1px;text-underline-offset:3px;cursor:help}
+.ldw-term:focus-visible{outline:2px solid var(--hk-accent);outline-offset:2px}
 .ldw-line-code{font-family:var(--hk-mono);font-size:12px;font-weight:700;min-width:34px}
 .ldw-ldverdict{font-family:var(--ldw-cond);font-size:38px;line-height:1;text-transform:uppercase;letter-spacing:.01em}
 .ldw-sheet-why{margin:0;padding:10px 0;border-bottom:1px solid var(--ldw-paper-rule);font-size:15px;line-height:1.45;max-width:70ch}

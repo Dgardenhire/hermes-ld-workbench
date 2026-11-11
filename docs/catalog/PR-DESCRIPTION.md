@@ -23,7 +23,7 @@ SHA bump for `ld-workbench` (Debate Workbench), 0.1.0 to 0.2.0, submitted by the
 
 ### Fixed before submitting (Nov 10 to 11, 2026)
 
-- **Filed sources named.** A live run showed "Sources named 0" for an answer that named the Congressional Budget Office aloud. The count covers only sources in the student's extemp file, so the ballot now says Filed sources named, and the judge is told that a source named aloud but not in the file still counts.
+- **Filed sources named.** A live run showed "Sources named 0" for an answer that named the Congressional Budget Office aloud. The count covers only sources in the student's extemp file, so the ballot now says Saved sources you named, and the judge is told that a source named aloud but not in the file still counts.
 - **Case before Round.** Lincoln-Douglas opens on Case, then Round, then Fallacies: you build the case first.
 - **Opens at once.** After the first open, the page shows what it showed last time while Hermes starts the backend, then swaps in the saved work. Nothing can be pressed until then.
 - **Start here** (above).
