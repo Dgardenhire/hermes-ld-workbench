@@ -56,8 +56,7 @@ const SECTION_TOOLS = {
   'Contention 1': ['arguments', 'logic', 'fallacies', 'attack', 'sources', 'coach'], 'Contention 2': ['arguments', 'logic', 'fallacies', 'attack', 'sources', 'coach'],
   'Contention 3': ['arguments', 'logic', 'fallacies', 'attack', 'sources', 'coach'], Blocks: ['attack', 'coach'], 'Other material': ['coach', 'notes'],
 }
-// The coach's suggestions under each section (coach.py LD_TASKS). The first one is a chip under the section;
-// "Strengthen this card" sits in the section's More menu.
+// The coach's suggestions under each section (coach.py LD_TASKS), shown as chips after the section's tools.
 const SUGGEST = {
   'Contention 1': ['contentions', 'card'], 'Contention 2': ['contentions', 'card'], 'Contention 3': ['contentions', 'card'],
   Value: ['framework'], Criterion: ['framework'], Blocks: ['block', 'card'], Definitions: ['card'], 'Other material': ['card'],
@@ -899,12 +898,13 @@ function SectionCard({ c, k }) {
     jsxs('div', { className: 'ldw-sec-actions', children: [
       main ? jsxs('button', { type: 'button', className: 'ldw-chip', 'data-main': '', disabled: !!coach.busy, onClick: () => run(main),
         children: [jsx(Codicon, { name: ICONS[main] || 'question' }), cfg.tools[main]] }) : null,
-      kinds.length && kinds[0] !== 'card' ? jsxs('button', { type: 'button', className: 'ldw-chip ldw-chip-coach', disabled: !!sug.busy, onClick: () => suggest(kinds[0]),
-        children: [jsx(Codicon, { name: 'lightbulb' }), SUGGEST_LABEL[kinds[0]]] }) : null,
-      more.length || kinds.length ? jsx(Menu, { items: [...more.map(t => ({ label: cfg.tools[t], icon: ICONS[t], disabled: !!coach.busy, onSelect: () => run(t) })),
-        ...(kinds.length ? [{ divider: true }, { heading: "The coach's suggestions" }, ...kinds.map(kind => ({ label: SUGGEST_LABEL[kind], icon: 'lightbulb', disabled: !!sug.busy,
-          meta: kind === 'card' ? (words(sel) >= 20 ? 'The card you selected' : 'Select the card first, or the whole section is used') : null, onSelect: () => suggest(kind) }))] : [])],
-        trigger: p => jsxs('button', { type: 'button', className: 'ldw-chip', ...p, 'aria-label': `More help with ${k}`, children: ['More', jsx(Codicon, { name: 'chevron-down' })] }) }) : null,
+      // Every tool in view, never behind a More menu: the tools are the workbench (Nov 11 review). Then the coach's
+      // suggestions, in their own style.
+      ...more.map(t => jsxs('button', { type: 'button', key: t, className: 'ldw-chip', disabled: !!coach.busy, onClick: () => run(t),
+        children: [jsx(Codicon, { name: ICONS[t] || 'question' }), cfg.tools[t]] })),
+      ...kinds.map(kind => jsxs('button', { type: 'button', key: `s-${kind}`, className: 'ldw-chip ldw-chip-coach', disabled: !!sug.busy, onClick: () => suggest(kind),
+        title: kind === 'card' ? (words(sel) >= 20 ? 'Uses the card you selected' : 'Select the card first, or the whole section is used') : undefined,
+        children: [jsx(Codicon, { name: 'lightbulb' }), SUGGEST_LABEL[kind]] })),
     ] }),
     attack !== null ? jsxs('div', { className: 'ldw-attackbox', children: [
       jsx('label', { className: 'ldw-field-label', htmlFor: `ldw-attack-${k.replace(/\W+/g, '-')}`, children: 'The attack to answer' }),

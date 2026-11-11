@@ -7745,26 +7745,25 @@ function SectionCard({ c, k }) {
         onClick: () => run(main),
         children: [jsx15(Codicon10, { name: ICONS[main] || "question" }), cfg.tools[main]]
       }) : null,
-      kinds.length && kinds[0] !== "card" ? jsxs15("button", {
+      // Every tool in view, never behind a More menu: the tools are the workbench (Nov 11 review). Then the coach's
+      // suggestions, in their own style.
+      ...more.map((t) => jsxs15("button", {
         type: "button",
+        key: t,
+        className: "ldw-chip",
+        disabled: !!coach.busy,
+        onClick: () => run(t),
+        children: [jsx15(Codicon10, { name: ICONS[t] || "question" }), cfg.tools[t]]
+      })),
+      ...kinds.map((kind) => jsxs15("button", {
+        type: "button",
+        key: `s-${kind}`,
         className: "ldw-chip ldw-chip-coach",
         disabled: !!sug.busy,
-        onClick: () => suggest(kinds[0]),
-        children: [jsx15(Codicon10, { name: "lightbulb" }), SUGGEST_LABEL[kinds[0]]]
-      }) : null,
-      more.length || kinds.length ? jsx15(Menu, {
-        items: [
-          ...more.map((t) => ({ label: cfg.tools[t], icon: ICONS[t], disabled: !!coach.busy, onSelect: () => run(t) })),
-          ...kinds.length ? [{ divider: true }, { heading: "The coach's suggestions" }, ...kinds.map((kind) => ({
-            label: SUGGEST_LABEL[kind],
-            icon: "lightbulb",
-            disabled: !!sug.busy,
-            meta: kind === "card" ? words(sel) >= 20 ? "The card you selected" : "Select the card first, or the whole section is used" : null,
-            onSelect: () => suggest(kind)
-          }))] : []
-        ],
-        trigger: (p) => jsxs15("button", { type: "button", className: "ldw-chip", ...p, "aria-label": `More help with ${k}`, children: ["More", jsx15(Codicon10, { name: "chevron-down" })] })
-      }) : null
+        onClick: () => suggest(kind),
+        title: kind === "card" ? words(sel) >= 20 ? "Uses the card you selected" : "Select the card first, or the whole section is used" : void 0,
+        children: [jsx15(Codicon10, { name: "lightbulb" }), SUGGEST_LABEL[kind]]
+      }))
     ] }),
     attack !== null ? jsxs15("div", { className: "ldw-attackbox", children: [
       jsx15("label", { className: "ldw-field-label", htmlFor: `ldw-attack-${k.replace(/\W+/g, "-")}`, children: "The attack to answer" }),
