@@ -28,6 +28,11 @@ SHA bump for `ld-workbench` (Debate Workbench), 0.1.0 to 0.2.0, submitted by the
 - **Opens at once.** After the first open, the page shows what it showed last time while Hermes starts the backend, then swaps in the saved work. Nothing can be pressed until then.
 - **Start here** (above).
 - **Accessibility and polish.** On the dark-theme paper ballot every line takes the paper's ink (one line measured 1.08:1); links clear 4.5:1 in both themes; the speech clock tells a screen reader One minute left, 30 seconds left and Time; drill checkboxes are 24 px; the pattern chips on Ballots open their ballot; a typed answer's button says Judge my answer; the coach no longer opens by itself over a narrow page; and Start or stop speaking can be given a key in Keyboard settings.
+- **Every Case tool in view.** Each Case section shows all its tools as buttons, the main one highlighted, then the coach's suggestions; the More menu that hid most of them is gone.
+- **A waiting take says what's next.** A take waiting for the OK to send opens with "One step left: send it for a ballot" and Transcribe now above the recording; in a live run the old small notice under the waveform read as stuck.
+- **Local speech-to-text without its add-on.** A take Hermes could not transcribe because its Whisper add-on is missing now names the install command, the cloud choice and typing, instead of only "unavailable".
+- **Round page, Lincoln-Douglas only.** The Round page's count and last ballot card skip Extemp and drill ballots; one had shown as "Decided on undefined".
+- **Manual** in the top row opens the manual on linchpin.studio in the user's browser.
 
 Full list: `CHANGELOG.md`. Manual: https://linchpin.studio/hermes/ld-workbench/manual/.
 
@@ -71,7 +76,7 @@ Why it is there: it is the only way a plugin can use the user's configured speec
 
 ## Checks run
 
-- `/usr/bin/python3 -m unittest discover -s tests` on Nov 11, 2026, after the fixes below: 494 tests, OK. This includes `build.mjs --check`, so the committed desktop bundle matches its source.
+- `/usr/bin/python3 -m unittest discover -s tests` on Nov 11, 2026, after the fixes above: 500 tests, OK. This includes `build.mjs --check`, so the committed desktop bundle matches its source.
 
 ## Screenshots
 

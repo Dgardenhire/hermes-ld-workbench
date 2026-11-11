@@ -9,7 +9,7 @@ Version 0.2. For students practicing speech and debate on their own, and for the
 - For transcripts: Hermes's local speech-to-text. In Hermes Settings, Voice, set the speech-to-text provider to local and use voice input once. The first time, the take says the speech model is not on this computer yet; press Transcribe now to download it (about 145 MB) from huggingface.co, once; after that it works offline. Without it, every take still gets real timing and pauses.
 - If the speech-to-text in Hermes Settings, Voice is a service on the internet (OpenAI, Groq and others), a take never goes to it on its own. The take says "Not sent yet" and names where it would go. Press **Transcribe now** to send that one take, or type what you said. Every take asks again.
 
-Open it from **Debate** in the Hermes sidebar. One row across the top holds the events: Lincoln-Douglas (with Case, Round and Fallacies beside it, in that order), Extemp, Rhetoric and Ballots, then **Start here**, **Coach** and a gear for Settings on the right.
+Open it from **Debate** in the Hermes sidebar. One row across the top holds the events: Lincoln-Douglas (with Case, Round and Fallacies beside it, in that order), Extemp, Rhetoric and Ballots, then **Start here**, **Coach**, **Manual** (opens this manual in your browser) and a gear for Settings on the right.
 
 ## Start here
 
@@ -62,7 +62,7 @@ The question you chose stays when you switch to **Openings** or **Full round**.
 ## Lincoln-Douglas
 
 - **Case Workbench.** Build your case section by section: resolution analysis, definitions, value, criterion, contentions, blocks. Each section has helpers (find definitions, check my logic, attack my case). The coach asks questions and points to evidence.
-  - **The coach's suggestions**, once some of your case is written: **Suggest contentions** (under each contention), **Suggest a value and criterion** (under Value and Criterion), **Write a block to an attack** (under Blocks: paste the attack, from Attack my case, your opponent or your coach) and **Strengthen this card** (in More: select the card in the section first). Each comes back as a short draft under the section, marked as the coach's suggestion. Evidence it cannot know is left as [find a card: ...]. **Add to Contention 1** (or the section named) puts the draft into your case with a note to rewrite it in your own words; nothing goes in until you press it.
+  - **The coach's suggestions**, once some of your case is written: **Suggest contentions** (under each contention), **Suggest a value and criterion** (under Value and Criterion), **Write a block to an attack** (under Blocks: paste the attack, from Attack my case, your opponent or your coach) and **Strengthen this card** (select the card in the section first). Each comes back as a short draft under the section, marked as the coach's suggestion. Evidence it cannot know is left as [find a card: ...]. **Add to Contention 1** (or the section named) puts the draft into your case with a note to rewrite it in your own words; nothing goes in until you press it.
 - **Topic briefing** opens the first time you meet a new resolution.
 - **Tournament Room.** Pick a case, an opponent level (Novice, JV, Varsity) and a judge (parent judge, traditional coach, flow judge, or circuit judge, who is fine with speed and evaluates theory, kritiks, plans and counterplans if they are run; the opponent itself debates traditional LD). The round runs in NSDA order: AC 6, CX 3, NC 7, CX 3, 1AR 4, NR 6, 2AR 3, with 4 minutes of prep.
   - Speak or type your speeches. A spoken speech's transcript replaces the typed draft; **Bring back my typed draft** undoes that.
@@ -119,6 +119,7 @@ The coach shows an example only after you try. Every example and suggestion sits
 | "Hermes is not allowed to use the microphone." | On a Mac: System Settings, Privacy & Security, Microphone, turn on Hermes. On Windows: Settings, Privacy & security, Microphone, let desktop apps use it. Or press **Type instead**. |
 | "The microphone is busy." | Turn off Hermes's wake word for now, or close other apps that use the mic. |
 | "Not sent yet" on a take | Hermes's speech-to-text is a service on the internet, and the take is waiting for you. Press **Transcribe now** to send it there, or type what you said. To keep every take on this computer, choose local in Hermes Settings, Voice. |
+| A take says Hermes's Whisper add-on isn't installed yet | Hermes is set to Local speech-to-text without its add-on. Run `hermes pm install --extra stt-whisper` once in a terminal, restart Hermes and press **Transcribe now**. Or choose a cloud provider in Hermes Settings, Voice, Speech to text, or type what you said. |
 | "Timing only" on a take | Transcripts are not set up. Follow the steps under "Before you start", then press **Transcribe now**. Or type what you said. |
 | "Making the transcript on this computer" for a long time | The first Transcribe now downloads the speech model. Later ones are faster. A 7-minute speech takes longer than a 1-minute answer. |
 | "The model took too long to answer." | Press the button again, or pick a faster model in Hermes settings. |

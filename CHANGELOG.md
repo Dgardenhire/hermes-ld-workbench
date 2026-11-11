@@ -13,6 +13,11 @@
 - **Keyboard.** Debate: start or stop speaking can be given a key in Keyboard settings (no default key).
 - **Narrow windows.** When the Debate page is narrower than 1,040 px, the coach waits for the Coach button instead of opening over the Case.
 - **Settings** no longer says "with every citation, quote and number checked"; it says what is checked and that anything not found is flagged.
+- **Every Case tool in view.** Each section of the Case shows all its tools as buttons, the main one highlighted, then the coach's suggestions. The More menu is gone; Strengthen this card is a button under its section like the rest.
+- **The next step on a waiting take.** A recorded take waiting for your OK to send opens with "One step left: send it for a ballot" and the Transcribe now button above the recording. It used to sit small under the waveform, styled like a problem, and read as stuck.
+- **Why a take wasn't transcribed.** With Hermes set to Local speech-to-text but its Whisper add-on not installed, a take only said it was unavailable. It now gives the one install command, the cloud choice in Hermes Settings and typing what you said.
+- **Round page counts Lincoln-Douglas ballots only.** Extemp and drill ballots share the history, so one showed on the Round page as a Lincoln-Douglas ballot reading "Decided on undefined". The count and the last ballot card now cover Lincoln-Douglas rounds only, and the card no longer prints a missing speech name.
+- **Manual** in the top row, beside Coach, opens the manual on linchpin.studio in your browser.
 
 ### Case before Round (Nov 10, 2026)
 

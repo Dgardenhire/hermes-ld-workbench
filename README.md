@@ -40,7 +40,7 @@ Removing the plugin leaves your work where it is, in `plugin-data/ld-workbench` 
 
 ## What you can do
 
-One row runs across the top of the page: Lincoln-Douglas, Extemp, Rhetoric and Ballots on the left, **Start here**, **Coach** and a gear for Settings on the right. When Lincoln-Douglas is open, Case, Round and Fallacies sit beside it, in that order: build the case, then run a round with it. In any Hermes chat, `/debate` gives today's question and your top counted pattern.
+One row runs across the top of the page: Lincoln-Douglas, Extemp, Rhetoric and Ballots on the left, **Start here**, **Coach**, **Manual** (opens the manual in your browser) and a gear for Settings on the right. When Lincoln-Douglas is open, Case, Round and Fallacies sit beside it, in that order: build the case, then run a round with it. In any Hermes chat, `/debate` gives today's question and your top counted pattern.
 
 **Speak, on the clock.** Every event shares one floor. A strip across the top draws the event to scale in time: each part is as wide as its minutes. The big clock starts at your first sound, not when you press the button. The time cards flip at each minute, at 30 seconds and at Time. While you speak, your voice is drawn as it comes in, with a mark over every pause longer than 2 seconds. A take stops by itself one minute after time runs out, or after two minutes with no sound. No microphone? Type your speech; the time is estimated at 140 words a minute, and it says so.
 
