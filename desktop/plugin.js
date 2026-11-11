@@ -527,7 +527,7 @@ function setApi(ctx) {
 }
 var $cfg = atom(null);
 var $state = atom(null);
-var $view = atom("room");
+var $view = atom("bench");
 var $loadError = atom(null);
 var $home = atom(null);
 var $paint = atom({ stale: false, epoch: 0 });
@@ -7946,7 +7946,7 @@ function LdContext() {
 var $event = atom8(null);
 var EVENT_IDS = ["ld", "extemp", "rhetoric", "ballots"];
 var EVENT_NAMES = { ld: "Lincoln-Douglas", extemp: "Extemp", rhetoric: "Rhetoric", ballots: "Ballots" };
-var LD_VIEWS = [["room", "Round"], ["bench", "Case"], ["fallacies", "Fallacies"]];
+var LD_VIEWS = [["bench", "Case"], ["room", "Round"], ["fallacies", "Fallacies"]];
 var ldViewOf = (v) => v === "print" || v === "printbrief" ? "bench" : v;
 function chooseEvent(id) {
   $event.set(id);

@@ -1202,7 +1202,7 @@ function LdContext() {
 const $event = atom(null) // ld | extemp | rhetoric | ballots | settings (null: the one last chosen)
 const EVENT_IDS = ['ld', 'extemp', 'rhetoric', 'ballots']
 const EVENT_NAMES = { ld: 'Lincoln-Douglas', extemp: 'Extemp', rhetoric: 'Rhetoric', ballots: 'Ballots' }
-const LD_VIEWS = [['room', 'Round'], ['bench', 'Case'], ['fallacies', 'Fallacies']]
+const LD_VIEWS = [['bench', 'Case'], ['room', 'Round'], ['fallacies', 'Fallacies']]
 const ldViewOf = v => (v === 'print' || v === 'printbrief' ? 'bench' : v)
 
 function chooseEvent(id) {

@@ -16,7 +16,7 @@ export let api = null
 export function setApi(ctx) { api = ctx }
 export const $cfg = atom(null)
 export const $state = atom(null) // { workbench: { case, cases, source }, round, history }
-export const $view = atom('room') // room | bench | print
+export const $view = atom('bench') // bench | room | print: the case comes first, then the round
 export const $loadError = atom(null)
 export const $home = atom(null) // GET home: what the floor needs on open (extemp.js loads it)
 // The kept copy on the page (see cache.js): stale while it shows, epoch +1 when the fresh answer differed.

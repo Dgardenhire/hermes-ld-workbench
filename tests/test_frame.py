@@ -73,7 +73,7 @@ class Frame(unittest.TestCase):
         self.assertNotIn("184px", SRC["styles.js"])
         self.assertIn("function FrameHeader(", p)
         self.assertIn("const EVENT_NAMES = { ld: 'Lincoln-Douglas', extemp: 'Extemp', rhetoric: 'Rhetoric', ballots: 'Ballots' }", p)
-        self.assertIn("const LD_VIEWS = [['room', 'Round'], ['bench', 'Case'], ['fallacies', 'Fallacies']]", p)
+        self.assertIn("const LD_VIEWS = [['bench', 'Case'], ['room', 'Round'], ['fallacies', 'Fallacies']]", p)
         self.assertNotIn("tab('room', 'Tournament Room', 'law')", p)  # the stock-kit tab bar
         self.assertIn("'aria-label': 'Settings'", p)
         self.assertIn("ldw-top", BUNDLE)
