@@ -32,6 +32,7 @@ SHA bump for `ld-workbench` (Debate Workbench), 0.1.0 to 0.2.0, submitted by the
 - **A waiting take says what's next.** A take waiting for the OK to send opens with "One step left: send it for a ballot" and Transcribe now above the recording; in a live run the old small notice under the waveform read as stuck.
 - **Local speech-to-text without its add-on.** A take Hermes could not transcribe because its Whisper add-on is missing now names the install command, the cloud choice and typing, instead of only "unavailable".
 - **Round page, Lincoln-Douglas only.** The Round page's count and last ballot card skip Extemp and drill ballots; one had shown as "Decided on undefined".
+- **Speech model download inside Hermes.** The first Transcribe now downloads the small speech model; inside Hermes the download ran isolated, could not find its library and always failed. Fixed; a spoken 60-second answer was transcribed and judged live on Nov 11.
 - **Manual** in the top row opens the manual on linchpin.studio in the user's browser.
 
 Full list: `CHANGELOG.md`. Manual: https://linchpin.studio/hermes/ld-workbench/manual/.
