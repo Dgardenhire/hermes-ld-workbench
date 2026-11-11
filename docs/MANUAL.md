@@ -4,12 +4,16 @@ Version 0.2. For students practicing speech and debate on their own, and for the
 
 ## Before you start
 
-- Hermes Desktop 0.22 or newer, with a model set up. Debate Workbench uses that model for the opponent, the judge and the coach.
+- Hermes Desktop 0.21.6 or newer, with a model set up. Debate Workbench uses that model for the opponent, the judge and the coach.
 - A microphone, if you want to speak. Without one you can type everything.
 - For transcripts: Hermes's local speech-to-text. In Hermes Settings, Voice, set the speech-to-text provider to local and use voice input once. The first time, the take says the speech model is not on this computer yet; press Transcribe now to download it (about 145 MB) from huggingface.co, once; after that it works offline. Without it, every take still gets real timing and pauses.
 - If the speech-to-text in Hermes Settings, Voice is a service on the internet (OpenAI, Groq and others), a take never goes to it on its own. The take says "Not sent yet" and names where it would go. Press **Transcribe now** to send that one take, or type what you said. Every take asks again.
 
-Open it from **Debate** in the Hermes sidebar. The rail on the left holds the events: Lincoln-Douglas, Extemp, Rhetoric, then Ballots and Settings.
+Open it from **Debate** in the Hermes sidebar. One row across the top holds the events: Lincoln-Douglas (with Case, Round and Fallacies beside it, in that order), Extemp, Rhetoric and Ballots, then **Start here**, **Coach** and a gear for Settings on the right.
+
+## Start here
+
+The first time you open Debate, a **Start here** panel names the four rooms in one line each, with a button into each: **Answer a question** (Extemp, one minute; start here), **Open my case** (Lincoln-Douglas, on Case), **Read a speech** (Rhetoric) and **See my ballots** (Ballots). It says that the judge and the coach are an AI: the model you chose in Hermes. Close it and it stays closed; **Start here** in the top row opens it again.
 
 ## The floor
 
@@ -51,7 +55,7 @@ The question you chose stays when you switch to **Openings** or **Full round**.
    - **Or prep a question of your own** is always there, under the draw. It starts with the question you had on the 60-second floor; type any other. It uses the area and prep rules above.
 4. **Prep, 30 minutes.** Fill the outline: attention-getter, link, your answer, three areas, conclusion. Pick sources from your file. Once you have written **Your answer**, **Suggest areas** gives three areas that back it, each with a source from your file (**Put it in Area 1** copies the title in; **Pick this source** picks it for the speech). Type a point and press **Find me evidence** to see which saved headlines bear on it, and whether each supports it, cuts against it, or is only background. **Remove** takes a source out of your file for good, after you confirm. In an internet-allowed round, **Search the web** uses the web search you set up in Hermes, and **Save as a source** adds a result to your file.
 5. **Go to the podium** and give a 7-minute speech.
-6. Read the extemp ballot: did you answer the question, how many sources you named and from when, your analysis, organization, delivery and time.
+6. Read the extemp ballot: did you answer the question, how many sources from your file you named (a source you name that is not in your file still counts with the judge) and from when, your analysis, organization, delivery and time.
 
 **Your outlets** lets you add, remove and relabel outlets. The default lean labels come from AllSides, checked Nov 7, 2026. Change any label you disagree with. The note above the editor says how many outlets sit in each column and how many lean each way by label, and warns when one side has twice the other.
 
@@ -91,7 +95,7 @@ Every ballot from every event. At the top, the patterns judges keep writing over
 
 ## Ask the coach
 
-**Coach** in the rail opens a chat beside the floor, on every event. Ask anything about what is on screen: the question, your answer or speech, your extemp file, the ballot, your line and its figure, or your case and the round. It reads them from your own saved work. On the Case Workbench, Coach takes you to the coach panel beside your case.
+**Coach** in the top row opens a chat beside the floor, on every event. Ask anything about what is on screen: the question, your answer or speech, your extemp file, the ballot, your line and its figure, or your case and the round. It reads them from your own saved work. On the Case Workbench, Coach takes you to the coach panel beside your case.
 
 ## Everything the coach writes
 
@@ -131,6 +135,10 @@ The coach shows an example only after you try. Every example and suggestion sits
 | "Not a source in your file. Do not cite it." in a coach box | The coach named a source you have not saved. Use only sources in your file, or find and save that one. |
 | "Not found in the speech. Check it before you use it." | The fallacy finder quoted words that are not in the text. Find the real words before you use that fallacy in cross-examination. |
 | "Your file is empty for now" under a drill | The drill mentions your extemp file. In Full round, pull headlines and save a few, or use sources you can name with an outlet and a date. |
+
+## Uninstall
+
+Open Capabilities, then Plugins, and turn Debate Workbench off, or click **Uninstall** beside it. In a terminal: `hermes plugins remove ld-workbench`. Your work stays in `plugin-data/ld-workbench`, so reinstalling picks up where you left off; delete that folder to erase everything.
 
 ## Where your work lives
 
