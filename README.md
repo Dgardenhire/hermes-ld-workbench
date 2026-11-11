@@ -1,5 +1,9 @@
 # Debate Workbench for Hermes
 
+![Debate Workbench card: new version 0.2, three new rooms](docs/catalog/card.jpg)
+
+**New in 0.2:** three new rooms. Extemp, with answers spoken on a real clock; Rhetoric, which marks the figures in famous speeches; and Ballots, which counts your habits across rounds and shows which way each is heading.
+
 Practice speech and debate out loud, inside the Hermes desktop app: extemp, Lincoln-Douglas and rhetoric.
 
 You speak on a real clock. A practice judge writes a ballot that quotes three of your own lines, and code checks each quoted line against what you said. In Lincoln-Douglas, where the judge may shorten a line with "...", a quoted line with no run of three or more words is left unchecked. Every ballot is kept, so the things judges write more than once show up as patterns you can drill.
