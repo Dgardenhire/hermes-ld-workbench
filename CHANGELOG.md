@@ -2,6 +2,10 @@
 
 ## 0.2.0 (November 2026)
 
+### Opens at once (Nov 10, 2026)
+
+The page paints from what it showed last time, then replaces it with your saved work as soon as Hermes has started the plugin's backend (which took 2 to 3 seconds before the page showed anything). Until then nothing on the page can be pressed. The first open ever still shows Opening the workbench.
+
 ### Rhetoric teaches the figures it marks (Nov 9, 2026)
 
 Press or Tab to any underlined line in a bundled speech and a panel beside the text gives the figure's name, a one-line definition, and why it works in that exact line. The notes are written once and stored (`data/figure_notes.json`, every quote tested against its speech); the model is not used to mark them. Under each, Try it: write your own line and the coach answers with questions, never wording. Pasted text is still marked by the model.
