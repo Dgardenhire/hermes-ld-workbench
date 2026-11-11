@@ -1035,7 +1035,7 @@ async def fix_notes(ballot, said, outlets, model, event="drill"):
 
 async def run_extemp_judge(take, question, outline, sources_cited, model, event="extemp", file_count=None):
     E, B = _mod("extemp"), _mod("ballots")
-    system = E.JUDGE_PROMPT.format(tags=", ".join(B.JUDGE_TAGS["extemp"]), points=E.POINTS_SCALE)
+    system = E.JUDGE_PROMPT.format(tags=", ".join(B.JUDGE_TAGS.get(event) or B.JUDGE_TAGS["extemp"]), points=E.POINTS_SCALE)
     stats = take.get("stats") or {}
     tr = take.get("transcript") or {}
     said = tr.get("text") or ""
@@ -1045,7 +1045,7 @@ async def run_extemp_judge(take, question, outline, sources_cited, model, event=
     numbers["time_limit_seconds"] = limit
     if take.get("typed"):
         numbers["note"] = "typed, not spoken; time is an estimate at 140 words a minute"
-    header = f"Question: {question}\nEvent: {'a 60-second answer drill' if event == 'drill' else 'a 7-minute extemp speech'}\n"
+    header = f"Question: {question}\nEvent: {'a 60-second answer drill (judge the answer, the reason and the delivery; three areas and sources named aloud are not expected in 60 seconds)' if event == 'drill' else 'a 7-minute extemp speech'}\n"
     body = (f"OUTLINE (the student's own notes):\n" + "\n".join(f"{k}: {v}" for k, v in (outline or {}).items() if v and k != "sources")
             + f"\n\nSOURCES FROM THE STUDENT'S EXTEMP FILE NAMED ALOUD (found in the transcript by code; a source the student names that is not in the file still counts, so judge those from the transcript itself): "
             + (", ".join(f"{s['outlet']} ({'said with a date' if s.get('date_said') else 'named WITHOUT a date; the saved headline is from ' + (time.strftime('%b %d, %Y', time.localtime(s['at'])) if s.get('at') else 'no date')})" for s in sources_cited) or "none")

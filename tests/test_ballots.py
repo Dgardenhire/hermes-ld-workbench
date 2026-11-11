@@ -44,6 +44,16 @@ class Patterns(unittest.TestCase):
     def test_single_hits_are_not_patterns(self):
         self.assertEqual(ballots.patterns([ld(1, ["dropped-2ar"])])["ld"]["patterns"], [])
 
+    def test_a_60_second_answer_is_not_tagged_for_sources_or_three_areas(self):
+        self.assertTrue({"two-areas", "no-sources"} <= ballots.allowed_tags("extemp"))
+        self.assertFalse({"two-areas", "no-sources"} & ballots.allowed_tags("drill"))
+        self.assertEqual(ballots.judge_tags("drill", ["no-sources", "two-areas", "thin-analysis"]), ["thin-analysis"])
+        hist = [{"event": "drill", "answered": "yes", "tags": ["no-sources", "two-areas"]},  # saved before 0.2
+                {"event": "drill", "answered": "yes", "tags": ["no-sources", "two-areas"]}]
+        self.assertEqual(ballots.patterns(hist)["extemp"]["patterns"], [])
+        hist = [{"event": "extemp", "answered": "yes", "tags": ["no-sources"]}] * 2
+        self.assertEqual(ballots.patterns(hist)["extemp"]["patterns"][0]["tag"], "no-sources")
+
     def test_extemp_and_drill_count_together_with_measured_tags(self):
         hist = [{"event": "drill", "answered": "yes", "tags": [], "measured_tags": ["late-answer"]},
                 {"event": "extemp", "answered": "partly", "tags": ["no-sources"], "measured_tags": ["late-answer"]}]

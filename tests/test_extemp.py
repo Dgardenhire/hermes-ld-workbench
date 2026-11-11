@@ -143,13 +143,17 @@ class Ballot(unittest.TestCase):
         t = self.typed_take("Um, my answer is partly, through the budget riders on tariff money.")
         self.llm.queue.append(json.dumps(JUDGED))
         b = run(api.post_take_judge(t["id"], {"outline": {"answer": "Partly"}}))
-        self.assertEqual(b["tags"], ["no-sources"])  # off-list tags dropped
+        self.assertEqual(b["tags"], [])  # off-list tags dropped; "no sources" is not a 60-second answer's tag
         self.assertEqual([d["checked"] for d in b["decisive"]], [True, False])
         self.assertEqual(b["event"], "drill")
         self.assertTrue(b["measured"]["typed"])
         hist = ballots.history()
         self.assertEqual(hist[-1]["question"], "Can Congress change trade policy?")
         self.assertIn("estimate", self.llm.calls[-1]["input"][0]["text"])
+        t = self.typed_take("Um, my answer is partly, through the budget riders on tariff money.", event="extemp", limit=420)
+        self.llm.queue.append(json.dumps(JUDGED))
+        b = run(api.post_take_judge(t["id"], {"outline": {"answer": "Partly"}}))
+        self.assertEqual((b["event"], b["tags"]), ("extemp", ["no-sources"]))  # the 7-minute speech keeps it
 
     def test_judge_without_a_decision_is_a_plain_error(self):
         t = self.typed_take("my answer is yes")

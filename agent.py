@@ -75,7 +75,7 @@ def _known_tag(t):
 
 def _tags(b):
     out = []
-    for t in list(b.get("tags") or []) + list(b.get("measured_tags") or []):
+    for t in ballots.kept_tags(b):
         if _known_tag(t) and t not in out:
             out.append(t)
     return out

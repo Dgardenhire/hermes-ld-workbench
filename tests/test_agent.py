@@ -153,7 +153,7 @@ class NeverProse(unittest.TestCase):
         self.assertEqual((top["pattern"], top["count"], top["of"]), ("You drop arguments in the 2AR", 4, 6))
         newest = r["recent"][0]
         self.assertEqual(newest["question"], "Should the Federal Reserve care more about prices or about jobs right now?")
-        self.assertEqual(newest["tags"], ["You name no sources aloud", "You use more than 4 fillers a minute"])
+        self.assertEqual(newest["tags"], ["You use more than 4 fillers a minute"])  # "no sources" is not a 60-second answer's tag
         self.assertEqual((newest["result"], newest["points"]), ("Partly", 26.0))
         self.assertRegex(newest["date"], r"^\d{4}-\d{2}-\d{2}$")
         self.assertEqual(set(newest), {"date", "event", "question", "result", "points", "tags", "drill_done"})

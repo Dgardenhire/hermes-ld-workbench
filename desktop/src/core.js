@@ -119,6 +119,9 @@ export function forgetKept() { if (fp) fp.forget() }
 /* ------------------------------------------------------------------ helpers -- */
 
 export const words = s => (s || '').trim().split(/\s+/).filter(Boolean).length
+// Points as the judge gave them: 26, not 26.0; 27.5 stays 27.5.
+export const points = p => Number.isInteger(Number(p)) ? String(Number(p)) : Number(p).toFixed(1)
+
 export function mmss(sec) {
   const neg = sec < 0
   sec = Math.abs(Math.round(sec))

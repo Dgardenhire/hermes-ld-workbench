@@ -43,8 +43,8 @@ EFFECTS = [
      "detail": "Test merism, blazon, synaesthesia, catachresis, metonymy, synecdoche, transferred epithet, or personification.",
      "question": "Can a part, associated object, crossed sense, transferred quality, or impossible pairing make the idea more exact?"},
     {"id": "force", "title": "Interruption, scale & force",
-     "detail": "Test aposiopesis, rhetorical question, exact number, litotes, pleonasm, hyperbole, adynaton, or congeries.",
-     "question": "Would interruption, understatement, meaningful redundancy, exaggeration, specificity, or accumulation create an earned effect?"},
+     "detail": "Test aposiopesis, rhetorical question, periphrasis, litotes, pleonasm, hyperbole, adynaton, or congeries.",
+     "question": "Would interruption, understatement, meaningful redundancy, exaggeration, a roundabout name, or accumulation create an earned effect?"},
 ]
 
 
@@ -70,7 +70,8 @@ def _f(fid, name, effect, definition, source, example=None, extra=False):
 
 # Definitions marked CLEARING are The Clearing's own, copied word for word from its figure list
 # (hermes-clearing main at 0722112, library/additions.json, figures.groups; that file last changed in
-# 3a97a48). That is all 42 figures The Clearing lists. The Clearing's examples are its own sentences;
+# 3a97a48). That is 41 of the 42 figures The Clearing lists: its "The exact number" is not a standard figure, and
+# its one example here ("Four score and seven") is periphrasis, so the workbench names it that. The Clearing's examples are its own sentences;
 # ours stay real public-domain lines.
 FIGURES = [
     # Sound & verbal music
@@ -147,8 +148,8 @@ FIGURES = [
     _f("aposiopesis", "Aposiopesis", "force", "Breaking off a sentence on purpose.", CLEARING),
     _f("rhetorical-question", "Rhetorical question", "force", "A question asked for effect, not for an answer.", CLEARING,
        ("douglass-fourth", "What have I, or those I represent, to do with your national independence?")),
-    _f("exact-number", "The exact number", "force", "A precise figure where a round one is expected.", CLEARING,
-       ("gettysburg", "Four score and seven years ago")),
+    _f("periphrasis", "Periphrasis", "force", "A roundabout phrase in place of a plain word or number, like \"four score and seven\" for 87.", WORKBENCH,
+       ("gettysburg", "Four score and seven years ago"), extra=True),
     _f("litotes", "Litotes", "force", "Saying something by denying its opposite.", CLEARING),
     _f("pleonasm", "Pleonasm", "force", "Using more words than needed, for weight.", CLEARING),
     _f("hyperbole", "Hyperbole", "force", "Exaggeration the reader knows is exaggeration.", CLEARING,

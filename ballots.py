@@ -41,7 +41,9 @@ JUDGE_TAGS = {
         "no-conclusion": "You stop without a conclusion",
     },
 }
-JUDGE_TAGS["drill"] = JUDGE_TAGS["extemp"]
+# A 60-second answer is one answer and one reason, said from memory: three areas and sources named aloud
+# belong to the 7-minute speech, so the drill is never tagged for lacking them.
+JUDGE_TAGS["drill"] = {k: v for k, v in JUDGE_TAGS["extemp"].items() if k not in ("two-areas", "no-sources")}
 MEASURED_TAGS = {
     "pace-fast": "You speak faster than 175 words a minute",
     "pace-slow": "You speak slower than 115 words a minute",
@@ -63,6 +65,15 @@ def tag_text(tag):
         if tag in group:
             return group[tag]
     return MEASURED_TAGS.get(tag, tag)
+
+
+def kept_tags(b):
+    """A stored ballot's judge tags that apply to its event, then its measured tags. A 60-second answer saved
+    before 0.2 may carry an extemp-only tag (no sources, fewer than three areas); it is not counted."""
+    event = b.get("event", "ld")
+    ok = JUDGE_TAGS.get(event)
+    tags = [t for t in (b.get("tags") or []) if ok is None or t in ok]
+    return tags + list(b.get("measured_tags") or [])
 
 
 def judge_tags(event, tags):
@@ -197,7 +208,7 @@ def patterns(items=None, window=WINDOW):
         last = bs[-window:]
         counts = {}
         for b in last:
-            for t in set((b.get("tags") or []) + (b.get("measured_tags") or [])):
+            for t in set(kept_tags(b)):
                 counts[t] = counts.get(t, 0) + 1
         rows = []
         for t, n in sorted(counts.items(), key=lambda kv: (-kv[1], kv[0])):
@@ -205,7 +216,7 @@ def patterns(items=None, window=WINDOW):
                 continue
             rows.append({"tag": t, "text": tag_text(t), "count": n, "of": len(last), "measured": t in MEASURED_TAGS,
                          "rounds": [{"label": f"R{b.get('round_no') or i + 1}" if event == "ld" else f"#{i + 1}",
-                                     "hit": t in (b.get("tags") or []) + (b.get("measured_tags") or []),
+                                     "hit": t in kept_tags(b),
                                      "result": result_word(b), "at": b.get("at")} for i, b in enumerate(last)]})
         out[event] = {"of": len(last), "patterns": rows}
     return out

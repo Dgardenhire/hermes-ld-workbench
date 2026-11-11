@@ -77,7 +77,7 @@ Why it is there: it is the only way a plugin can use the user's configured speec
 
 ## Checks run
 
-- `/usr/bin/python3 -m unittest discover -s tests` on Nov 11, 2026, after the fixes above: 500 tests, OK. This includes `build.mjs --check`, so the committed desktop bundle matches its source.
+- `/usr/bin/python3 -m unittest discover -s tests` on Nov 11, 2026, after the fixes above: 502 tests, OK. This includes `build.mjs --check`, so the committed desktop bundle matches its source.
 
 ## Screenshots
 

@@ -7,7 +7,7 @@ import { useEffect, useRef, useState } from 'react'
 import { Fragment, jsx, jsxs } from 'react/jsx-runtime'
 import { Button, Codicon, Input, Textarea, atom, useValue } from '@hermes/plugin-sdk'
 import { Notice, installStyles } from 'hermes-ui-kit'
-import { PLUGIN_ID, Thinking, cls, errText, inlineChecked, mmss, post, renderChecked } from './core.js'
+import { PLUGIN_ID, Thinking, cls, errText, inlineChecked, mmss, points as fmtPoints, post, renderChecked } from './core.js'
 import { $compareOpen, Tabs } from './margin.js'
 import { $nowPlaying, claimPlayback, releasePlayback } from './player.js'
 
@@ -251,7 +251,7 @@ const CHANGE = { better: 'Better', worse: 'Worse', 'the same': 'Same', 'about th
 function cell(key, v) {
   if (v === null || v === undefined) return 'none'
   if (key === 'answer_at') return mmss(v)
-  if (key === 'points') return Number(v).toFixed(1)
+  if (key === 'points') return fmtPoints(v)
   return String(v)
 }
 export function TakeTwo({ take1, take2, exampleId, ready }) {

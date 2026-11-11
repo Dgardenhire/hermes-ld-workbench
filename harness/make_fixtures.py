@@ -122,7 +122,7 @@ def history(latest):
                     "measured_tags": B.measured_tags({"wpm": 186, "speaking": 230}, 240, "ld", jk) if n in (1, 3, 5, 6) else [],
                     "drills": [{"name": "Answer-or-drop audit", "why": "The 2AR skipped the NR's turn.", "how": "Mark every NR answer on your flow, then redo the 2AR."}],
                     "drill_done": n < 4, "reason": LD_REASONS[n - 1], "decisive": []})
-    out.append({**latest, "event": "drill", "at": 1762400000, "tags": ["no-sources"], "measured_tags": ["late-answer"], "answered": "partly", "points": 26.5,
+    out.append({**latest, "event": "drill", "at": 1762400000, "tags": ["thin-analysis"], "measured_tags": ["late-answer"], "answered": "partly", "points": 26.5,
                 "question": "Is a four-day school week good for rural districts?", "drill_done": False,
                 "measured": {**latest["measured"], "answer_at": 31.0}})
     out.append({**latest, "event": "extemp", "at": 1762480000, "tags": ["undated-sources"], "measured_tags": ["late-answer"], "answered": "yes", "points": 27.0,
@@ -141,7 +141,6 @@ def marks():
              ("Allusion", "let us judge not, that we be not judged", "A line from the Bible the audience knew by heart."),
              ("Hyperbaton", "Fondly do we hope—fervently do we pray", "The adverbs come first, which slows the line and stresses the feeling."),
              ("Alliteration", "Fondly do we hope—fervently do we pray", "Two f sounds tie the hope and the prayer together."),
-             ("Exact number", "the bondman's two hundred and fifty years of unrequited toil", "A precise count makes the debt feel real."),
              ("Metonymy", "every drop of blood drawn with the lash shall be paid by another drawn with the sword", "The lash stands for slavery and the sword for war."),
              ("Anaphora", "With malice toward none; with charity for all; with firmness in the right", "Each phrase opens with the same word."),
              ("Tricolon", "With malice toward none; with charity for all; with firmness in the right", "Three phrases build to the call to finish the work."),

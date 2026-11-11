@@ -7,8 +7,8 @@
   },
   "speeches": {
     "gettysburg": [
-      {"figure": "exact-number", "quote": "Four score and seven years ago",
-       "why": "A round \"almost ninety years\" would sound like a guess. This count points the crowd straight at 1776, so the nation's age feels exact, and the old-fashioned \"score\" gives the opening the weight of scripture."},
+      {"figure": "periphrasis", "quote": "Four score and seven years ago",
+       "why": "Lincoln says \"four score and seven\" where he could say \"eighty-seven.\" The longer way of counting slows the first line, points the crowd back to 1776, and the old-fashioned \"score\" gives the opening the weight of scripture."},
       {"figure": "metaphor", "quote": "a new nation, conceived in Liberty",
        "why": "He pictures the country as a child conceived in liberty. The listeners are asked to feel the nation as something alive and fragile that must be protected."},
       {"figure": "anaphora", "quote": "we can not dedicate—we can not consecrate—we can not hallow",
@@ -47,8 +47,6 @@
        "why": "The adverbs jump to the front and the verb follows the subject, an order that sounds like a prayer book. The matched pair lets the feeling settle before the hard sentence that follows."},
       {"figure": "metaphor", "quote": "this mighty scourge of war",
        "why": "A scourge is a whip, and a few lines later he names the lash. War becomes the same instrument turned on the nation, so the suffering reads as a debt being repaid, not a random disaster."},
-      {"figure": "exact-number", "quote": "two hundred and fifty years of unrequited toil",
-       "why": "A precise count makes the length of slavery a fact the listener cannot wave away as \"a long time.\" It weighs against the war: he sets a fixed sum of unpaid work beside the cost in blood."},
       {"figure": "metonymy", "quote": "every drop of blood drawn with the lash shall be paid by another drawn with the sword",
        "why": "\"Lash\" stands for slavery and \"sword\" for the war. Two objects in matching clauses make the exchange feel like a ledger, blood against blood, and the audience sees the war as an answer to slavery."},
       {"figure": "anaphora", "quote": "With malice toward none; with charity for all; with firmness in the right",

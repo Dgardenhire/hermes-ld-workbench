@@ -19,6 +19,10 @@
 - **Why a take wasn't transcribed.** With Hermes set to Local speech-to-text but its Whisper add-on not installed, a take only said it was unavailable. It now gives the one install command, the cloud choice in Hermes Settings and typing what you said.
 - **Round page counts Lincoln-Douglas ballots only.** Extemp and drill ballots share the history, so one showed on the Round page as a Lincoln-Douglas ballot reading "Decided on undefined". The count and the last ballot card now cover Lincoln-Douglas rounds only, and the card no longer prints a missing speech name.
 - **Manual** in the top row, beside Coach, opens the manual on linchpin.studio in your browser.
+- **A 60-second answer is judged once:** reopening Extemp no longer asks for a second ballot (it had cost a model call and filed a duplicate).
+- **A 60-second answer is not marked down for sources or areas.** "You name no sources aloud" and "You have fewer than three areas of analysis" now apply only to the 7-minute Extemp speech, and older 60-second ballots that carry them no longer count toward those patterns.
+- **Periphrasis replaces "The exact number."** "Four score and seven years ago" is periphrasis, a roundabout way of saying a number (87). "The exact number" is not a standard figure; Lincoln's "two hundred and fifty years," which did not fit either name, is no longer marked.
+- **Ballot details.** Points show as 26, not 26.0 (27.5 stays 27.5). The Lincoln-Douglas ballot no longer shows "Prep left" after the round is over.
 
 ### Case before Round (Nov 10, 2026)
 
@@ -117,7 +121,7 @@ Three personas (a first-year extemper, a volunteer coach, a varsity Lincoln-Doug
 
 ### Compatibility
 
-- Needs Hermes 0.22.0 or newer. A 0.1 data folder opens unchanged.
+- plugin.yaml declares Hermes 0.21.6 or newer; 0.2.0 was run live on Hermes 0.23.1 (Nov 11, 2026). A 0.1 data folder opens unchanged.
 
 ## 0.1.0 (October 2026)
 

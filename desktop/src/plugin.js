@@ -31,7 +31,7 @@ import { FRAME_CSS } from './styles.js'
 import { $chatOpen, $coachCtx, $coachOn, COACH_FLAG, CoachBox, CoachChat } from './coach.js'
 
 export { describeError }
-import { $cfg, $loadError, $paint, $state, $view, startFirstPaint, Choices, Label, MODEL_TIMEOUT, Menu, PLUGIN_ID, ROUTE, Thinking, WPM, api, clip, cls, errText, inline, load, mmss, notFoundCount, post, refreshState, renderChecked, renderText, rest, setApi, setRound, setWorkbench, sideName, sideShort, when, words } from './core.js'
+import { $cfg, $loadError, $paint, $state, $view, startFirstPaint, Choices, Label, MODEL_TIMEOUT, Menu, PLUGIN_ID, ROUTE, Thinking, WPM, api, clip, cls, errText, inline, load, mmss, points as fmtPoints, notFoundCount, post, refreshState, renderChecked, renderText, rest, setApi, setRound, setWorkbench, sideName, sideShort, when, words } from './core.js'
 
 
 /* ------------------------------------------------------------------ method data shown on the page -- */
@@ -456,7 +456,7 @@ function FullBallot({ r, onRedo, onFlowHit, onNew }) {
         .map(([k, j]) => ({ label: `Ask the ${j.label.toLowerCase()}`, meta: j.summary, disabled: !!busy, onSelect: () => ask(k) })) }),
       jsx(Menu, { label: 'Redo a speech', icon: 'refresh', align: 'end', items: mine.map(id => ({ label: `Redo your ${id}`, disabled: !!busy, onSelect: () => onRedo(id) })) }),
       jsx(BigButton, { primary: true, icon: 'add', onClick: onNew, children: 'New round' }),
-      jsx('dl', { className: 'ldw-rows', children: [['Prep left', mmss(r.prep)], ['Your points', b.speaker_points && b.speaker_points.student ? b.speaker_points.student.toFixed(1) : 'none']]
+      jsx('dl', { className: 'ldw-rows', children: [['Your points', b.speaker_points && b.speaker_points.student ? fmtPoints(b.speaker_points.student) : 'none']]
         .map(([k, v]) => jsxs(Fragment, { children: [jsx('dt', { children: k }), jsx('dd', { children: v })] }, k)) }),
     ] }),
   ] })

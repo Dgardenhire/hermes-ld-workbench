@@ -9,7 +9,7 @@ import { useEffect, useRef, useState } from 'react'
 import { Fragment, jsx, jsxs } from 'react/jsx-runtime'
 import { Button, Codicon, Textarea } from '@hermes/plugin-sdk'
 import { Notice } from 'hermes-ui-kit'
-import { Thinking, cls, errText, mmss, post, rest, words } from './core.js'
+import { Thinking, cls, errText, mmss, points as fmtPoints, post, rest, words } from './core.js'
 import { ShowMe } from './coach.js'
 import { QuoteLine, TakePlayer } from './player.js'
 
@@ -436,7 +436,7 @@ function PointsScale({ points }) {
   const marks = [20, 22, 24, 26, 28, 30]
   const pos = points === null || points === undefined ? null : ((points - 20) / 10) * 100
   return jsxs('div', { className: 'ldw-pts', children: [
-    jsxs('div', { className: 'ldw-pts-lbl', children: ['Points ', jsx('b', { children: points === null || points === undefined ? 'none' : points.toFixed(1) })] }),
+    jsxs('div', { className: 'ldw-pts-lbl', children: ['Points ', jsx('b', { children: points === null || points === undefined ? 'none' : fmtPoints(points) })] }),
     jsxs('div', { className: 'ldw-pts-scale', 'aria-hidden': 'true', children: [
       ...marks.map(m => jsx('span', { style: { left: `${((m - 20) / 10) * 100}%` }, children: m }, m)),
       pos !== null ? jsx('i', { className: 'ldw-pts-mark', style: { left: `${pos}%` } }) : null,
@@ -530,7 +530,7 @@ export function LdSheet({ b, onLine, onDrill, defaultOpen = false }) {
       jsxs('div', { children: [jsx('i', { children: 'Judge' }), b.judge || 'Judge'] }),
       jsxs('div', { children: [jsx('i', { children: 'You' }), SIDE[b.side] || 'Your side'] }),
       jsxs('div', { children: [jsx('i', { children: 'Speeches' }), spoken.length ? `${spoken.length} spoken, timed` : 'typed'] }),
-      jsxs('div', { children: [jsx('i', { children: 'Opponent' }), pts.opponent ? `${pts.opponent.toFixed(1)} points` : 'no points'] }),
+      jsxs('div', { children: [jsx('i', { children: 'Opponent' }), pts.opponent ? `${fmtPoints(pts.opponent)} points` : 'no points'] }),
     ] }),
     b.resolution ? jsx('div', { className: 'ldw-sheet-q', children: b.resolution }) : null,
     jsxs('div', { className: 'ldw-sheet-dec', children: [

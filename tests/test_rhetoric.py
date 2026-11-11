@@ -19,6 +19,7 @@ def clearing_file(path):
 
 
 HAS_CLEARING = (HERMES_CLEARING / ".git").exists()
+RENAMED = {"the exact number": "periphrasis"}  # The Clearing's name -> the workbench's figure id
 
 
 class Data(unittest.TestCase):
@@ -69,8 +70,11 @@ class Data(unittest.TestCase):
         (library/additions.json) has it, and is marked CLEARING; every figure marked CLEARING is one The
         Clearing lists. All of The Clearing's figures are in the workbench."""
         theirs = self.clearing_figures()
-        mine = {f["name"].lower(): f for f in R.FIGURES}
         self.assertEqual(len(theirs), 42)
+        # "The exact number" is not a standard figure; its example, "Four score and seven," is periphrasis.
+        self.assertIn(RENAMED["the exact number"], {f["id"] for f in R.FIGURES})
+        theirs = {k: v for k, v in theirs.items() if k not in RENAMED}
+        mine = {f["name"].lower(): f for f in R.FIGURES}
         self.assertEqual(sorted(set(theirs) - set(mine)), [])  # none missing
         for name, definition in theirs.items():
             self.assertEqual(mine[name]["definition"], definition, name)

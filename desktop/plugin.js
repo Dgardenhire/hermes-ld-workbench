@@ -648,6 +648,7 @@ function forgetKept() {
   if (fp) fp.forget();
 }
 var words = (s) => (s || "").trim().split(/\s+/).filter(Boolean).length;
+var points = (p) => Number.isInteger(Number(p)) ? String(Number(p)) : Number(p).toFixed(1);
 function mmss(sec) {
   const neg = sec < 0;
   sec = Math.abs(Math.round(sec));
@@ -1847,7 +1848,7 @@ var CHANGE = { better: "Better", worse: "Worse", "the same": "Same", "about the 
 function cell(key, v) {
   if (v === null || v === void 0) return "none";
   if (key === "answer_at") return mmss(v);
-  if (key === "points") return Number(v).toFixed(1);
+  if (key === "points") return points(v);
   return String(v);
 }
 function TakeTwo({ take1, take2, exampleId, ready }) {
@@ -2625,11 +2626,11 @@ function PointsKey({ text }) {
     open ? jsx7("p", { children: text }) : null
   ] });
 }
-function PointsScale({ points }) {
+function PointsScale({ points: points2 }) {
   const marks = [20, 22, 24, 26, 28, 30];
-  const pos = points === null || points === void 0 ? null : (points - 20) / 10 * 100;
+  const pos = points2 === null || points2 === void 0 ? null : (points2 - 20) / 10 * 100;
   return jsxs7("div", { className: "ldw-pts", children: [
-    jsxs7("div", { className: "ldw-pts-lbl", children: ["Points ", jsx7("b", { children: points === null || points === void 0 ? "none" : points.toFixed(1) })] }),
+    jsxs7("div", { className: "ldw-pts-lbl", children: ["Points ", jsx7("b", { children: points2 === null || points2 === void 0 ? "none" : points(points2) })] }),
     jsxs7("div", { className: "ldw-pts-scale", "aria-hidden": "true", children: [
       ...marks.map((m) => jsx7("span", { style: { left: `${(m - 20) / 10 * 100}%` }, children: m }, m)),
       pos !== null ? jsx7("i", { className: "ldw-pts-mark", style: { left: `${pos}%` } }) : null
@@ -2731,7 +2732,7 @@ function LdSheet({ b, onLine, onDrill, defaultOpen = false }) {
       jsxs7("div", { children: [jsx7("i", { children: "Judge" }), b.judge || "Judge"] }),
       jsxs7("div", { children: [jsx7("i", { children: "You" }), SIDE[b.side] || "Your side"] }),
       jsxs7("div", { children: [jsx7("i", { children: "Speeches" }), spoken.length ? `${spoken.length} spoken, timed` : "typed"] }),
-      jsxs7("div", { children: [jsx7("i", { children: "Opponent" }), pts.opponent ? `${pts.opponent.toFixed(1)} points` : "no points"] })
+      jsxs7("div", { children: [jsx7("i", { children: "Opponent" }), pts.opponent ? `${points(pts.opponent)} points` : "no points"] })
     ] }),
     b.resolution ? jsx7("div", { className: "ldw-sheet-q", children: b.resolution }) : null,
     jsxs7("div", { className: "ldw-sheet-dec", children: [
@@ -7172,7 +7173,7 @@ function FullBallot({ r, onRedo, onFlowHit, onNew }) {
       jsx15(Menu, { label: busy ? "Judging..." : "Ask another judge", icon: "law", align: "end", items: Object.entries(judges).filter(([k]) => k !== b.judge_key).map(([k, j]) => ({ label: `Ask the ${j.label.toLowerCase()}`, meta: j.summary, disabled: !!busy, onSelect: () => ask(k) })) }),
       jsx15(Menu, { label: "Redo a speech", icon: "refresh", align: "end", items: mine.map((id) => ({ label: `Redo your ${id}`, disabled: !!busy, onSelect: () => onRedo(id) })) }),
       jsx15(BigButton, { primary: true, icon: "add", onClick: onNew, children: "New round" }),
-      jsx15("dl", { className: "ldw-rows", children: [["Prep left", mmss(r.prep)], ["Your points", b.speaker_points && b.speaker_points.student ? b.speaker_points.student.toFixed(1) : "none"]].map(([k, v]) => jsxs15(Fragment10, { children: [jsx15("dt", { children: k }), jsx15("dd", { children: v })] }, k)) })
+      jsx15("dl", { className: "ldw-rows", children: [["Your points", b.speaker_points && b.speaker_points.student ? points(b.speaker_points.student) : "none"]].map(([k, v]) => jsxs15(Fragment10, { children: [jsx15("dt", { children: k }), jsx15("dd", { children: v })] }, k)) })
     ] })
   ] });
 }
