@@ -2,6 +2,10 @@
 
 ![Debate Workbench card: new version 0.2, three new rooms](docs/catalog/card.jpg)
 
+[![Debate Workbench: watch the 30-second demo](docs/demo-poster.jpg)](https://linchpin.studio/hermes/video/debate.mp4)
+
+**[Watch the 30-second demo](https://linchpin.studio/hermes/video/debate.mp4)** · [Manual](https://linchpin.studio/hermes/ld-workbench/manual/) · [All four plugins](https://linchpin.studio/hermes/)
+
 **New in 0.2:** three new rooms. Extemp, with answers spoken on a real clock; Rhetoric, which marks the figures in famous speeches; and Ballots, which counts your habits across rounds and shows which way each is heading.
 
 A new tool for high school debate students. Debate Workbench is a practice space inside Hermes Agent with four rooms: Lincoln-Douglas, Extemp, Rhetoric and Ballots. Run a full timed round against an AI opponent, answer a question out loud on a real clock, and get a ballot after every round that quotes your own lines back to you.
@@ -11,6 +15,13 @@ You speak on a real clock. A practice judge writes a ballot that quotes three of
 The opponent, the judge and the coach are the AI model you already set up in Hermes. The coach asks questions and critiques first. After you try, it can show a strong answer, a strong opening or a draft for your case. Each one sits in a box labeled as the coach's, and a teacher can turn the examples off.
 
 ![Start here: the four rooms in plain words, over a 60-second Extemp question and its clock](docs/shots/live/start-here.jpg)
+
+
+![A judge's ballot after a round, quoting three of your own lines](docs/shots/live/ballot.jpg)
+
+![Rhetoric: the figures marked in a famous speech](docs/shots/live/rhetoric.jpg)
+
+![Ballots: what your judges keep saying, counted across rounds](docs/shots/live/ballots-patterns.jpg)
 
 ## What you need
 
