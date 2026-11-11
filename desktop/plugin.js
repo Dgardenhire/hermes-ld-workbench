@@ -3,9 +3,9 @@
 
 
 // desktop/src/plugin.js
-import { useEffect as useEffect11, useRef as useRef8, useState as useState14 } from "react";
+import { useEffect as useEffect11, useLayoutEffect, useRef as useRef8, useState as useState14 } from "react";
 import { Fragment as Fragment10, jsx as jsx15, jsxs as jsxs15 } from "react/jsx-runtime";
-import { Button as Button10, Codicon as Codicon10, Input as Input3, Textarea as Textarea5, atom as atom8, host as host2, useValue as useValue8 } from "@hermes/plugin-sdk";
+import { Button as Button10, Codicon as Codicon10, Input as Input3, Textarea as Textarea5, atom as atom8, host as host3, useValue as useValue8 } from "@hermes/plugin-sdk";
 
 // ../hermes-ui-kit/src/tokens.js
 var KIT_VERSION = "0.1.0";
@@ -362,7 +362,161 @@ import { Button as Button4, Codicon as Codicon6, Textarea as Textarea2 } from "@
 // desktop/src/core.js
 import { useEffect as useEffect2, useRef as useRef2, useState as useState3 } from "react";
 import { Fragment, jsx as jsx3, jsxs as jsxs3 } from "react/jsx-runtime";
-import { Button as Button2, Codicon as Codicon3, atom } from "@hermes/plugin-sdk";
+import { Button as Button2, Codicon as Codicon3, atom, host as host2 } from "@hermes/plugin-sdk";
+
+// desktop/src/cache.js
+var CACHE_VERSION = "0.2.0";
+var NAMES = ["config", "state", "home"];
+var MAX_ENTRY_CHARS = 2e5;
+var MAX_AGE_MS = 30 * 864e5;
+var PREFIX = "firstpaint.";
+var VOLATILE = { home: ["pool_start"] };
+var SECRET_KEY = /^(?:.*[_-])?(?:token|secret|password|passwd|passphrase|api[_-]?key|apikey|authorization|auth|credentials?|cookie|bearer|private[_-]?key|access[_-]?key)$/i;
+var SECRET_VALUE = /^(?:sk-[\w-]{8,}|sk_(?:live|test)_\w{8,}|ghp_\w{20,}|gho_\w{20,}|github_pat_\w{20,}|xox[abprs]-[\w-]{8,}|hf_[A-Za-z0-9]{20,}|AKIA[0-9A-Z]{16}|AIza[\w-]{30,}|Bearer\s+\S{8,})/;
+function scrub(value, depth = 0) {
+  if (depth > 40) return null;
+  if (Array.isArray(value)) return value.map((v) => scrub(v, depth + 1));
+  if (value && typeof value === "object") {
+    const out = {};
+    for (const [k, v] of Object.entries(value)) {
+      if (SECRET_KEY.test(k)) continue;
+      out[k] = scrub(v, depth + 1);
+    }
+    return out;
+  }
+  if (typeof value === "string" && SECRET_VALUE.test(value.trim())) return "";
+  return value;
+}
+function comparable(name, data) {
+  if (!data || typeof data !== "object" || Array.isArray(data)) return JSON.stringify(data);
+  const skip = VOLATILE[name] || [];
+  return JSON.stringify(Object.fromEntries(Object.entries(data).filter(([k]) => !skip.includes(k))));
+}
+var sameData = (name, a, b) => comparable(name, scrub(a)) === comparable(name, scrub(b));
+function readCache(storage, name, scope, now = Date.now()) {
+  try {
+    const e = storage && storage.get(PREFIX + name, null);
+    if (!e || typeof e !== "object" || e.v !== CACHE_VERSION || e.scope !== scope) return null;
+    if (typeof e.at !== "number" || now - e.at > MAX_AGE_MS || e.at - now > 6e4) return null;
+    if (!e.data || typeof e.data !== "object") return null;
+    return e.data;
+  } catch (err) {
+    return null;
+  }
+}
+function writeCache(storage, name, data, scope, now = Date.now()) {
+  try {
+    if (!storage || !data || typeof data !== "object") return "error";
+    const clean = scrub(data);
+    if (JSON.stringify(clean).length > MAX_ENTRY_CHARS) {
+      removeCache(storage, name);
+      return "too-big";
+    }
+    storage.set(PREFIX + name, { v: CACHE_VERSION, scope, at: now, data: clean });
+    return "saved";
+  } catch (err) {
+    return "error";
+  }
+}
+function removeCache(storage, name) {
+  try {
+    if (storage && typeof storage.remove === "function") storage.remove(PREFIX + name);
+    else if (storage) storage.set(PREFIX + name, null);
+  } catch (err) {
+  }
+}
+function clearCache(storage) {
+  for (const n of NAMES) removeCache(storage, n);
+}
+function firstPaint({ storage, scope, now = () => Date.now() }) {
+  const scopeNow = () => typeof scope === "function" ? scope() : scope;
+  const shown = {};
+  const stale = /* @__PURE__ */ new Set();
+  const held = /* @__PURE__ */ new Set();
+  const sticky = {};
+  const lastSaved = {};
+  let changed = false;
+  let showing = false;
+  let waiting = [];
+  const listeners = /* @__PURE__ */ new Set();
+  const withSticky = (name, data) => sticky[name] && data && typeof data === "object" ? { ...data, ...sticky[name] } : data;
+  function save(name, data) {
+    if (held.has(name)) return "held";
+    const d = withSticky(name, data);
+    const sc = scopeNow();
+    let s;
+    try {
+      s = sc + "\n" + JSON.stringify(d);
+    } catch (e) {
+      return "error";
+    }
+    if (lastSaved[name] === s) return "saved";
+    const r = writeCache(storage, name, d, sc, now());
+    lastSaved[name] = r === "saved" ? s : void 0;
+    return r;
+  }
+  function settle() {
+    if (stale.size || !showing) return;
+    const ok = !changed;
+    const w = waiting;
+    waiting = [];
+    showing = false;
+    changed = false;
+    w.forEach((fn) => fn(ok));
+    listeners.forEach((fn) => fn({ changed: !ok }));
+  }
+  return {
+    hydrate(name) {
+      const d = readCache(storage, name, scopeNow(), now());
+      if (!d) return null;
+      shown[name] = d;
+      stale.add(name);
+      showing = true;
+      return d;
+    },
+    peek: (name) => readCache(storage, name, scopeNow(), now()),
+    isStale: (name) => name ? stale.has(name) : stale.size > 0,
+    fresh(name, data) {
+      held.delete(name);
+      save(name, data);
+      if (!stale.has(name)) return;
+      stale.delete(name);
+      if (!sameData(name, shown[name], withSticky(name, data))) changed = true;
+      delete shown[name];
+      settle();
+    },
+    failed(name) {
+      if (!stale.has(name)) return;
+      stale.delete(name);
+      delete shown[name];
+      changed = true;
+      settle();
+    },
+    // A value this page knows is newer than any answer it may still get (the question rotation's next stop).
+    stick(name, fields) {
+      sticky[name] = { ...sticky[name] || {}, ...fields };
+      const e = readCache(storage, name, scopeNow(), now());
+      if (e) save(name, e);
+    },
+    save: (name, data) => stale.has(name) ? "stale" : save(name, data),
+    forget() {
+      clearCache(storage);
+      for (const n of NAMES) {
+        held.add(n);
+        delete lastSaved[n];
+      }
+    },
+    gate() {
+      return stale.size ? new Promise((res) => waiting.push(res)) : Promise.resolve(true);
+    },
+    onSettle(fn) {
+      listeners.add(fn);
+      return () => listeners.delete(fn);
+    }
+  };
+}
+
+// desktop/src/core.js
 var PLUGIN_ID = "ld-workbench";
 var ROUTE = "/debate";
 var WPM = 140;
@@ -375,9 +529,19 @@ var $cfg = atom(null);
 var $state = atom(null);
 var $view = atom("room");
 var $loadError = atom(null);
+var $home = atom(null);
+var $paint = atom({ stale: false, epoch: 0 });
+var fp = null;
+var SEND_WHILE_STALE = /* @__PURE__ */ new Set(["extemp/questions/seen", "settings"]);
 function rest(path, options) {
   if (!api) return Promise.reject(new Error("The workbench is not connected. Close Debate and open it again."));
-  return api.rest(path, { timeoutMs: MODEL_TIMEOUT, ...options || {} });
+  const opts = { timeoutMs: MODEL_TIMEOUT, ...options || {} };
+  const method = String(opts.method || "GET").toUpperCase();
+  if (fp && method !== "GET" && fp.isStale() && !SEND_WHILE_STALE.has(path)) {
+    return fp.gate().then((ok) => ok && api ? api.rest(path, opts) : new Promise(() => {
+    }));
+  }
+  return api.rest(path, opts);
 }
 var post = (path, body) => rest(path, { method: "POST", body: body || {} });
 var errText = (e) => describeError(e).detail || "Something went wrong. Try again.";
@@ -391,19 +555,97 @@ function setRound(r) {
 }
 async function load() {
   try {
-    const [cfg, st] = await Promise.all([$cfg.get() ? $cfg.get() : rest("config"), rest("state")]);
+    const keep = $cfg.get() && !(fp && fp.isStale("config"));
+    const [cfg, st] = await Promise.all([keep ? $cfg.get() : rest("config"), rest("state")]);
     $cfg.set(cfg);
     $state.set(st);
     $loadError.set(null);
+    if (fp) {
+      fp.fresh("config", cfg);
+      fp.fresh("state", st);
+    }
   } catch (e) {
+    if (fp && fp.isStale("config")) $cfg.set(null);
+    if (fp && fp.isStale("state")) $state.set(null);
     $loadError.set(e);
+    if (fp) {
+      fp.failed("config");
+      fp.failed("state");
+    }
   }
 }
 async function refreshState() {
   try {
-    $state.set(await rest("state"));
+    const st = await rest("state");
+    $state.set(st);
+    if (fp) fp.fresh("state", st);
   } catch (e) {
   }
+}
+function scopeKey() {
+  let conn = "";
+  let profile = "";
+  try {
+    conn = String(host2.state && host2.state.connectionId && host2.state.connectionId.get() || "");
+  } catch (e) {
+  }
+  try {
+    profile = String(host2.state && host2.state.profile && host2.state.profile.get() || "");
+  } catch (e) {
+  }
+  return `${conn || "local"}::${profile || "default"}`;
+}
+function startFirstPaint(ctx) {
+  const storage = ctx && ctx.storage;
+  if (!storage || typeof storage.get !== "function" || typeof storage.set !== "function") {
+    fp = null;
+    return { home: null, stop: () => {
+    } };
+  }
+  fp = firstPaint({ storage, scope: scopeKey });
+  const atoms = { config: $cfg, state: $state, home: $home };
+  if (fp.peek("config") && fp.peek("state")) {
+    $cfg.set(fp.hydrate("config"));
+    $state.set(fp.hydrate("state"));
+  }
+  const home = fp.hydrate("home");
+  const unsettle = fp.onSettle(({ changed }) => {
+    const p = $paint.get();
+    $paint.set({ stale: false, epoch: p.epoch + (changed ? 1 : 0) });
+  });
+  if (fp.isStale()) $paint.set({ stale: true, epoch: $paint.get().epoch });
+  const timers = {};
+  const flush = (name) => {
+    clearTimeout(timers[name]);
+    delete timers[name];
+    const v = atoms[name].get();
+    if (fp && v) fp.save(name, v);
+  };
+  const flushAll = () => Object.keys(timers).forEach(flush);
+  const offs = Object.entries(atoms).map(([name, a]) => a.listen(() => {
+    clearTimeout(timers[name]);
+    timers[name] = setTimeout(() => flush(name), 400);
+  }));
+  const onHide = () => flushAll();
+  try {
+    window.addEventListener("pagehide", onHide);
+  } catch (e) {
+  }
+  return {
+    home,
+    stop: () => {
+      flushAll();
+      offs.forEach((off) => off());
+      unsettle();
+      try {
+        window.removeEventListener("pagehide", onHide);
+      } catch (e) {
+      }
+    }
+  };
+}
+function forgetKept() {
+  if (fp) fp.forget();
 }
 var words = (s) => (s || "").trim().split(/\s+/).filter(Boolean).length;
 function mmss(sec) {
@@ -3958,7 +4200,6 @@ function SampleBallot() {
 }
 
 // desktop/src/extemp.js
-var $home = atom6(null);
 var $extempMode = atom6(null);
 var $question = atom6(null);
 var $poolAt = atom6(0);
@@ -3970,18 +4211,36 @@ var SPEECH = 7 * 60;
 async function loadHome() {
   try {
     const home = await rest("home");
-    if (!$question.get()) startQuestion(home);
-    $coachOn.set(!home.settings || home.settings.coach_examples !== false);
-    $home.set(home);
+    if (seenDue) markSeen();
+    showHome(home);
+    if (fp) fp.fresh("home", home);
   } catch (e) {
+    if (fp && fp.isStale("home")) {
+      $home.set(null);
+      fp.failed("home");
+    }
   }
 }
-function startQuestion(home) {
+function showHome(home, { kept = false } = {}) {
+  if (!home) return;
+  if (!$question.get()) startQuestion(home, !kept);
+  $coachOn.set(!home.settings || home.settings.coach_examples !== false);
+  $home.set(home);
+}
+var seenDue = false;
+function startQuestion(home, tellNow) {
   const pool = home.pool || [];
   const at = pool.length ? (home.pool_start || 0) % pool.length : 0;
   $poolAt.set(at);
   $question.set(pool.length ? { area: pool[at].area, text: pool[at].text } : FALLBACK_Q);
-  post("extemp/questions/seen").catch(() => {
+  if (tellNow) markSeen();
+  else seenDue = true;
+}
+function markSeen() {
+  seenDue = false;
+  post("extemp/questions/seen").then((r) => {
+    if (fp && r && Number.isInteger(r.next)) fp.stick("home", { pool_start: r.next });
+  }, () => {
   });
 }
 function dateOf(t) {
@@ -5541,11 +5800,13 @@ var plural2 = (n, one) => `${n} ${one}${n === 1 ? "" : "s"}`;
 function Recordings({ r, kept }) {
   const wipeAudio = async () => {
     const d = await post("recordings/delete");
+    forgetKept();
     await loadHome();
     return `Deleted ${plural2(d.deleted, "recording")}. Your ballots, timing and transcripts are kept.`;
   };
   const wipeWords = async () => {
     const d = await post("data/delete");
+    forgetKept();
     await loadHome();
     return `Deleted ${plural2(d.transcripts, "transcript")} and ${plural2(d.ballots, "ballot")}${d.round_ended ? ", and ended the round in progress" : ""}. Recordings, timing, cases and your extemp file are kept.`;
   };
@@ -7758,10 +8019,17 @@ function DebatePage() {
   const spot = useValue8($marginSpot);
   const chatOpen = useValue8($chatOpen);
   const compare = useValue8($compareOpen);
+  const paint = useValue8($paint);
+  const frame = useRef8(null);
   useEffect11(() => {
     load();
     loadHome();
   }, []);
+  useLayoutEffect(() => {
+    const f = frame.current;
+    if (!f) return;
+    for (const el of f.children) if (el.tagName !== "HEADER") el.inert = paint.stale;
+  });
   const event = picked === "settings" ? "settings" : picked || (home && home.settings && EVENT_IDS.includes(home.settings.event) ? home.settings.event : "extemp");
   const ready = !!(st && cfg);
   const coachable = ready && event !== "settings" && view !== "print" && view !== "printbrief";
@@ -7783,15 +8051,15 @@ function DebatePage() {
   else if (event === "ballots") body = jsx15(BallotsView, {});
   else if (event === "settings") body = jsx15(SettingsView, {});
   else body = jsxs15(Fragment10, { children: [jsx15(LdContext, {}), view === "room" ? jsx15(Room, {}) : view === "fallacies" ? jsx15(Fallacies, {}) : view === "printbrief" ? jsx15(PrintBriefing, {}) : view === "print" ? jsx15(PrintView, {}) : jsx15(Bench, {})] });
-  return jsx15("div", { className: "hk hk-page ldw", role: "region", "aria-label": "Debate Workbench", children: jsxs15("div", { className: "ldw-frame", "data-margin": marginState(open, compare), children: [
+  return jsx15("div", { className: "hk hk-page ldw", role: "region", "aria-label": "Debate Workbench", children: jsxs15("div", { className: "ldw-frame", ref: frame, "data-margin": marginState(open, compare), children: [
     jsx15(FrameHeader, { event, coachOpen: open, coachable }),
-    jsx15("main", { className: "ldw-inner", "data-event": event, children: body }),
+    jsx15("main", { className: "ldw-inner", "data-event": event, "aria-busy": paint.stale ? "true" : void 0, children: body }, `paint-${paint.epoch}`),
     open ? jsx15(Margin, {
       open,
       onToggle: () => $chatOpen.set(false),
       title: "Coach",
       children: bench ? jsx15(CoachPanel, { c: st.workbench.case }) : jsx15(CoachChat, { floor: event })
-    }) : null
+    }, `paint-${paint.epoch}`) : null
   ] }) });
 }
 var CSS = `
@@ -8039,15 +8307,17 @@ var plugin_default = {
   name: "Debate Workbench",
   register(ctx) {
     setApi(ctx);
+    const kept = startFirstPaint(ctx);
+    showHome(kept.home, { kept: true });
     installStyles(ctx, PLUGIN_ID, CSS + FRAME_CSS);
     const open = (view) => () => {
       $view.set(view);
       $event.set("ld");
-      host2.navigate(ROUTE);
+      host3.navigate(ROUTE);
     };
     const openEvent = (id) => () => {
       chooseEvent(id);
-      host2.navigate(ROUTE);
+      host3.navigate(ROUTE);
     };
     registerPage(ctx, {
       id: PLUGIN_ID,
@@ -8065,6 +8335,7 @@ var plugin_default = {
       ]
     });
     ctx.onDispose(() => {
+      kept.stop();
       setApi(null);
     });
   }

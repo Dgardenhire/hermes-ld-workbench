@@ -14,6 +14,8 @@
 //   q      n                                     (extemp: open on question n of the pool; default 0, the Federal Reserve one)
 //   own    1                                     (extemp: one question of the student's own on the list)
 //   coach  off                                   (Settings, Coach examples off: no example buttons; the chat explains only)
+//   kept   1                                     (ctx.storage in localStorage, so the page keeps its first-paint copy between loads)
+//   slow   ms                                    (every answer waits this long: the backend starting, as Hermes sees it)
 // Hand-written, not captured: the drawn questions (DRAW) and the fallacies under the NR (SPOT_NR); see make_fixtures.py.
 // Only the Federal Reserve answer has a ballot here: any other question answers with a harness notice.
 import { createRoot } from 'react-dom/client'
@@ -116,7 +118,8 @@ function silentWav(seconds) {
 }
 
 async function rest(path, options = {}) {
-  await pause(30)
+  await pause(Number(params.get('slow')) || 30)
+  ;(window.__restLog = window.__restLog || []).push([String((options && options.method) || 'GET'), path, Math.round(performance.now())])
   for (const lane of LANES) { const out = await lane.answer(path, options, { params, clone, home }); if (out !== undefined) return out } // lanes answer first
   if (path === 'home') return home()
   if (path === 'settings') return { event: 'extemp' }
@@ -197,7 +200,11 @@ const contributions = []
 const ctx = {
   rest, registerMany(list) { contributions.push(...list) }, register(i) { contributions.push(i) },
   onEvent() { return () => {} }, onDispose() {}, setTimeout, setInterval,
-  storage: { get: (k, f) => f, set() {}, remove() {} },
+  storage: params.get('kept') ? {
+    get: (k, f) => { const v = localStorage.getItem('ldw-harness.' + k); return v === null ? f : JSON.parse(v) },
+    set: (k, v) => localStorage.setItem('ldw-harness.' + k, JSON.stringify(v)),
+    remove: k => localStorage.removeItem('ldw-harness.' + k),
+  } : { get: (k, f) => f, set() {}, remove() {} },
   os: { async revealPath() { return true }, async pickSavePath() { return null } },
 }
 const mod = await import('../desktop/plugin.js')

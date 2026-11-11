@@ -71,6 +71,8 @@ A topic briefing maps each new resolution for both sides. Fallacies has a practi
 
 Your cases, coach notes, rounds, ballots, topic briefings, recordings, transcripts and extemp file are saved by Hermes on your own computer, in a folder named `plugin-data/ld-workbench` inside your Hermes folder. There are no accounts and no tracking.
 
+So the page opens at once, the Hermes app also keeps a copy of what the page last showed when it opened (your open case and round, your last take on each floor, the question list and your settings) in its own storage for this plugin, on the computer you run the app on. The copy is under 200 KB, never holds a key or password, is shown only for the same Hermes profile and plugin version, is replaced by your saved work a moment after the page opens, and is cleared by either delete in Settings.
+
 ## What leaves your computer
 
 - **Your AI model.** When you use the coach, a helper, the briefing, a round, a ballot, the question draw, Get up to speed or the figure finder, the text it needs (your case, your speeches and transcripts, the resolution, your typed questions, your saved headlines) goes to the AI model you chose in Hermes, through Hermes. Debate Workbench has no keys of its own. Recordings are never sent to a model.

@@ -6,7 +6,7 @@ import { useState } from 'react'
 import { Fragment, jsx, jsxs } from 'react/jsx-runtime'
 import { Button, useValue } from '@hermes/plugin-sdk'
 import { Notice } from 'hermes-ui-kit'
-import { Choices, Thinking, errText, post } from './core.js'
+import { Choices, Thinking, errText, forgetKept, post } from './core.js'
 import { $home, OutletEditor, loadHome } from './extemp.js'
 import { TRANSCRIPTS_OFF } from './floor.js'
 import { $coachOn } from './coach.js'
@@ -80,11 +80,11 @@ const plural = (n, one) => `${n} ${one}${n === 1 ? '' : 's'}`
 
 function Recordings({ r, kept }) {
   const wipeAudio = async () => {
-    const d = await post('recordings/delete'); await loadHome()
+    const d = await post('recordings/delete'); forgetKept(); await loadHome()
     return `Deleted ${plural(d.deleted, 'recording')}. Your ballots, timing and transcripts are kept.`
   }
   const wipeWords = async () => {
-    const d = await post('data/delete'); await loadHome()
+    const d = await post('data/delete'); forgetKept(); await loadHome()
     return `Deleted ${plural(d.transcripts, 'transcript')} and ${plural(d.ballots, 'ballot')}${d.round_ended ? ', and ended the round in progress' : ''}. Recordings, timing, cases and your extemp file are kept.`
   }
   return jsxs(Section, { title: 'Recordings, transcripts and ballots', children: [
