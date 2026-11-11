@@ -540,3 +540,14 @@ class DeleteTranscriptsAndBallots(WithHermes):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class SendStepIsTheNextStep(__import__("unittest").TestCase):
+    """Nov 11 live check: a take waiting for the OK to send read as stuck, its button small and below the waveform."""
+
+    def test_the_send_step_comes_first_with_the_main_button(self):
+        import pathlib
+        src = (pathlib.Path(__file__).resolve().parents[1] / "desktop" / "src" / "floor.js").read_text()
+        block = src[src.index("export function LastTake"):]
+        self.assertIn("One step left: send it for a ballot", block)
+        self.assertLess(block.index("asking ? jsxs('div', { className: 'ldw-ask-send'"), block.index("jsx(TakePlayer, { take })"))

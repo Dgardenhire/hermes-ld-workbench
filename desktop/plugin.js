@@ -2512,6 +2512,7 @@ function LastTake({ take, limit, title, onChange, children, fastOk }) {
   const [busy, setBusy] = useState7(false);
   const [err, setErr] = useState7(null);
   const st = take.transcript.status;
+  const asking = st === "failed" && take.transcript.ask === "send" && take.has_audio;
   const call = async (fn) => {
     setBusy(true);
     setErr(null);
@@ -2527,14 +2528,24 @@ function LastTake({ take, limit, title, onChange, children, fastOk }) {
   return jsxs7("section", { className: "ldw-last", "aria-label": title || "Your last take", children: [
     jsxs7("div", { className: "ldw-last-head", children: [jsx7("h3", { className: "ldw-h3", children: title || "Your take" }), jsx7("span", { className: "ldw-prov", children: transcriptLine(take) })] }),
     jsx7(Stats, { take, limit, fastOk }),
+    // Waiting for the learner's OK to send the take: the next step, said plainly and first, with the main button. Shown
+    // as a small notice under the waveform it read as stuck in a live run (Nov 11).
+    asking ? jsxs7("div", { className: "ldw-ask-send", role: "status", children: [
+      jsx7("p", { className: "ldw-h3", style: { margin: 0 }, children: "One step left: send it for a ballot" }),
+      jsx7("p", { style: { margin: 0 }, children: take.transcript.error }),
+      jsxs7("div", { className: "hk-actions", children: [
+        jsx7(Button4, { loading: busy, onClick: () => call(() => post(`speech/${take.id}/transcribe`)), children: "Transcribe now" }),
+        jsx7(Button4, { variant: "secondary", onClick: () => setTyping(true), children: "Type what you said" })
+      ] })
+    ] }) : null,
     jsx7(TakePlayer, { take }),
     WAITING.has(st) ? jsxs7("div", { className: "hk-row", children: [
       jsx7(Thinking, { label: "Making the transcript" }),
       jsx7("button", { type: "button", className: "hk-link", onClick: () => call(() => post(`speech/${take.id}/cancel`)), children: "Stop" })
     ] }) : null,
     // A take that waits for the press says where it would go; nothing has left the computer, so it is not a warning.
-    st === "unavailable" || st === "failed" || st === "cancelled" ? jsx7(Notice, {
-      tone: st === "failed" && take.transcript.ask === "send" ? "info" : "warn",
+    !asking && (st === "unavailable" || st === "failed" || st === "cancelled") ? jsx7(Notice, {
+      tone: "warn",
       children: st === "failed" ? take.transcript.error : TRANSCRIPTS_OFF,
       action: jsxs7("div", { className: "hk-actions", children: [
         take.has_audio ? jsx7(Button4, { size: "sm", variant: "secondary", loading: busy, onClick: () => call(() => post(`speech/${take.id}/transcribe`)), children: "Transcribe now" }) : null,
@@ -6030,6 +6041,7 @@ var FRAME_CSS = `
 .ldw-rec-stop{background:var(--hk-ink);color:var(--hk-bg)}
 .ldw-level{width:14px;height:14px;border-radius:50%;background:var(--hk-bad-fill);transform:scale(calc(.55 + var(--lv,0) * 1.4));transition:transform 60ms linear}
 
+.ldw-ask-send{display:grid;gap:8px;padding:12px 14px;border-left:3px solid var(--hk-accent);background:color-mix(in srgb,currentColor 6%,transparent)}
 .ldw-last{background:var(--hk-surface);border:1px solid var(--hk-stroke);border-radius:var(--ldw-r);padding:14px 16px 12px;display:grid;gap:10px;max-width:760px;box-sizing:border-box}
 .ldw-last-head{display:flex;justify-content:space-between;align-items:baseline;gap:10px;flex-wrap:wrap}
 .ldw-prov{font-size:13px}

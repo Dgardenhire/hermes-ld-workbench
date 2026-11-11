@@ -51,6 +51,7 @@ export const FRAME_CSS = `
 .ldw-rec-stop{background:var(--hk-ink);color:var(--hk-bg)}
 .ldw-level{width:14px;height:14px;border-radius:50%;background:var(--hk-bad-fill);transform:scale(calc(.55 + var(--lv,0) * 1.4));transition:transform 60ms linear}
 
+.ldw-ask-send{display:grid;gap:8px;padding:12px 14px;border-left:3px solid var(--hk-accent);background:color-mix(in srgb,currentColor 6%,transparent)}
 .ldw-last{background:var(--hk-surface);border:1px solid var(--hk-stroke);border-radius:var(--ldw-r);padding:14px 16px 12px;display:grid;gap:10px;max-width:760px;box-sizing:border-box}
 .ldw-last-head{display:flex;justify-content:space-between;align-items:baseline;gap:10px;flex-wrap:wrap}
 .ldw-prov{font-size:13px}

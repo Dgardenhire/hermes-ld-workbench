@@ -332,16 +332,27 @@ export function LastTake({ take, limit, title, onChange, children, fastOk }) {
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState(null)
   const st = take.transcript.status
+  const asking = st === 'failed' && take.transcript.ask === 'send' && take.has_audio
   const call = async fn => { setBusy(true); setErr(null); try { onChange(await fn()) } catch (e) { setErr(errText(e)) } finally { setBusy(false) } }
   const s = take.stats || {}
   return jsxs('section', { className: 'ldw-last', 'aria-label': title || 'Your last take', children: [
     jsxs('div', { className: 'ldw-last-head', children: [jsx('h3', { className: 'ldw-h3', children: title || 'Your take' }), jsx('span', { className: 'ldw-prov', children: transcriptLine(take) })] }),
     jsx(Stats, { take, limit, fastOk }),
+    // Waiting for the learner's OK to send the take: the next step, said plainly and first, with the main button. Shown
+    // as a small notice under the waveform it read as stuck in a live run (Nov 11).
+    asking ? jsxs('div', { className: 'ldw-ask-send', role: 'status', children: [
+      jsx('p', { className: 'ldw-h3', style: { margin: 0 }, children: 'One step left: send it for a ballot' }),
+      jsx('p', { style: { margin: 0 }, children: take.transcript.error }),
+      jsxs('div', { className: 'hk-actions', children: [
+        jsx(Button, { loading: busy, onClick: () => call(() => post(`speech/${take.id}/transcribe`)), children: 'Transcribe now' }),
+        jsx(Button, { variant: 'secondary', onClick: () => setTyping(true), children: 'Type what you said' }),
+      ] }),
+    ] }) : null,
     jsx(TakePlayer, { take }),
     WAITING.has(st) ? jsxs('div', { className: 'hk-row', children: [jsx(Thinking, { label: 'Making the transcript' }),
       jsx('button', { type: 'button', className: 'hk-link', onClick: () => call(() => post(`speech/${take.id}/cancel`)), children: 'Stop' })] }) : null,
     // A take that waits for the press says where it would go; nothing has left the computer, so it is not a warning.
-    st === 'unavailable' || st === 'failed' || st === 'cancelled' ? jsx(Notice, { tone: st === 'failed' && take.transcript.ask === 'send' ? 'info' : 'warn', children: st === 'failed' ? take.transcript.error : TRANSCRIPTS_OFF,
+    !asking && (st === 'unavailable' || st === 'failed' || st === 'cancelled') ? jsx(Notice, { tone: 'warn', children: st === 'failed' ? take.transcript.error : TRANSCRIPTS_OFF,
       action: jsxs('div', { className: 'hk-actions', children: [
         take.has_audio ? jsx(Button, { size: 'sm', variant: 'secondary', loading: busy, onClick: () => call(() => post(`speech/${take.id}/transcribe`)), children: 'Transcribe now' }) : null,
         jsx(Button, { size: 'sm', variant: 'secondary', onClick: () => setTyping(true), children: 'Type what you said' }),
