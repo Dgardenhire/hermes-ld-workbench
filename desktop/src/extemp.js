@@ -5,14 +5,14 @@ import { useEffect, useRef, useState } from 'react'
 import { Fragment, jsx, jsxs } from 'react/jsx-runtime'
 import { Button, Codicon, Input, Textarea, atom, useValue } from '@hermes/plugin-sdk'
 import { Notice } from 'hermes-ui-kit'
-import { Choices, Thinking, api, cls, errText, mmss, post, rest } from './core.js'
+import { $home, Choices, Thinking, api, cls, errText, fp, mmss, post, rest } from './core.js'
 import { Clock, ExtempSheet, FILE_EMPTY_NOTE, LastTake, LiveWave, SpeakControls, Strip, mentionsFile, sendTake, takeSettled, useRecorder, useTakePoll } from './floor.js'
 import { $coachOn, PrepCoach, StrongExample, TakeTwo, prepareExample, useCoachContext } from './coach.js'
 import { PrimerButton, PrimerCards } from './primer.js'
 import { FirstRun, SampleBallot, isFirstRun } from './firstrun.js'
 import { useMarginSpot } from './margin.js'
 
-export const $home = atom(null)
+export { $home } // declared in core.js, where the first paint keeps a copy of it
 export const $extempMode = atom(null) // drill | openings | round (null: decide from the saved round)
 // The question on the floor, shared by the 60-second answer, the openings lab and the full round's
 // "your own question", so switching modes never loses it. { area, text, own }
@@ -27,19 +27,37 @@ const SPEECH = 7 * 60
 export async function loadHome() {
   try {
     const home = await rest('home')
-    if (!$question.get()) startQuestion(home) // set with the home, so no floor ever renders on a placeholder
-    $coachOn.set(!home.settings || home.settings.coach_examples !== false)
-    $home.set(home)
-  } catch (e) { /* the frame shows its own load error */ }
+    if (seenDue) markSeen()
+    showHome(home)
+    if (fp) fp.fresh('home', home)
+  } catch (e) {
+    // The frame shows its own load error. A kept copy the backend did not confirm leaves the page.
+    if (fp && fp.isStale('home')) { $home.set(null); fp.failed('home') }
+  }
+}
+// Put a home on the page: the backend's answer, or (kept: true, at register) the copy kept from the last
+// answer (cache.js). A kept copy picks this visit's question but tells the backend only once the page opens.
+export function showHome(home, { kept = false } = {}) {
+  if (!home) return
+  if (!$question.get()) startQuestion(home, !kept) // set with the home, so no floor ever renders on a placeholder
+  $coachOn.set(!home.settings || home.settings.coach_examples !== false)
+  $home.set(home)
 }
 // The first question this visit: where the rotation stands. The backend moves it one along per visit, so a
 // student never opens on the same question twice in a row.
-function startQuestion(home) {
+let seenDue = false
+function startQuestion(home, tellNow) {
   const pool = home.pool || []
   const at = pool.length ? (home.pool_start || 0) % pool.length : 0
   $poolAt.set(at)
   $question.set(pool.length ? { area: pool[at].area, text: pool[at].text } : FALLBACK_Q)
-  post('extemp/questions/seen').catch(() => {})
+  if (tellNow) markSeen()
+  else seenDue = true
+}
+// The next visit opens one along; the kept copy of the home learns where, so it never repeats this question.
+function markSeen() {
+  seenDue = false
+  post('extemp/questions/seen').then(r => { if (fp && r && Number.isInteger(r.next)) fp.stick('home', { pool_start: r.next }) }, () => {})
 }
 
 function dateOf(t) {

@@ -3,8 +3,9 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { Fragment, jsx, jsxs } from 'react/jsx-runtime'
-import { Button, Codicon, atom } from '@hermes/plugin-sdk'
+import { Button, Codicon, atom, host } from '@hermes/plugin-sdk'
 import { describeError } from 'hermes-ui-kit'
+import { firstPaint } from './cache.js'
 
 export const PLUGIN_ID = 'ld-workbench'
 export const ROUTE = '/debate'
@@ -17,12 +18,25 @@ export const $cfg = atom(null)
 export const $state = atom(null) // { workbench: { case, cases, source }, round, history }
 export const $view = atom('room') // room | bench | print
 export const $loadError = atom(null)
+export const $home = atom(null) // GET home: what the floor needs on open (extemp.js loads it)
+// The kept copy on the page (see cache.js): stale while it shows, epoch +1 when the fresh answer differed.
+export const $paint = atom({ stale: false, epoch: 0 })
+export let fp = null
 
 /* ------------------------------------------------------------------ backend -- */
 
+// Requests that change nothing a kept copy could be wrong about go out even while the page shows one.
+const SEND_WHILE_STALE = new Set(['extemp/questions/seen', 'settings'])
 export function rest(path, options) {
   if (!api) return Promise.reject(new Error('The workbench is not connected. Close Debate and open it again.'))
-  return api.rest(path, { timeoutMs: MODEL_TIMEOUT, ...(options || {}) })
+  const opts = { timeoutMs: MODEL_TIMEOUT, ...(options || {}) }
+  const method = String(opts.method || 'GET').toUpperCase()
+  // While the page shows the kept copy, a request that changes something waits for the fresh answer. If the
+  // kept copy was right it goes out; if not, it is dropped (never settles) and the page is rebuilt to ask again.
+  if (fp && method !== 'GET' && fp.isStale() && !SEND_WHILE_STALE.has(path)) {
+    return fp.gate().then(ok => (ok && api ? api.rest(path, opts) : new Promise(() => {})))
+  }
+  return api.rest(path, opts)
 }
 export const post = (path, body) => rest(path, { method: 'POST', body: body || {} })
 export const errText = e => describeError(e).detail || 'Something went wrong. Try again.'
@@ -38,17 +52,69 @@ export function setRound(r) {
 
 export async function load() {
   try {
-    const [cfg, st] = await Promise.all([$cfg.get() ? $cfg.get() : rest('config'), rest('state')])
+    const keep = $cfg.get() && !(fp && fp.isStale('config')) // config is fixed for a running backend
+    const [cfg, st] = await Promise.all([keep ? $cfg.get() : rest('config'), rest('state')])
     $cfg.set(cfg)
     $state.set(st)
     $loadError.set(null)
+    if (fp) { fp.fresh('config', cfg); fp.fresh('state', st) }
   } catch (e) {
+    // A kept copy the backend could not confirm leaves the page, so the page reads as it did before kept copies.
+    if (fp && fp.isStale('config')) $cfg.set(null)
+    if (fp && fp.isStale('state')) $state.set(null)
     $loadError.set(e)
+    if (fp) { fp.failed('config'); fp.failed('state') }
   }
 }
 export async function refreshState() {
-  try { $state.set(await rest('state')) } catch (e) { /* keep what is on screen */ }
+  try { const st = await rest('state'); $state.set(st); if (fp) fp.fresh('state', st) } catch (e) { /* keep what is on screen */ }
 }
+
+/* ------------------------------------------------------------------ first paint -- */
+
+// Which Hermes connection and profile the page's data belongs to: a kept copy is never shown under another.
+function scopeKey() {
+  let conn = ''
+  let profile = ''
+  try { conn = String((host.state && host.state.connectionId && host.state.connectionId.get()) || '') } catch (e) { /* older Hermes */ }
+  try { profile = String((host.state && host.state.profile && host.state.profile.get()) || '') } catch (e) { /* older Hermes */ }
+  return `${conn || 'local'}::${profile || 'default'}`
+}
+
+// At register: put the kept copies on the page (before the first render) and keep them current after.
+// Returns the kept home (or null) for extemp.js to show, and a stop function for ctx.onDispose.
+export function startFirstPaint(ctx) {
+  const storage = ctx && ctx.storage
+  if (!storage || typeof storage.get !== 'function' || typeof storage.set !== 'function') { fp = null; return { home: null, stop: () => {} } }
+  fp = firstPaint({ storage, scope: scopeKey })
+  const atoms = { config: $cfg, state: $state, home: $home }
+  // The page needs both config and state to paint; one without the other would not paint, so show neither.
+  if (fp.peek('config') && fp.peek('state')) { $cfg.set(fp.hydrate('config')); $state.set(fp.hydrate('state')) }
+  const home = fp.hydrate('home')
+  const unsettle = fp.onSettle(({ changed }) => {
+    const p = $paint.get()
+    $paint.set({ stale: false, epoch: p.epoch + (changed ? 1 : 0) })
+  })
+  if (fp.isStale()) $paint.set({ stale: true, epoch: $paint.get().epoch })
+  // Every later change to the three reads (the answers to the page's own requests) is kept, a moment later.
+  const timers = {}
+  const flush = name => { clearTimeout(timers[name]); delete timers[name]; const v = atoms[name].get(); if (fp && v) fp.save(name, v) }
+  const flushAll = () => Object.keys(timers).forEach(flush)
+  const offs = Object.entries(atoms).map(([name, a]) => a.listen(() => { clearTimeout(timers[name]); timers[name] = setTimeout(() => flush(name), 400) }))
+  const onHide = () => flushAll()
+  try { window.addEventListener('pagehide', onHide) } catch (e) { /* no window */ }
+  return {
+    home,
+    stop: () => {
+      flushAll()
+      offs.forEach(off => off())
+      unsettle()
+      try { window.removeEventListener('pagehide', onHide) } catch (e) { /* no window */ }
+    },
+  }
+}
+// Settings deleted recordings or words: no kept copy may still hold them.
+export function forgetKept() { if (fp) fp.forget() }
 
 /* ------------------------------------------------------------------ helpers -- */
 

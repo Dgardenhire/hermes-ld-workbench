@@ -225,7 +225,7 @@ NODE = shutil.which("node")
 STUBS = {
     "react": "export const useEffect=()=>{};export const useRef=x=>({current:x});export const useState=x=>[x,()=>{}];export const useMemo=f=>f();export const useCallback=f=>f;export const useSyncExternalStore=()=>null;",
     "react/jsx-runtime": "export const jsx=()=>null;export const jsxs=()=>null;export const Fragment='f';",
-    "@hermes/plugin-sdk": "export const atom=v=>{let x=v;return{get:()=>x,set:y=>{x=y},subscribe:()=>()=>{},listen:()=>()=>{}}};export const useValue=a=>a.get();export const Codicon=()=>null;export const Button=()=>null;",
+    "@hermes/plugin-sdk": "export const atom=v=>{let x=v;return{get:()=>x,set:y=>{x=y},subscribe:()=>()=>{},listen:()=>()=>{}}};export const useValue=a=>a.get();export const Codicon=()=>null;export const Button=()=>null;export const host={};",
     "hermes-ui-kit": "export const installStyles=()=>()=>{};export const Notice=()=>null;export const describeError=e=>({detail:String(e)});",
 }
 

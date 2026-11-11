@@ -6,7 +6,8 @@
 //
 // The page only renders and sends the student's words. Everything else lives in the Python backend
 // (dashboard/plugin_api.py, reached through ctx.rest): the prompts, every model call (on the user's own
-// Hermes model), the case library, the round, the ballots. Nothing real is kept in browser storage.
+// Hermes model), the case library, the round, the ballots. The only copy kept on the page's side is the last
+// answer to the three opening reads, so the page paints at once on the next open (cache.js).
 //
 // Three views on one page (plus a print view of a case):
 //  - Tournament Room: the posting board of the seven speeches, the clock (speech time and prep), the
@@ -15,13 +16,13 @@
 //  - Fallacies: the guide, a practice drill with a session score, and a checker for any pasted argument.
 // Colors come only from the app's theme variables (through the kit's --hk-* tokens).
 
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { Fragment, jsx, jsxs } from 'react/jsx-runtime'
 import { Button, Codicon, Input, Textarea, atom, host, useValue } from '@hermes/plugin-sdk'
 import { Empty, Failure, Notice, describeError, installStyles, registerPage } from 'hermes-ui-kit'
 import { Clock, LastTake, LdSheet, LiveWave, SpeakControls, Strip, sendTake, useRecorder, useTakePoll } from './floor.js'
 import { $compareOpen, $marginSpot, CoachIcon, MARGIN_DEFAULT, Margin, marginState, useMarginSpot } from './margin.js'
-import { $extempMode, $home, ExtempView, loadHome } from './extemp.js'
+import { $extempMode, $home, ExtempView, loadHome, showHome } from './extemp.js'
 import { RhetoricView } from './rhetoric.js'
 import { BallotsView } from './ballotsview.js'
 import { SettingsView } from './settingsview.js'
@@ -29,7 +30,7 @@ import { FRAME_CSS } from './styles.js'
 import { $chatOpen, $coachCtx, $coachOn, COACH_FLAG, CoachBox, CoachChat } from './coach.js'
 
 export { describeError }
-import { $cfg, $loadError, $state, $view, Choices, Label, MODEL_TIMEOUT, Menu, PLUGIN_ID, ROUTE, Thinking, WPM, api, clip, cls, errText, inline, load, mmss, notFoundCount, post, refreshState, renderChecked, renderText, rest, setApi, setRound, setWorkbench, sideName, sideShort, when, words } from './core.js'
+import { $cfg, $loadError, $paint, $state, $view, startFirstPaint, Choices, Label, MODEL_TIMEOUT, Menu, PLUGIN_ID, ROUTE, Thinking, WPM, api, clip, cls, errText, inline, load, mmss, notFoundCount, post, refreshState, renderChecked, renderText, rest, setApi, setRound, setWorkbench, sideName, sideShort, when, words } from './core.js'
 
 
 /* ------------------------------------------------------------------ method data shown on the page -- */
@@ -1257,7 +1258,16 @@ function DebatePage() {
   const spot = useValue($marginSpot)
   const chatOpen = useValue($chatOpen)
   const compare = useValue($compareOpen)
+  const paint = useValue($paint)
+  const frame = useRef(null)
   useEffect(() => { load(); loadHome() }, [])
+  // While the page shows the kept copy (cache.js), everything under the header is inert: it looks the same and
+  // reads the same, but nothing in it can be pressed or typed into until the fresh answer is on the page.
+  useLayoutEffect(() => {
+    const f = frame.current
+    if (!f) return
+    for (const el of f.children) if (el.tagName !== 'HEADER') el.inert = paint.stale
+  })
   const event = picked === 'settings' ? 'settings' : picked || (home && home.settings && EVENT_IDS.includes(home.settings.event) ? home.settings.event : 'extemp')
   const ready = !!(st && cfg)
   const coachable = ready && event !== 'settings' && view !== 'print' && view !== 'printbrief'
@@ -1276,11 +1286,11 @@ function DebatePage() {
   else if (event === 'ballots') body = jsx(BallotsView, {})
   else if (event === 'settings') body = jsx(SettingsView, {})
   else body = jsxs(Fragment, { children: [jsx(LdContext, {}), view === 'room' ? jsx(Room, {}) : view === 'fallacies' ? jsx(Fallacies, {}) : view === 'printbrief' ? jsx(PrintBriefing, {}) : view === 'print' ? jsx(PrintView, {}) : jsx(Bench, {})] })
-  return jsx('div', { className: 'hk hk-page ldw', role: 'region', 'aria-label': 'Debate Workbench', children: jsxs('div', { className: 'ldw-frame', 'data-margin': marginState(open, compare), children: [
+  return jsx('div', { className: 'hk hk-page ldw', role: 'region', 'aria-label': 'Debate Workbench', children: jsxs('div', { className: 'ldw-frame', ref: frame, 'data-margin': marginState(open, compare), children: [
     jsx(FrameHeader, { event, coachOpen: open, coachable }),
-    jsx('main', { className: 'ldw-inner', 'data-event': event, children: body }),
+    jsx('main', { className: 'ldw-inner', 'data-event': event, 'aria-busy': paint.stale ? 'true' : undefined, children: body }, `paint-${paint.epoch}`),
     open ? jsx(Margin, { open, onToggle: () => $chatOpen.set(false), title: 'Coach',
-      children: bench ? jsx(CoachPanel, { c: st.workbench.case }) : jsx(CoachChat, { floor: event }) }) : null,
+      children: bench ? jsx(CoachPanel, { c: st.workbench.case }) : jsx(CoachChat, { floor: event }) }, `paint-${paint.epoch}`) : null,
   ] }) })
 }
 
@@ -1536,6 +1546,9 @@ export default {
   name: 'Debate Workbench',
   register(ctx) {
     setApi(ctx)
+    // The last answers, on the page before the first render; the backend's answers replace them (cache.js).
+    const kept = startFirstPaint(ctx)
+    showHome(kept.home, { kept: true })
     installStyles(ctx, PLUGIN_ID, CSS + FRAME_CSS)
     const open = view => () => { $view.set(view); $event.set('ld'); host.navigate(ROUTE) }
     const openEvent = id => () => { chooseEvent(id); host.navigate(ROUTE) }
@@ -1551,7 +1564,7 @@ export default {
         { id: 'ld-workbench.ballots', contributionId: 'ballots', label: 'Debate: my ballots and patterns', keywords: ['ballot', 'judge', 'progress'], run: openEvent('ballots') },
       ],
     })
-    ctx.onDispose(() => { setApi(null) })
+    ctx.onDispose(() => { kept.stop(); setApi(null) })
   },
 }
 
