@@ -2546,7 +2546,7 @@ function LastTake({ take, limit, title, onChange, children, fastOk }) {
     // A take that waits for the press says where it would go; nothing has left the computer, so it is not a warning.
     !asking && (st === "unavailable" || st === "failed" || st === "cancelled") ? jsx7(Notice, {
       tone: "warn",
-      children: st === "failed" ? take.transcript.error : TRANSCRIPTS_OFF,
+      children: st === "failed" ? take.transcript.error : take.transcript.error || TRANSCRIPTS_OFF,
       action: jsxs7("div", { className: "hk-actions", children: [
         take.has_audio ? jsx7(Button4, { size: "sm", variant: "secondary", loading: busy, onClick: () => call(() => post(`speech/${take.id}/transcribe`)), children: "Transcribe now" }) : null,
         jsx7(Button4, { size: "sm", variant: "secondary", onClick: () => setTyping(true), children: "Type what you said" })

@@ -352,7 +352,7 @@ export function LastTake({ take, limit, title, onChange, children, fastOk }) {
     WAITING.has(st) ? jsxs('div', { className: 'hk-row', children: [jsx(Thinking, { label: 'Making the transcript' }),
       jsx('button', { type: 'button', className: 'hk-link', onClick: () => call(() => post(`speech/${take.id}/cancel`)), children: 'Stop' })] }) : null,
     // A take that waits for the press says where it would go; nothing has left the computer, so it is not a warning.
-    !asking && (st === 'unavailable' || st === 'failed' || st === 'cancelled') ? jsx(Notice, { tone: 'warn', children: st === 'failed' ? take.transcript.error : TRANSCRIPTS_OFF,
+    !asking && (st === 'unavailable' || st === 'failed' || st === 'cancelled') ? jsx(Notice, { tone: 'warn', children: st === 'failed' ? take.transcript.error : (take.transcript.error || TRANSCRIPTS_OFF),
       action: jsxs('div', { className: 'hk-actions', children: [
         take.has_audio ? jsx(Button, { size: 'sm', variant: 'secondary', loading: busy, onClick: () => call(() => post(`speech/${take.id}/transcribe`)), children: 'Transcribe now' }) : null,
         jsx(Button, { size: 'sm', variant: 'secondary', onClick: () => setTyping(true), children: 'Type what you said' }),

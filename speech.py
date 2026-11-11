@@ -649,6 +649,23 @@ def _off(v):
     return v is False or (isinstance(v, (int, str)) and str(v).strip().lower() in ("0", "false", "no", "off"))
 
 
+LOCAL_NOT_INSTALLED = ("Your Hermes is set to Local speech-to-text, but its Whisper add-on isn't installed yet, so Hermes "
+                       "couldn't make a transcript. Install it once in a terminal: hermes pm install --extra stt-whisper. "
+                       "Then restart Hermes and press Transcribe now. Or choose a cloud provider in Hermes Settings, Voice, "
+                       "Speech to text. Or type what you said.")
+
+
+def unavailable_why():
+    """Plain words for a take Hermes could not transcribe, when the cause can be named; None otherwise (the page then
+    says how to turn speech-to-text on). Nov 11 live check: Local was chosen in Hermes, the add-on was missing, and the
+    take only said "unavailable"."""
+    stt = _hermes_stt_config()
+    provider = str(stt.get("provider") or "").strip().lower()
+    if provider in ("", "local") and not whisper_installed():
+        return LOCAL_NOT_INSTALLED
+    return None
+
+
 def hermes_plan():
     """What Hermes's own speech-to-text would do with a take, decided without starting it.
 
@@ -1127,7 +1144,7 @@ class Transcriber:
             elif isinstance(e, NoSpeech):
                 msg = NO_SPEECH
             elif isinstance(e, Unavailable):
-                status, msg = "unavailable", None
+                status, msg = "unavailable", unavailable_why()
             elif isinstance(e, ModelFolderError):
                 msg = folder_message(e.path)
             elif isinstance(e, DownloadFailed) or any(k in str(e).lower() for k in ("download", "huggingface", "connect")):

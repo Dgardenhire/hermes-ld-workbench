@@ -551,3 +551,15 @@ class SendStepIsTheNextStep(__import__("unittest").TestCase):
         block = src[src.index("export function LastTake"):]
         self.assertIn("One step left: send it for a ballot", block)
         self.assertLess(block.index("asking ? jsxs('div', { className: 'ldw-ask-send'"), block.index("jsx(TakePlayer, { take })"))
+
+
+class UnavailableSaysWhy(__import__("unittest").TestCase):
+    """Nov 11 live check: Local was chosen in Hermes but its Whisper add-on was missing; the take said nothing useful."""
+
+    def test_local_without_whisper_names_the_install(self):
+        import pathlib
+        src = (pathlib.Path(__file__).resolve().parents[1] / "speech.py").read_text()
+        self.assertIn('status, msg = "unavailable", unavailable_why()', src)
+        self.assertIn("hermes pm install --extra stt-whisper", src)
+        floor = (pathlib.Path(__file__).resolve().parents[1] / "desktop" / "src" / "floor.js").read_text()
+        self.assertIn("(take.transcript.error || TRANSCRIPTS_OFF)", floor)
