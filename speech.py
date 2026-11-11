@@ -894,6 +894,7 @@ DOWNLOAD_FAILED = "The speech model could not be downloaded. Check the internet 
 # token are never touched. Fixed arguments, no shell.
 _DOWNLOAD_SCRIPT = (
     "import sys\n"
+    "sys.path[:0] = [p for p in sys.argv[3:] if p]\n"
     "from huggingface_hub import snapshot_download\n"
     "snapshot_download(sys.argv[1], local_dir=sys.argv[2], token=False, allow_patterns=[\n"
     "    'config.json', 'preprocessor_config.json', 'model.bin', 'tokenizer.json', 'vocabulary.*'])\n")
@@ -908,6 +909,20 @@ def _writable(d):
         return True
     except OSError:
         return False
+
+
+def _package_roots(*names):
+    """The folders this process imports ``names`` from. The download runs isolated (-I), which drops PYTHONPATH, and
+    Hermes's plugin host finds its packages through PYTHONPATH, so the child is told where to look (Nov 11 live check:
+    every download failed with "could not be downloaded" on a working connection)."""
+    roots = []
+    for name in names:
+        spec = importlib.util.find_spec(name)
+        for loc in (spec.submodule_search_locations or []) if spec else []:
+            root = str(Path(loc).resolve().parent)
+            if root not in roots:
+                roots.append(root)
+    return roots
 
 
 def download_model(name):
@@ -925,7 +940,8 @@ def download_model(name):
     env.update(HF_HOME=str(hf), HF_HUB_CACHE=str(hf / "hub"), HF_XET_CACHE=str(hf / "xet"),
                HF_HUB_DISABLE_TELEMETRY="1", HF_HUB_DISABLE_PROGRESS_BARS="1", HF_HUB_DISABLE_IMPLICIT_TOKEN="1")
     try:
-        r = subprocess.run([sys.executable, "-I", "-c", _DOWNLOAD_SCRIPT, repo, str(part)], env=env, cwd=str(root),
+        r = subprocess.run([sys.executable, "-I", "-c", _DOWNLOAD_SCRIPT, repo, str(part), *_package_roots("huggingface_hub")],
+                           env=env, cwd=str(root),
                            stdin=subprocess.DEVNULL, capture_output=True, text=True, timeout=DOWNLOAD_TIMEOUT)
         failed = r.returncode != 0
         detail = (r.stderr or "")[-400:]

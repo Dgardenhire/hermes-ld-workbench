@@ -563,3 +563,23 @@ class UnavailableSaysWhy(__import__("unittest").TestCase):
         self.assertIn("hermes pm install --extra stt-whisper", src)
         floor = (pathlib.Path(__file__).resolve().parents[1] / "desktop" / "src" / "floor.js").read_text()
         self.assertIn("(take.transcript.error || TRANSCRIPTS_OFF)", floor)
+
+
+class IsolatedDownloadFindsItsPackages(__import__("unittest").TestCase):
+    """Nov 11 live check: the model download ran with python -I, which drops PYTHONPATH, so in Hermes's plugin host it
+    could not import huggingface_hub and every download failed as if the connection were down."""
+
+    def test_the_child_is_told_where_the_packages_are(self):
+        import pathlib
+        src = (pathlib.Path(__file__).resolve().parents[1] / "speech.py").read_text()
+        self.assertIn('"sys.path[:0] = [p for p in sys.argv[3:] if p]\\n"', src)
+        self.assertIn('*_package_roots("huggingface_hub")', src)
+
+    def test_the_child_imports_a_package_found_only_through_pythonpath(self):
+        import os, subprocess, sys, tempfile, pathlib
+        with tempfile.TemporaryDirectory() as d:
+            (pathlib.Path(d) / "only_on_pythonpath").mkdir()
+            (pathlib.Path(d) / "only_on_pythonpath" / "__init__.py").write_text("X = 1\n")
+            script = "import sys\nsys.path[:0] = [p for p in sys.argv[3:] if p]\nimport only_on_pythonpath\nprint('ok')\n"
+            r = subprocess.run([sys.executable, "-I", "-c", script, "repo", "dest", d], capture_output=True, text=True)
+            self.assertEqual(r.stdout.strip(), "ok", r.stderr)
