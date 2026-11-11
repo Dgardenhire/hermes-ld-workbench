@@ -402,4 +402,4 @@ lines checked, tags from a fixed list, no tools). Accepted.
   model's text before marking (`check_quotes`), so the model cannot forge or hide a mark.
 - **Fixtures.** `harness/make_fixtures.py`, `harness/fixtures02.js` and `harness/pull-fed-2026-11-07.json`
   hold no email addresses, phone numbers, personal paths (`/Users/student` is invented) or private names. The
-  pull is public headlines from ten outlets' feeds and Google News links.
+  pull is public headlines from twelve default outlets' feeds and Google News links.

@@ -20,6 +20,7 @@ The first time you open Debate, a **Start here** panel names the four rooms in o
 Every event uses the same floor.
 
 - **The strip** across the top is the event drawn to scale in time. Each part is as wide as its minutes: in Lincoln-Douglas the 7-minute NC is more than twice the 3-minute cross-ex. The part you are on is outlined, and it fills as time passes.
+- **Debate words in plain English.** Point at, or Tab to, a label such as AC, NC, 1AR, NR, 2AR, CX, Value, Criterion, Flow or a card suggestion, and one plain sentence says what it means.
 - **The clock** counts down. It starts at your first word, not when you press the button.
 - **The time cards** are the ones a timekeeper holds up: one card a minute, then 30, then TIME. Over time, the clock turns red and counts up.
 - **Start speaking** opens the microphone. Hermes may ask for permission the first time; say yes. **Stop** ends the take. **Cancel this take** throws it away.
@@ -71,7 +72,7 @@ The question you chose stays when you switch to **Openings** or **Full round**.
   - **Spot fallacies** under the opponent's speech finds fallacies in it. Every "Exact words" quote is checked against the speech; a quote that is not there is marked "Not found in the speech. Check it before you use it."
   - **Hear it** reads the opponent's speech aloud with the voice you set up in Hermes.
   - Your answers in cross-examination count: the opponent will use them.
-- **The ballot.** The decision, your points, three of your lines the judge quoted (each tagged with its speech), and a drill. **Show me** under the drill finds the weakest moment and models a redo of it. **Read the full reason for decision** opens the rest. **Ask another judge** gets a second ruling on the same round. **Redo a speech** lets you give one speech again for the same judge.
+- **The ballot.** The decision, your points, three of your lines the judge quoted (each tagged with its speech, and checked against that speech; a line with no run of three or more words is left unchecked), and a drill. **Show me** under the drill finds the weakest moment and models a redo of it. **Read the full reason for decision** opens the rest. **Ask another judge** gets a second ruling on the same round. **Redo a speech** lets you give one speech again for the same judge.
 - **Fallacies.** A guide to 15 common fallacies, a practice drill, and a checker for any argument. The checker's quotes are checked against what you pasted, the same way.
 - **The points on the LD ballot** run 20 to 30; most rounds land between 26 and 30. 28.0 is a typical good round, 29.0 and up is excellent, and below 27.0 means serious problems.
 
@@ -85,7 +86,7 @@ The question you chose stays when you switch to **Openings** or **Full round**.
 
 ## Ballots
 
-Every ballot from every event. At the top, the patterns judges keep writing over your last six rounds, for example "You drop arguments in the 2AR, 4 of 6", with R1 to R6 marked W or L. An outlined chip means the judge wrote that on that ballot; a plain one means not (the key is on the page). R is a Lincoln-Douglas round and # an extemp speech or 60-second answer. These counts are made in code from a fixed list, not guessed by the model. Patterns marked "measured from your recordings" come from the clock and the transcript.
+Every ballot from every event. At the top, the patterns judges keep writing over your last six rounds, for example "You drop arguments in the 2AR, 4 of 6", with R1 to R6 marked W or L: R1 L means Round 1, a loss. A chip with a dark border means the judge wrote that on that ballot; a thin border means not (the key is on the page). # is an extemp speech or 60-second answer. Once you have four ballots in an event, each pattern also says which way it is going, for example "Fewer now: 4 of your first 4 ballots, 1 of your last 4". These counts are made in code from a fixed list, not guessed by the model. Patterns marked "measured from your recordings" come from the clock and the transcript.
 
 - Click any ballot to open its full sheet: the decision, the points, the lines the judge quoted, the reason for decision and the drill.
 - Each ballot's drill has a checkbox. Tick it when you have done the drill.

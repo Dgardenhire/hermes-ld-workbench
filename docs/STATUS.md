@@ -135,7 +135,7 @@ Recorded in the look ledger (`design_ledger.py add`, project `debate-workbench-0
 
 ## What works now
 
-Unchanged from stage 3 except the fixes above; see the stage 3 notes in git history (`git show 0497c0c:docs/STATUS.md`). In short: the frame (rail, strip to scale, clock, time cards) for every event; the recorder with live waveform and pause marks; takes, transcripts through Hermes's own speech-to-text or the workbench's faster-whisper, timing-only otherwise; extemp (60-second answer, openings, full round with the headline pull from ten outlets on three sides, draw, prep files-only or internet-allowed, speech, ballot); the 10-second ballot with quoted lines checked against the transcript; Ballots with patterns counted in code and R1 to R6 chips; Rhetoric with The Clearing's definitions and exact-quote marks; Lincoln-Douglas spoken, with Hear it; Settings.
+Unchanged from stage 3 except the fixes above; see the stage 3 notes in git history (`git show 0497c0c:docs/STATUS.md`). In short: the frame (rail, strip to scale, clock, time cards) for every event; the recorder with live waveform and pause marks; takes, transcripts through Hermes's own speech-to-text or the workbench's faster-whisper, timing-only otherwise; extemp (60-second answer, openings, full round with the headline pull from twelve outlets on three sides, draw, prep files-only or internet-allowed, speech, ballot); the 10-second ballot with quoted lines checked against the transcript; Ballots with patterns counted in code and R1 to R6 chips; Rhetoric with The Clearing's definitions and exact-quote marks; Lincoln-Douglas spoken, with Hear it; Settings.
 
 ## What is left, in priority order
 

@@ -86,3 +86,26 @@ class Direction(unittest.TestCase):
         t = {"first": 4, "last": 1, "n": 4, "direction": "fewer"}
         self.assertIn("`${head}: ${t.first} of your first ${t.n} ballots, ${t.last} of your last ${t.n}`", src)
         self.assertEqual(ballots.trend_text(t), "Fewer now: 4 of your first 4 ballots, 1 of your last 4")
+
+
+class SaysWhatTheCodeDoes(unittest.TestCase):
+    def read(self, rel):
+        return (ROOT / rel).read_text(encoding="utf-8")
+
+    def test_no_real_judge_claim_and_the_practice_judge_named(self):
+        for rel in ("README.md", "docs/catalog/PR-DESCRIPTION.md", "docs/MANUAL.md", "docs/catalog/ld-workbench.yaml", "plugin.yaml"):
+            text = self.read(rel)
+            self.assertNotRegex(text, r"(?i)\ba real ballot\b|\bfrom a real judge\b", rel)
+        self.assertIn("A practice judge writes a ballot", self.read("README.md"))
+
+    def test_outlet_count_matches_the_code(self):
+        import headlines
+        self.assertEqual(len(headlines.DEFAULT_OUTLETS), 12)
+        for rel in ("docs/STATUS.md", "docs/SECURITY-AUDIT.md", "README.md"):
+            self.assertNotIn("ten outlets", self.read(rel), rel)
+
+    def test_quote_check_claims_name_the_unchecked_case(self):
+        self.assertNotIn("every quoted line is checked against what you said", self.read("README.md"))
+        self.assertIn("left unchecked", self.read("README.md"))
+        self.assertIn("left unchecked", self.read("CHANGELOG.md"))
+        self.assertIn("left unchecked", self.read("docs/MANUAL.md"))
