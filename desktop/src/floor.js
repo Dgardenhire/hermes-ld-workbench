@@ -421,7 +421,7 @@ export function ExtempSheet({ b, take, onDrill, drillLabel = 'Run the drill', dr
     jsxs('div', { className: 'ldw-sheet-fields', children: [
       jsxs('div', { children: [jsx('i', { children: 'Judge' }), 'Extemp judge'] }),
       jsxs('div', { children: [jsx('i', { children: 'Time' }), m.typed ? 'typed' : `${mmss(m.speaking || 0)} of ${mmss(m.limit || 0)}`] }),
-      jsxs('div', { children: [jsx('i', { children: 'Sources named' }), String((b.sources_cited || []).length)] }),
+      jsxs('div', { children: [jsx('i', { children: 'Filed sources named' }), String((b.sources_cited || []).length)] }),
       jsxs('div', { children: [jsx('i', { children: 'Pace' }), m.wpm ? `${m.wpm} words a minute` : m.typed ? 'typed' : 'no transcript'] }),
     ] }),
     jsx('div', { className: 'ldw-sheet-q', children: b.question }),

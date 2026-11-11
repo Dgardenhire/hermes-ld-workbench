@@ -2369,7 +2369,7 @@ function ExtempSheet({ b, take, onDrill, drillLabel = "Run the drill", drillLink
     jsxs7("div", { className: "ldw-sheet-fields", children: [
       jsxs7("div", { children: [jsx7("i", { children: "Judge" }), "Extemp judge"] }),
       jsxs7("div", { children: [jsx7("i", { children: "Time" }), m.typed ? "typed" : `${mmss(m.speaking || 0)} of ${mmss(m.limit || 0)}`] }),
-      jsxs7("div", { children: [jsx7("i", { children: "Sources named" }), String((b.sources_cited || []).length)] }),
+      jsxs7("div", { children: [jsx7("i", { children: "Filed sources named" }), String((b.sources_cited || []).length)] }),
       jsxs7("div", { children: [jsx7("i", { children: "Pace" }), m.wpm ? `${m.wpm} words a minute` : m.typed ? "typed" : "no transcript"] })
     ] }),
     jsx7("div", { className: "ldw-sheet-q", children: b.question }),

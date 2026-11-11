@@ -1047,7 +1047,7 @@ async def run_extemp_judge(take, question, outline, sources_cited, model, event=
         numbers["note"] = "typed, not spoken; time is an estimate at 140 words a minute"
     header = f"Question: {question}\nEvent: {'a 60-second answer drill' if event == 'drill' else 'a 7-minute extemp speech'}\n"
     body = (f"OUTLINE (the student's own notes):\n" + "\n".join(f"{k}: {v}" for k, v in (outline or {}).items() if v and k != "sources")
-            + f"\n\nSOURCES NAMED ALOUD (found in the transcript by code): "
+            + f"\n\nSOURCES FROM THE STUDENT'S EXTEMP FILE NAMED ALOUD (found in the transcript by code; a source the student names that is not in the file still counts, so judge those from the transcript itself): "
             + (", ".join(f"{s['outlet']} ({'said with a date' if s.get('date_said') else 'named WITHOUT a date; the saved headline is from ' + (time.strftime('%b %d, %Y', time.localtime(s['at'])) if s.get('at') else 'no date')})" for s in sources_cited) or "none")
             + ("" if file_count is None else f"\n\nSOURCES SAVED IN THE STUDENT'S EXTEMP FILE: {int(file_count)}")
             + f"\n\nMEASURED NUMBERS: {json.dumps(numbers)}\n\nWHAT THE STUDENT SAID:\n<<<\n{said[:12000] or '(no transcript; judge from the outline and the numbers, and say so)'}\n>>>")
