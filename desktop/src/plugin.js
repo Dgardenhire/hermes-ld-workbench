@@ -20,10 +20,11 @@ import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { Fragment, jsx, jsxs } from 'react/jsx-runtime'
 import { Button, Codicon, Input, Textarea, atom, host, useValue } from '@hermes/plugin-sdk'
 import { Empty, Failure, Notice, describeError, installStyles, registerPage } from 'hermes-ui-kit'
-import { Clock, LastTake, LdSheet, LiveWave, SpeakControls, Strip, sendTake, useRecorder, useTakePoll } from './floor.js'
-import { $compareOpen, $marginSpot, CoachIcon, MARGIN_DEFAULT, Margin, marginState, useMarginSpot } from './margin.js'
+import { Clock, LastTake, LdSheet, LiveWave, SpeakControls, Strip, sendTake, toggleSpeaking, useRecorder, useTakePoll } from './floor.js'
+import { $compareOpen, $marginSpot, CoachIcon, StartIcon, MARGIN_DEFAULT, Margin, marginState, useMarginSpot } from './margin.js'
 import { $extempMode, $home, ExtempView, loadHome, showHome } from './extemp.js'
 import { RhetoricView } from './rhetoric.js'
+import { StartHere, closeStartHere, startHereOnOpen } from './firstrun.js'
 import { BallotsView } from './ballotsview.js'
 import { SettingsView } from './settingsview.js'
 import { FRAME_CSS } from './styles.js'
@@ -226,7 +227,7 @@ function StudentSpeech({ r, stop, flowBeside, onHideFlow, onShowFlow }) {
     jsx(ClockPanel, {
       limit: target, elapsed: target - shown, label: `${stop.id} · your speech`, clock: recording ? null : clock, prep: recording ? null : prep,
       beside: flowBeside && r.transcript.some(t => t.speaker === 'ai') ? jsx(FlowBeside, { r, onHide: onHideFlow }) : null,
-      go: jsx(SpeakControls, { rec, startLabel: `Speak your ${stop.id}`, onTyped: t => change(text.trim() ? `${text}\n\n${t}` : t) }),
+      go: jsx(SpeakControls, { rec, startLabel: `Speak your ${stop.id}`, typedLabel: 'Add to my speech', onTyped: t => change(text.trim() ? `${text}\n\n${t}` : t) }),
       rows: recording ? [] : [['Pace', pace], real !== null ? ['Spoken length', `${mmss(real)}, recorded`] : ['Spoken length', `about ${mmss(spoken)}, estimated`]],
       extra: !flowBeside && onShowFlow && r.transcript.some(t => t.speaker === 'ai') ? jsx('button', { type: 'button', className: 'hk-link', onClick: onShowFlow, children: 'Show the flow' }) : null,
       primary: recording ? null : jsx(BigButton, { icon: 'arrow-right', onClick: finish, loading: busy, disabled: take && ['waiting', 'working'].includes(take.transcript.status), children: 'Finish speech' }),
@@ -1217,7 +1218,23 @@ const GearIcon = () => jsxs('svg', { width: 18, height: 18, viewBox: '0 0 24 24'
     jsx('circle', { cx: 12, cy: 12, r: 3 }),
   ] })
 
-function FrameHeader({ event, coachOpen, coachable }) {
+// Start here: null until home has loaded (then open by itself on a first open), true or false after.
+const $startHere = atom(null)
+function openStartHere() { $startHere.set('focus') }
+function closeStart() { $startHere.set(false); closeStartHere(api && api.storage) }
+// Closed from its own button: focus returns to the header link that reopens it.
+function closeFromPanel() {
+  closeStart()
+  setTimeout(() => { const l = document.getElementById('ldw-start-link'); if (l) l.focus() }, 0)
+}
+// Each Start here button opens its room; Lincoln-Douglas opens on Case. Going somewhere closes the panel for good.
+function goFromStart(id) {
+  closeStart()
+  if (id === 'ld') $view.set('bench')
+  chooseEvent(id)
+}
+
+function FrameHeader({ event, coachOpen, coachable, startOpen }) {
   const view = useValue($view)
   const ev = id => jsx('button', { type: 'button', className: 'ldw-evt', 'aria-current': event === id ? 'page' : undefined,
     onClick: () => chooseEvent(id), children: EVENT_NAMES[id] }, id)
@@ -1226,6 +1243,8 @@ function FrameHeader({ event, coachOpen, coachable }) {
   return jsxs('header', { className: 'ldw-top ldw-noprint', children: [
     jsx('nav', { className: 'ldw-events', 'aria-label': 'Events', children: EVENT_IDS.flatMap(id => id === 'ld' ? [ev(id), subs] : [ev(id)]) }),
     jsxs('div', { className: 'ldw-top-tools', children: [
+      jsxs('button', { type: 'button', id: 'ldw-start-link', className: 'ldw-toptool', 'aria-pressed': !!startOpen, onClick: () => (startOpen ? closeStart() : openStartHere()), children: [
+        jsx(StartIcon, {}), 'Start here'] }),
       coachable ? jsxs('button', { type: 'button', className: 'ldw-toptool', 'aria-pressed': coachOpen, onClick: () => $chatOpen.set(!coachOpen), children: [
         jsx(CoachIcon, {}), 'Coach'] }) : null,
       jsx('button', { type: 'button', className: 'ldw-toptool ldw-gear', 'aria-label': 'Settings', title: 'Settings',
@@ -1261,6 +1280,8 @@ function DebatePage() {
   const paint = useValue($paint)
   const frame = useRef(null)
   useEffect(() => { load(); loadHome() }, [])
+  const start = useValue($startHere)
+  useEffect(() => { if (start === null && home) $startHere.set(startHereOnOpen(home, api && api.storage)) }, [home, start])
   // While the page shows the kept copy (cache.js), everything under the header is inert: it looks the same and
   // reads the same, but nothing in it can be pressed or typed into until the fresh answer is on the page.
   useLayoutEffect(() => {
@@ -1274,7 +1295,8 @@ function DebatePage() {
   // The margin opens by itself only where the coach helps most (extemp prep, the Case Workbench), and
   // starts closed everywhere else; the header's Coach toggle opens or closes it on any floor.
   const place = `${event}/${event === 'ld' ? view : ''}/${spot || ''}`
-  useEffect(() => { $chatOpen.set(MARGIN_DEFAULT.has(spot)) }, [place])
+  // Under 1040 px the margin is a sheet over the page (styles.js breakpoints), so there it waits for the Coach toggle.
+  useEffect(() => { $chatOpen.set(MARGIN_DEFAULT.has(spot) && !(frame.current && frame.current.getBoundingClientRect().width < 1040)) }, [place])
   const open = coachable && chatOpen
   const bench = event === 'ld' && ldViewOf(view) === 'bench' && st && st.workbench
   useLdCoachContext(event)
@@ -1287,8 +1309,9 @@ function DebatePage() {
   else if (event === 'settings') body = jsx(SettingsView, {})
   else body = jsxs(Fragment, { children: [jsx(LdContext, {}), view === 'room' ? jsx(Room, {}) : view === 'fallacies' ? jsx(Fallacies, {}) : view === 'printbrief' ? jsx(PrintBriefing, {}) : view === 'print' ? jsx(PrintView, {}) : jsx(Bench, {})] })
   return jsx('div', { className: 'hk hk-page ldw', role: 'region', 'aria-label': 'Debate Workbench', children: jsxs('div', { className: 'ldw-frame', ref: frame, 'data-margin': marginState(open, compare), children: [
-    jsx(FrameHeader, { event, coachOpen: open, coachable }),
-    jsx('main', { className: 'ldw-inner', 'data-event': event, 'aria-busy': paint.stale ? 'true' : undefined, children: body }, `paint-${paint.epoch}`),
+    jsx(FrameHeader, { event, coachOpen: open, coachable, startOpen: !!start }),
+    jsx('main', { className: 'ldw-inner', 'data-event': event, 'aria-busy': paint.stale ? 'true' : undefined, children: start && ready
+      ? jsxs(Fragment, { children: [jsx(StartHere, { onGo: goFromStart, onClose: closeFromPanel, focus: start === 'focus' }), body] }) : body }, `paint-${paint.epoch}`),
     open ? jsx(Margin, { open, onToggle: () => $chatOpen.set(false), title: 'Coach',
       children: bench ? jsx(CoachPanel, { c: st.workbench.case }) : jsx(CoachChat, { floor: event }) }, `paint-${paint.epoch}`) : null,
   ] }) })
@@ -1562,7 +1585,10 @@ export default {
         { id: 'ld-workbench.extemp', contributionId: 'extemp', label: 'Debate: practice a 60-second answer', keywords: ['extemp', 'speech', 'speaking', 'headlines'], run: openEvent('extemp') },
         { id: 'ld-workbench.rhetoric', contributionId: 'rhetoric', label: 'Debate: rhetoric and figures of speech', keywords: ['rhetoric', 'anaphora', 'speech', 'figures'], run: openEvent('rhetoric') },
         { id: 'ld-workbench.ballots', contributionId: 'ballots', label: 'Debate: my ballots and patterns', keywords: ['ballot', 'judge', 'progress'], run: openEvent('ballots') },
+        { id: 'ld-workbench.start', contributionId: 'start', label: 'Debate: Start here', keywords: ['start', 'help', 'what is this', 'rooms'], run: () => { openStartHere(); host.navigate(ROUTE) } },
       ],
+      // No default key, so nothing of the app's is taken; the student picks one in Keyboard settings.
+      keybinds: [{ id: 'ld-workbench.speak', label: 'Debate: start or stop speaking', category: 'Debate', defaults: [], run: () => { toggleSpeaking() } }],
     })
     ctx.onDispose(() => { kept.stop(); setApi(null) })
   },

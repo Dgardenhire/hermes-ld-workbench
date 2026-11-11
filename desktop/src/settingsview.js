@@ -106,7 +106,7 @@ function CoachExamples({ on }) {
   return jsxs(Section, { title: 'Coach examples', children: [
     jsx(Choices, { label: 'Coach examples', value: on ? 'on' : 'off', onChange: pick, disabled: busy, options: [{ id: 'on', label: 'On' }, { id: 'off', label: 'Off' }] }),
     jsx('p', { className: 'ldw-set-line', children: on
-      ? "After the student tries first, the coach can show a strong version, marked as the coach's, with every citation, quote and number checked."
+      ? "After the student tries first, the coach can show a strong version, marked as the coach's. Its citations, quotes and numbers are checked against the student's file and words, and any that do not match are flagged."
       : 'The coach asks, explains and critiques, and writes nothing for you to say.' }),
     err ? jsx(Notice, { tone: 'bad', children: err }) : null,
   ] })

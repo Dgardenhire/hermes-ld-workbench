@@ -45,6 +45,16 @@ export function cardUp(limit, remaining) {
   return String(Math.ceil(remaining / 60))
 }
 
+// What a screen reader hears from the clock: one polite line at one minute left, 30 seconds and time, never
+// every second (the big clock itself stays aria-live off). Silent until the clock has run.
+export function timeSignal(limit, remaining, elapsed) {
+  if (!(elapsed > 0)) return ''
+  if (remaining <= 0) return 'Time'
+  if (remaining <= 30) return '30 seconds left'
+  if (remaining <= 60 && limit > 60) return 'One minute left'
+  return ''
+}
+
 export function Clock({ limit, elapsed = 0, live = false, label }) {
   const remaining = limit - elapsed
   const over = remaining < 0
@@ -60,6 +70,7 @@ export function Clock({ limit, elapsed = 0, live = false, label }) {
     jsx('div', { className: 'ldw-cards', 'aria-label': 'Time cards', children: cards.map(c => jsx('span', {
       className: cls('ldw-card', c.key === 'time' && 'ldw-card-time'), 'data-up': c.key === up ? '' : undefined,
       'aria-current': c.key === up ? 'true' : undefined, children: c.label }, c.key)) }),
+    jsx('span', { className: 'ldw-sr', role: 'status', 'aria-live': 'polite', 'aria-atomic': 'true', children: timeSignal(limit, remaining, elapsed) }),
   ] })
 }
 
@@ -350,7 +361,25 @@ export function LastTake({ take, limit, title, onChange, children, fastOk }) {
 /* ------------------------------------------------------------------ speaking -- */
 
 // The big start button with the recorder's states; "Type instead" when the mic will not do.
-export function SpeakControls({ rec, onTyped, startLabel = 'Start speaking', extra }) {
+// typedLabel names what the typed text goes to ("Use this" did not say it goes to the judge; scorecard T1).
+// The recorder on screen, for the Start or stop speaking keybind (Keyboard settings). The last one mounted wins.
+let activeRec = null
+export function toggleSpeaking() {
+  const rec = activeRec
+  if (!rec) return false
+  if (rec.state === 'live' || rec.state === 'armed') rec.stop()
+  else if (rec.state !== 'asking') rec.start()
+  return true
+}
+
+export function SpeakControls({ rec, onTyped, startLabel = 'Start speaking', extra, typedLabel = 'Use this' }) {
+  const recRef = useRef(rec)
+  recRef.current = rec
+  useEffect(() => {
+    const handle = { get state() { return recRef.current.state }, start: () => recRef.current.start(), stop: () => recRef.current.stop() }
+    activeRec = handle
+    return () => { if (activeRec === handle) activeRec = null }
+  }, [])
   const [typing, setTyping] = useState(false)
   const [text, setText] = useState('')
   const live = rec.state === 'live' || rec.state === 'armed'
@@ -367,7 +396,7 @@ export function SpeakControls({ rec, onTyped, startLabel = 'Start speaking', ext
       jsx(Textarea, { className: 'ldw-speechbox ldw-short', 'aria-label': 'Your speech, typed', value: text, onChange: e => setText(e.target.value) }),
       jsx('span', { className: 'ldw-meta', children: `${words(text)} words · about ${mmss(words(text) / 140 * 60)} aloud, estimated at 140 words a minute` }),
       jsxs('div', { className: 'hk-actions', children: [
-        jsx(Button, { size: 'sm', disabled: !words(text), onClick: () => { onTyped(text); setTyping(false); setText('') }, children: 'Use this' }),
+        jsx(Button, { size: 'sm', disabled: !words(text), onClick: () => { onTyped(text); setTyping(false); setText('') }, children: typedLabel }),
         jsx(Button, { size: 'sm', variant: 'secondary', onClick: () => setTyping(false), children: 'Cancel' }),
       ] }),
     ] }) : null,

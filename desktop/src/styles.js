@@ -17,6 +17,11 @@ export const FRAME_CSS = `
 /* On the light paper in dark mode, the accent darkens so links, marks and the playing word keep their contrast. */
 :root.dark .ldw .ldw-sheet{--hk-accent:color-mix(in srgb,var(--ui-accent,var(--dt-primary,#4a84fe)) 68%,#000)}
 :root.dark .ldw .ldw-sheet .hk-link{color:var(--hk-accent)}
+/* On that paper every word takes the paper's ink, not the app's light text (a 1.08:1 line on Nov 11), and the DRILL stamp darkens. */
+:root.dark .ldw .ldw-sheet,:root.dark .ldw .ldw-paper{--hk-ink:var(--ldw-paper-ink);--hk-bad-fill:color-mix(in srgb,var(--dt-destructive,#f85149) 60%,#000)}
+:root.dark .ldw .ldw-paper .ldw-stamp{color:var(--hk-bad-fill)}
+/* Links in the app's accent can sit just under 4.5:1 (4.34:1 in light, Nov 11); a little of the ink brings them over in either theme. */
+.ldw .hk-link{color:color-mix(in srgb,var(--hk-accent) 80%,var(--hk-ink))}
 .ldw-frame>.ldw-inner{padding:20px 28px 44px;gap:18px;max-width:1240px;box-sizing:border-box;width:100%}
 
 
@@ -210,6 +215,11 @@ export const FRAME_CSS = `
 .ldw-rounds{list-style:none;margin:0;padding:0;display:flex;gap:4px;flex-wrap:wrap}
 .ldw-round{display:flex;gap:4px;align-items:baseline;border:1px solid var(--hk-stroke-strong);border-radius:var(--ldw-r);padding:2px 7px;font-family:var(--hk-mono);font-size:12px}
 .ldw-round b{font-weight:800}
+.ldw-rounds>li{display:contents}
+.ldw-round-btn{all:unset;cursor:pointer;display:flex;gap:4px;align-items:baseline;border:1px solid var(--hk-stroke-strong);border-radius:var(--ldw-r);padding:4px 7px;min-height:24px;box-sizing:border-box;font-family:var(--hk-mono);font-size:12px;color:var(--hk-ink)}
+.ldw-round-btn:hover{background:var(--hk-hover)}
+.ldw-round-btn:focus-visible{outline:2px solid var(--hk-accent);outline-offset:2px}
+.ldw-drill-check{width:24px;height:24px;margin:0;flex:none;accent-color:var(--hk-accent);cursor:pointer}
 .ldw-round[data-hit]{border-color:var(--hk-bad-fill);box-shadow:inset 0 -3px 0 var(--hk-bad-fill)}
 .ldw-blist{list-style:none;margin:0;padding:0;display:grid;gap:0}
 .ldw-brow{display:grid;grid-template-columns:minmax(0,1fr) 320px;gap:20px;padding:12px 0;border-top:1px solid var(--hk-stroke);align-items:start}
@@ -217,7 +227,7 @@ export const FRAME_CSS = `
 .ldw-brow-top{display:flex;gap:12px;font-size:13px;flex-wrap:wrap}
 .ldw-brow-q{margin:0;font-family:var(--ldw-serif);font-size:15.5px}
 .ldw-brow-res{margin:0;font-size:13.5px}
-.ldw-brow-drill{display:flex;gap:8px;align-items:flex-start;font-size:13.5px;cursor:pointer}
+.ldw-brow-drill{display:flex;gap:8px;align-items:center;font-size:13.5px;cursor:pointer}
 .ldw-done>span{text-decoration:line-through}
 
 /* floors: nothing under 12px, anywhere on the page */
@@ -466,6 +476,23 @@ button.ldw-brow-main:focus-visible{outline:2px solid var(--hk-accent);outline-of
 .ldw-steps li span:not(.ldw-step-n){font-size:13.5px;line-height:1.45}
 .ldw-step-n{font-family:var(--ldw-cond);font-weight:700;font-size:22px;line-height:1;min-width:20px;color:color-mix(in srgb,var(--hk-accent) 86%,var(--hk-ink))}
 .ldw-levelrow{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.ldw-sr{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+.ldw-start{display:grid;gap:8px;max-width:1040px;padding:18px 22px 14px;border:1px solid var(--hk-stroke);border-radius:var(--ldw-r);background:var(--hk-surface)}
+.ldw-start-head{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.ldw-start-h{margin:0;font-family:var(--ldw-cond);font-weight:700;font-size:26px;line-height:1;text-transform:uppercase;letter-spacing:.03em;color:var(--hk-ink)}
+.ldw-start-h:focus{outline:none}
+.ldw-start-close{all:unset;cursor:pointer;display:grid;place-items:center;width:32px;height:32px;border-radius:var(--ldw-r);color:var(--hk-ink)}
+.ldw-start-close:hover{background:var(--hk-hover)}
+.ldw-start-close:focus-visible{outline:2px solid var(--hk-accent);outline-offset:2px}
+.ldw-start-lead{margin:0;font-size:17px;font-weight:600;line-height:1.4;max-width:62ch}
+.ldw-start-rooms{list-style:none;margin:6px 0 0;padding:0;display:grid}
+.ldw-start-room{display:grid;grid-template-columns:170px minmax(0,1fr) 180px;gap:6px 24px;align-items:center;padding:12px 0;border-top:1px solid var(--hk-stroke)}
+.ldw-start-name{margin:0;font-family:var(--ldw-cond);font-weight:700;font-size:19px;line-height:1.1;text-transform:uppercase;letter-spacing:.03em}
+.ldw-start-room[data-primary] .ldw-start-name{color:color-mix(in srgb,var(--hk-accent) 86%,var(--hk-ink))}
+.ldw-start-line{margin:0;font-size:14px;line-height:1.45;max-width:64ch}
+.ldw-start .ldw-start-go{justify-self:stretch;min-height:32px;font-size:13px}
+.ldw-start-ai{margin:0;padding-top:10px;border-top:1px solid var(--hk-stroke);font-size:13.5px}
+@container (max-width:760px){.ldw-start-room{grid-template-columns:1fr;gap:4px}.ldw-start .ldw-start-go{justify-self:start;margin-top:4px}}
 .ldw-sample{display:grid;gap:6px;max-width:1040px;padding-top:12px;border-top:1px solid var(--hk-stroke)}
 .ldw-sample-head{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap}
 .ldw-sample-head .ldw-promise{font-size:18px}

@@ -213,7 +213,7 @@ function Floor({ limit, label, jt, startLabel, extra }) {
   return jsxs(Fragment, { children: [
     !jt.ballot ? jsxs('div', { className: 'ldw-stage2', children: [
       jsx(Clock, { limit, elapsed: jt.recorder.elapsed, live, label }),
-      jsx(SpeakControls, { rec: jt.recorder, onTyped: text => jt.got({ typed: text }), startLabel, extra }),
+      jsx(SpeakControls, { rec: jt.recorder, onTyped: text => jt.got({ typed: text }), startLabel, extra, typedLabel: 'Judge my answer' }),
     ] }) : null,
     live ? jsx(LiveWave, { rec: jt.recorder, limit }) : null,
     jt.busy === 'sending' ? jsx(Thinking, { label: 'Saving your take' }) : null,

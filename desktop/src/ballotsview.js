@@ -16,15 +16,20 @@ function day(t) {
   return t ? new Date(t * 1000).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) : ''
 }
 
-function PatternRows({ group, label }) {
+// onOpen(at): a round chip opens that ballot in the list below (none on paper, where every sheet is open).
+function PatternRows({ group, label, onOpen }) {
   if (!group || !group.of) return null
   return jsxs('section', { className: 'ldw-patterns', 'aria-label': `${label} patterns`, children: [
     jsx('h3', { className: 'ldw-h2', children: `${label}: across your last ${group.of} ${group.of === 1 ? 'ballot' : 'ballots'}` }),
     group.patterns.length ? jsx('ul', { className: 'ldw-patlist', children: group.patterns.map(p => jsxs('li', { className: 'ldw-pat', children: [
       jsxs('div', { className: 'ldw-pat-text', children: [jsx('b', { children: p.text }), jsx('span', { children: `${p.count} of ${p.of}${p.measured ? ', measured from your recordings' : ''}` })] }),
-      jsx('ol', { className: 'ldw-rounds', 'aria-label': 'Rounds', children: p.rounds.map((r, i) => jsxs('li', { className: 'ldw-round', 'data-hit': r.hit ? '' : undefined,
-        title: r.hit ? 'Written on this ballot' : 'Not on this ballot', children: [jsx('span', { children: r.label }), r.result ? jsx('b', { children: r.result }) : null,
-          jsx('span', { className: 'hk-sr', children: r.hit ? ', written on this ballot' : ', not on this ballot' })] }, i)) }),
+      jsx('ol', { className: 'ldw-rounds', 'aria-label': 'Rounds', children: p.rounds.map((r, i) => {
+        const inner = [jsx('span', { children: r.label }, 'l'), r.result ? jsx('b', { children: r.result }, 'r') : null,
+          jsx('span', { className: 'hk-sr', children: `${r.hit ? ', written on this ballot' : ', not on this ballot'}${onOpen && r.at ? '. Open it' : ''}` }, 's')]
+        return jsx('li', { children: onOpen && r.at
+          ? jsx('button', { type: 'button', className: 'ldw-round ldw-round-btn', 'data-hit': r.hit ? '' : undefined, title: r.hit ? 'Written on this ballot. Open it' : 'Not on this ballot. Open it', onClick: () => onOpen(r.at), children: inner })
+          : jsx('span', { className: 'ldw-round', 'data-hit': r.hit ? '' : undefined, title: r.hit ? 'Written on this ballot' : 'Not on this ballot', children: inner }) }, i)
+      }) }),
     ] }, p.tag)) }) : jsx('p', { className: 'ldw-meta', children: group.of < 2 ? 'Patterns show once you have two ballots.' : 'Nothing has come up twice yet.' }),
   ] })
 }
@@ -56,7 +61,7 @@ function BallotRow({ b, onDone, open, onToggle }) {
   const drill = b.drill || (b.drills || [])[0]
   const pts = b.event === 'ld' ? (b.speaker_points || {}).student : b.points
   const m = b.measured && b.event !== 'ld' ? b.measured : null
-  return jsxs('li', { className: cls('ldw-brow', open && 'ldw-brow-open'), children: [
+  return jsxs('li', { id: `ldw-brow-${b.index}`, className: cls('ldw-brow', open && 'ldw-brow-open'), children: [
     jsxs('button', { type: 'button', className: 'ldw-brow-main', 'aria-expanded': open, onClick: onToggle, children: [
       jsxs('span', { className: 'ldw-brow-top', children: [jsx('b', { children: EVENTS[b.event] || 'Ballot' }), jsx('span', { children: day(b.at) }),
         b.round_no ? jsx('span', { children: `Round ${b.round_no}` }) : null, b.judge ? jsx('span', { children: b.judge }) : null,
@@ -67,7 +72,7 @@ function BallotRow({ b, onDone, open, onToggle }) {
       (b.tags || []).length || (b.measured_tags || []).length ? jsx('span', { className: 'ldw-meta', children: [...(b.tags || []), ...(b.measured_tags || [])].map(t => b.tag_text && b.tag_text[t] || t).join(' · ') }) : null,
     ] }),
     drill ? jsxs('label', { className: cls('ldw-brow-drill', b.drill_done && 'ldw-done'), children: [
-      jsx('input', { type: 'checkbox', 'aria-label': `Drill done: ${drill.name}`, checked: !!b.drill_done, onChange: e => onDone(b.index, e.target.checked, b.at) }),
+      jsx('input', { type: 'checkbox', className: 'ldw-drill-check', 'aria-label': `Drill done: ${drill.name}`, checked: !!b.drill_done, onChange: e => onDone(b.index, e.target.checked, b.at) }),
       jsxs('span', { children: [jsx('span', { className: 'ldw-stamp2 ldw-stamp-sm', children: 'Drill' }), ' ', drill.name] }),
     ] }) : null,
     open ? jsx('div', { className: 'ldw-brow-sheet', children: jsx(FullSheet, { b, open: true }) }) : null,
@@ -118,6 +123,12 @@ export function BallotsView() {
   const done = async (index, v, at) => {
     try { const out = await post(`ballots/${index}/drill`, { done: v, at }); setData({ ...data, ...out }) } catch (e) { setErr(errText(e)) }
   }
+  const openAt = at => {
+    const b = data && data.history.find(x => x.at === at)
+    if (!b) return
+    setOpen(b.index)
+    setTimeout(() => { const row = document.getElementById(`ldw-brow-${b.index}`); if (row) { row.scrollIntoView({ block: 'start' }); const btn = row.querySelector('.ldw-brow-main'); if (btn) btn.focus({ preventScroll: true }) } }, 0)
+  }
   if (err && !data) return jsx(Notice, { tone: 'bad', children: err })
   if (!data) return jsx(Thinking, { label: 'Opening your ballots' })
   const hist = [...data.history].reverse().map(b => ({ ...b, tag_text: data.tag_text }))
@@ -134,7 +145,7 @@ export function BallotsView() {
     ] }),
     msg ? jsx(Notice, { tone: msg.tone, children: msg.text, action: msg.path && api && api.os && typeof api.os.revealPath === 'function'
       ? jsx(Button, { size: 'sm', variant: 'secondary', onClick: () => api.os.revealPath(msg.path), children: 'Show the file' }) : null }) : null,
-    jsxs('div', { className: 'ldw-patgrid', children: [jsx(PatternRows, { group: data.patterns.ld, label: 'Lincoln-Douglas' }), jsx(PatternRows, { group: data.patterns.extemp, label: 'Extemp' })] }),
+    jsxs('div', { className: 'ldw-patgrid', children: [jsx(PatternRows, { group: data.patterns.ld, label: 'Lincoln-Douglas', onOpen: openAt }), jsx(PatternRows, { group: data.patterns.extemp, label: 'Extemp', onOpen: openAt })] }),
     jsx(Legend, {}),
     err ? jsx(Notice, { tone: 'bad', children: err }) : null,
     jsx('h3', { className: 'ldw-h2', children: `Every ballot · ${hist.length}` }),

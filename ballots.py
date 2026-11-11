@@ -187,7 +187,7 @@ def result_word(b):
 def patterns(items=None, window=WINDOW):
     """For each event, the tags written on two or more of the last ``window`` ballots.
 
-    Each pattern: {tag, text, count, of, rounds: [{label, hit, result}]}, most frequent first.
+    Each pattern: {tag, text, count, of, rounds: [{label, hit, result, at}]} (``at`` opens that ballot), most frequent first.
     Extemp and the 60-second drill are counted together: the same skills."""
     items = history() if items is None else items
     groups = {"ld": [b for b in items if b.get("event", "ld") == "ld"],
@@ -206,7 +206,7 @@ def patterns(items=None, window=WINDOW):
             rows.append({"tag": t, "text": tag_text(t), "count": n, "of": len(last), "measured": t in MEASURED_TAGS,
                          "rounds": [{"label": f"R{b.get('round_no') or i + 1}" if event == "ld" else f"#{i + 1}",
                                      "hit": t in (b.get("tags") or []) + (b.get("measured_tags") or []),
-                                     "result": result_word(b)} for i, b in enumerate(last)]})
+                                     "result": result_word(b), "at": b.get("at")} for i, b in enumerate(last)]})
         out[event] = {"of": len(last), "patterns": rows}
     return out
 

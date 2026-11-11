@@ -98,7 +98,7 @@ class Frame(unittest.TestCase):
         self.assertIn("export const MARGIN_DEFAULT = new Set(['extemp-prep', 'ld-bench'])", SRC["margin.js"])
         self.assertIn("useMarginSpot('extemp-prep')", SRC["extemp.js"])
         self.assertIn("useMarginSpot('ld-bench')", SRC["plugin.js"])
-        self.assertIn("useEffect(() => { $chatOpen.set(MARGIN_DEFAULT.has(spot)) }, [place])", SRC["plugin.js"])
+        self.assertIn("useEffect(() => { $chatOpen.set(MARGIN_DEFAULT.has(spot) && !(frame.current && frame.current.getBoundingClientRect().width < 1040)) }, [place])", SRC["plugin.js"])  # not as a sheet over a narrow page
 
 
 class FirstRun(unittest.TestCase):

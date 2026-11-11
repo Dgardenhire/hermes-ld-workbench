@@ -127,7 +127,13 @@ async function rest(path, options = {}) {
   if (path.startsWith('rhetoric/speech/')) return clone(SPEECHES[path.split('/').pop()])
   if (path === 'rhetoric/marks') return clone(MARKS)
   if (path === 'rhetoric/spot') return clone(FIGSPOT)
-  if (path === 'ballots') return clone(BALLOTS)
+  if (path === 'ballots') { // the capture predates each chip's "at" (ballots.patterns): add it the same way, last six per event
+    const b = clone(BALLOTS)
+    const of = ev => b.history.filter(h => (ev === 'ld' ? (h.event || 'ld') === 'ld' : ['extemp', 'drill'].includes(h.event)))
+    for (const ev of ['ld', 'extemp']) { const g = b.patterns[ev]; if (!g) continue; const last = of(ev).slice(-g.of)
+      for (const p of g.patterns) p.rounds.forEach((r, i) => { if (r.at === undefined && last[i]) r.at = last[i].at }) }
+    return b
+  }
   if (path === 'outlets') return { suggested: [], ...clone(OUTLETS), labels_checked: 'Nov 7, 2026', leans: ['Left', 'Lean Left', 'Center', 'Lean Right', 'Right'], sides: ['left', 'center', 'right'] }
   if (path === 'headlines/pull') return clone(PULL)
   if (path === 'extemp/draw') return clone(DRAW)
