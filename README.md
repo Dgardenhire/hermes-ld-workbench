@@ -10,7 +10,7 @@ The opponent, the judge and the coach are the AI model you already set up in Her
 
 ## What you need
 
-- Hermes Desktop, version 0.22.0 or newer.
+- Hermes Desktop, version 0.21.6 or newer.
 - A model already set up in Hermes. Debate Workbench uses it for the opponent, the judge and the coach.
 - A microphone, if you want to speak. Without one you can type everything.
 - For transcripts of what you say: the speech-to-text set up in Hermes (Hermes Settings, Voice). If that is not available, the workbench can use its own speech model after you approve a download of about 145 MB. With neither, a spoken take still gets real timing and pauses, and you can type what you said. Debate Workbench installs no speech software.

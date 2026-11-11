@@ -7,7 +7,7 @@ description: Practice speech and debate out loud. Lincoln-Douglas rounds against
 author: Damon Gardenhire
 license: MIT
 kind: standalone
-requires_hermes: ">=0.22.0"
+requires_hermes: ">=0.21.6"
 tags: [debate, speech, education, desktop]
 provides_tools: [debate_record, debate_today]
 provides_hooks: []
