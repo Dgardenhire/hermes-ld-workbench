@@ -409,8 +409,8 @@ class SpeechModelLocation(unittest.TestCase):
 
         def fake_run(argv, **kw):
             seen.update(argv=argv, **kw)
-            complete_model(Path(argv[-1]))
-            (Path(argv[-1]) / ".cache" / "huggingface").mkdir(parents=True)
+            complete_model(Path(argv[5]))
+            (Path(argv[5]) / ".cache" / "huggingface").mkdir(parents=True)
             return sp.CompletedProcess(argv, 0, "", "")
         old = speech.subprocess.run
         speech.subprocess.run = fake_run
@@ -425,7 +425,9 @@ class SpeechModelLocation(unittest.TestCase):
         self.assertEqual(seen["argv"][:3], [sys.executable, "-I", "-c"])
         self.assertEqual(seen["argv"][3], speech._DOWNLOAD_SCRIPT)
         self.assertIn("token=False", seen["argv"][3])
-        self.assertEqual(seen["argv"][4:], ["Systran/faster-whisper-base.en", str(models / ".base.en.part")])
+        self.assertEqual(seen["argv"][4:6], ["Systran/faster-whisper-base.en", str(models / ".base.en.part")])
+        # After those, only the folders this process imports huggingface_hub from (the child runs -I).
+        self.assertTrue(all(Path(p).is_dir() for p in seen["argv"][6:]))
         self.assertNotIn("shell", seen)
         env = seen["env"]
         for k in ("HF_HOME", "HF_HUB_CACHE", "HF_XET_CACHE"):
