@@ -26,12 +26,12 @@ docs_url: https://linchpin.studio/hermes/ld-workbench/manual/
 version: "0.2.0"
 image: "https://raw.githubusercontent.com/Dgardenhire/hermes-ld-workbench/SHA_PLACEHOLDER/docs/catalog/card.jpg"
 screenshots:
-  - "https://raw.githubusercontent.com/Dgardenhire/hermes-ld-workbench/SHA_PLACEHOLDER/docs/shots/catalog/first-open-sample.jpg"
-  - "https://raw.githubusercontent.com/Dgardenhire/hermes-ld-workbench/SHA_PLACEHOLDER/docs/shots/catalog/get-up-to-speed.jpg"
-  - "https://raw.githubusercontent.com/Dgardenhire/hermes-ld-workbench/SHA_PLACEHOLDER/docs/shots/catalog/take-2-and-ballot.jpg"
-  - "https://raw.githubusercontent.com/Dgardenhire/hermes-ld-workbench/SHA_PLACEHOLDER/docs/shots/catalog/ld-round.jpg"
-  - "https://raw.githubusercontent.com/Dgardenhire/hermes-ld-workbench/SHA_PLACEHOLDER/docs/shots/catalog/rhetoric-lesson.jpg"
-  - "https://raw.githubusercontent.com/Dgardenhire/hermes-ld-workbench/SHA_PLACEHOLDER/docs/shots/catalog/ballots-patterns.jpg"
+  - "https://raw.githubusercontent.com/Dgardenhire/hermes-ld-workbench/SHA_PLACEHOLDER/docs/shots/live/start-here.jpg"
+  - "https://raw.githubusercontent.com/Dgardenhire/hermes-ld-workbench/SHA_PLACEHOLDER/docs/shots/live/spoken-ballot.jpg"
+  - "https://raw.githubusercontent.com/Dgardenhire/hermes-ld-workbench/SHA_PLACEHOLDER/docs/shots/live/case-tools.jpg"
+  - "https://raw.githubusercontent.com/Dgardenhire/hermes-ld-workbench/SHA_PLACEHOLDER/docs/shots/live/rhetoric.jpg"
+  - "https://raw.githubusercontent.com/Dgardenhire/hermes-ld-workbench/SHA_PLACEHOLDER/docs/shots/live/ballots-patterns.jpg"
+  - "https://raw.githubusercontent.com/Dgardenhire/hermes-ld-workbench/SHA_PLACEHOLDER/docs/shots/live/ld-ballot.jpg"
 readme: true
 platforms: []
 known_issues:

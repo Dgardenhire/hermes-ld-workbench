@@ -6,7 +6,7 @@ You speak on a real clock. A judge writes a ballot that quotes three of your own
 
 The opponent, the judge and the coach are the AI model you already set up in Hermes. The coach asks questions and critiques first. After you try, it can show a strong answer, a strong opening or a draft for your case. Each one sits in a box labeled as the coach's, and a teacher can turn the examples off.
 
-![The first screen: a 60-second extemp question, the clock, and a sample ballot](docs/shots/catalog/first-open-sample.jpg)
+![Start here: the four rooms in plain words, over a 60-second Extemp question and its clock](docs/shots/live/start-here.jpg)
 
 ## What you need
 
