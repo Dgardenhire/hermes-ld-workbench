@@ -16,19 +16,37 @@ function day(t) {
   return t ? new Date(t * 1000).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) : ''
 }
 
+// A chip's plain words: "R1" with "L" is "Round 1: loss"; "#2" with "Answered" is "Speech 2: answered the question".
+const RESULT_WORDS = { W: 'win', L: 'loss', Answered: 'answered the question', Partly: 'partly answered', Missed: 'did not answer' }
+export function chipWords(r) {
+  const label = String(r.label || '')
+  const name = label.startsWith('R') ? `Round ${label.slice(1)}` : label.startsWith('#') ? `Speech ${label.slice(1)}` : label
+  return RESULT_WORDS[r.result] ? `${name}: ${RESULT_WORDS[r.result]}` : name
+}
+
+// Which way a pattern is going, counted in ballots.py from every ballot kept: "Fewer now: 4 of your first 4
+// ballots, 1 of your last 4".
+export function trendLine(t) {
+  if (!t) return ''
+  const head = { fewer: 'Fewer now', more: 'More now', same: 'About the same' }[t.direction]
+  return `${head}: ${t.first} of your first ${t.n} ballots, ${t.last} of your last ${t.n}`
+}
+
 // onOpen(at): a round chip opens that ballot in the list below (none on paper, where every sheet is open).
 function PatternRows({ group, label, onOpen }) {
   if (!group || !group.of) return null
   return jsxs('section', { className: 'ldw-patterns', 'aria-label': `${label} patterns`, children: [
     jsx('h3', { className: 'ldw-h2', children: `${label}: across your last ${group.of} ${group.of === 1 ? 'ballot' : 'ballots'}` }),
     group.patterns.length ? jsx('ul', { className: 'ldw-patlist', children: group.patterns.map(p => jsxs('li', { className: 'ldw-pat', children: [
-      jsxs('div', { className: 'ldw-pat-text', children: [jsx('b', { children: p.text }), jsx('span', { children: `${p.count} of ${p.of}${p.measured ? ', measured from your recordings' : ''}` })] }),
+      jsxs('div', { className: 'ldw-pat-text', children: [jsx('b', { children: p.text }), jsx('span', { children: `${p.count} of ${p.of}${p.measured ? ', measured from your recordings' : ''}` }),
+        p.trend ? jsx('span', { className: 'ldw-pat-trend', 'data-dir': p.trend.direction, children: trendLine(p.trend) }) : null] }),
       jsx('ol', { className: 'ldw-rounds', 'aria-label': 'Rounds', children: p.rounds.map((r, i) => {
         const inner = [jsx('span', { children: r.label }, 'l'), r.result ? jsx('b', { children: r.result }, 'r') : null,
-          jsx('span', { className: 'hk-sr', children: `${r.hit ? ', written on this ballot' : ', not on this ballot'}${onOpen && r.at ? '. Open it' : ''}` }, 's')]
+          jsx('span', { className: 'hk-sr', children: `, ${chipWords(r)}${r.hit ? ', the judge wrote this on that ballot' : ', not on that ballot'}${onOpen && r.at ? '. Open it' : ''}` }, 's')]
+        const tip = `${chipWords(r)}. ${r.hit ? 'The judge wrote this on that ballot.' : 'Not on that ballot.'}`
         return jsx('li', { children: onOpen && r.at
-          ? jsx('button', { type: 'button', className: 'ldw-round ldw-round-btn', 'data-hit': r.hit ? '' : undefined, title: r.hit ? 'Written on this ballot. Open it' : 'Not on this ballot. Open it', onClick: () => onOpen(r.at), children: inner })
-          : jsx('span', { className: 'ldw-round', 'data-hit': r.hit ? '' : undefined, title: r.hit ? 'Written on this ballot' : 'Not on this ballot', children: inner }) }, i)
+          ? jsx('button', { type: 'button', className: 'ldw-round ldw-round-btn', 'data-hit': r.hit ? '' : undefined, title: `${tip} Open it`, onClick: () => onOpen(r.at), children: inner })
+          : jsx('span', { className: 'ldw-round', 'data-hit': r.hit ? '' : undefined, title: tip, children: inner }) }, i)
       }) }),
     ] }, p.tag)) }) : jsx('p', { className: 'ldw-meta', children: group.of < 2 ? 'Patterns show once you have two ballots.' : 'Nothing has come up twice yet.' }),
   ] })
@@ -38,9 +56,9 @@ function PatternRows({ group, label, onOpen }) {
 function Legend() {
   const chip = (label, result, hit) => jsxs('span', { className: 'ldw-round', 'data-hit': hit ? '' : undefined, 'aria-hidden': 'true', children: [jsx('span', { children: label }), jsx('b', { children: result })] })
   return jsxs('p', { className: 'ldw-legend', children: [
-    jsxs('span', { className: 'ldw-legend-item', children: [chip('R1', 'L', true), 'The judge wrote it on that ballot']}),
-    jsxs('span', { className: 'ldw-legend-item', children: [chip('R2', 'W', false), 'Not on that ballot']}),
-    jsx('span', { children: 'R is a Lincoln-Douglas round and # an extemp speech or 60-second answer; W and L are won and lost.' }),
+    jsxs('span', { className: 'ldw-legend-item', children: [chip('R1', 'L', true), 'Dark border: the judge wrote this on that ballot']}),
+    jsxs('span', { className: 'ldw-legend-item', children: [chip('R2', 'W', false), 'Thin border: not on that ballot']}),
+    jsx('span', { children: 'R1 L means Round 1, a loss, and R2 W means Round 2, a win. #1 is your first extemp speech or 60-second answer, marked Answered, Partly or Missed.' }),
   ] })
 }
 

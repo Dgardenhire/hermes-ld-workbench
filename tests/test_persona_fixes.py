@@ -213,7 +213,7 @@ class CoachBallots(unittest.TestCase):
         b = SRC["ballotsview.js"]
         self.assertIn("jsxs('button', { type: 'button', className: 'ldw-brow-main', 'aria-expanded': open", b)
         self.assertIn("open ? jsx('div', { className: 'ldw-brow-sheet', children: jsx(FullSheet", b)
-        self.assertIn("The judge wrote it on that ballot", b)  # on the page, not only in a tooltip
+        self.assertIn("Dark border: the judge wrote this on that ballot", b)  # on the page, not only in a tooltip
         self.assertIn("'Print ballots'", b)
         self.assertIn("post('ballots/export'", b)
         self.assertIn("jsx('h1', { className: 'ldw-set-h1', children: 'Ballots' })", b)

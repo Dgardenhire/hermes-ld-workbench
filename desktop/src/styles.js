@@ -221,7 +221,9 @@ export const FRAME_CSS = `
 .ldw-round-btn:hover{background:var(--hk-hover)}
 .ldw-round-btn:focus-visible{outline:2px solid var(--hk-accent);outline-offset:2px}
 .ldw-drill-check{width:24px;height:24px;margin:0;flex:none;accent-color:var(--hk-accent);cursor:pointer}
-.ldw-round[data-hit]{border-color:var(--hk-bad-fill);box-shadow:inset 0 -3px 0 var(--hk-bad-fill)}
+.ldw-round[data-hit]{border:2px solid var(--hk-ink);padding:1px 6px;background:color-mix(in srgb,var(--hk-ink) 12%,transparent)}
+.ldw-round-btn[data-hit]{padding:3px 6px}
+.ldw-pat-trend{font-weight:600}
 .ldw-blist{list-style:none;margin:0;padding:0;display:grid;gap:0}
 .ldw-brow{display:grid;grid-template-columns:minmax(0,1fr) 320px;gap:20px;padding:12px 0;border-top:1px solid var(--hk-stroke);align-items:start}
 .ldw-brow-main{display:grid;gap:3px}
@@ -362,7 +364,7 @@ button.ldw-brow-main:focus-visible{outline:2px solid var(--hk-accent);outline-of
 .ldw-brow-sheet .ldw-sheet{max-width:900px}
 .ldw-print-ballots{display:grid;gap:18px}
 .ldw-print-sheet{display:grid;gap:8px;break-inside:avoid}
-@media print{.ldw-print-ballots .ldw-noprint{display:none !important}.ldw-print-sheet{break-inside:avoid;page-break-inside:avoid}
+@media print{.ldw-print-ballots .ldw-noprint{display:none !important}.ldw-round[data-hit]{background:none;border-color:#000}.ldw-print-sheet{break-inside:avoid;page-break-inside:avoid}
   .ldw-print-ballots .ldw-sheet{animation:none;box-shadow:none}.ldw-print-ballots h2,.ldw-print-ballots h3{break-after:avoid}.ldw-print-ballots p,.ldw-print-ballots li{orphans:3;widows:3}}
 /* The coach: its own box for everything it writes, dashed like an insert pinned to the page, with a label that
    says whose words they are; the chat beside the floor. */

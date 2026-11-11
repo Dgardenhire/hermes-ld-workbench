@@ -54,3 +54,35 @@ class PlainWords(unittest.TestCase):
               "console.log(JSON.stringify(['AC 6:00', 'CX2', 'CX 3:00', '2AR 3:00', 'Criterion', 'Prep 30:00'].map(x => !!t(x))))")
         out = subprocess.run([node, "-e", js, str(ROOT / "desktop" / "src" / "terms.js")], capture_output=True, text=True, timeout=30)
         self.assertEqual(out.stdout.strip(), "[true,true,true,true,true,false]", out.stderr)
+
+
+class Direction(unittest.TestCase):
+    def test_trend_counts_first_and_last_ballots(self):
+        hist = [{"event": "extemp", "answered": "partly", "tags": ["no-sources"]}] * 4 + \
+               [{"event": "extemp", "answered": "yes", "tags": []}] * 3 + [{"event": "extemp", "answered": "yes", "tags": ["no-sources"]}]
+        row = next(p for p in ballots.patterns(hist)["extemp"]["patterns"] if p["tag"] == "no-sources")
+        self.assertEqual(row["trend"], {"first": 4, "last": 1, "n": 4, "direction": "fewer"})
+        self.assertEqual(ballots.trend_text(row["trend"]), "Fewer now: 4 of your first 4 ballots, 1 of your last 4")
+        self.assertIn("Fewer now: 4 of your first 4 ballots, 1 of your last 4", ballots.as_text(hist))
+
+    def test_no_trend_until_four_ballots_and_never_overlapping(self):
+        two = [{"event": "ld", "round_no": i, "decision": "neg", "side": "aff", "tags": ["no-voters"]} for i in (1, 2)]
+        self.assertIsNone(ballots.patterns(two)["ld"]["patterns"][0]["trend"])
+        five = two + [{"event": "ld", "round_no": i, "decision": "aff", "side": "aff", "tags": ["no-voters"] if i == 5 else []} for i in (3, 4, 5)]
+        t = ballots.patterns(five)["ld"]["patterns"][0]["trend"]
+        self.assertEqual((t["n"], t["first"], t["last"], t["direction"]), (2, 2, 1, "fewer"))
+        self.assertEqual(ballots.trend([{"tags": ["x"]}] * 5 + [{"tags": []}] * 5, "no-voters"), {"first": 0, "last": 0, "n": 4, "direction": "same"})
+
+    def test_ballots_page_shows_direction_plain_chips_and_a_neutral_mark(self):
+        src = SRC["ballotsview.js"]
+        self.assertIn("trendLine(p.trend)", src)
+        self.assertIn("R1 L means Round 1, a loss, and R2 W means Round 2, a win.", src)
+        self.assertIn("Dark border: the judge wrote this on that ballot", src)
+        css = SRC["styles.js"]
+        hit = re.search(r"\.ldw-round\[data-hit\]\{([^}]*)\}", css).group(1)
+        self.assertNotIn("bad", hit)  # the judge's mark is not an error colour
+        self.assertIn("var(--hk-ink)", hit)
+        # the page's line matches the coach's text copy word for word
+        t = {"first": 4, "last": 1, "n": 4, "direction": "fewer"}
+        self.assertIn("`${head}: ${t.first} of your first ${t.n} ballots, ${t.last} of your last ${t.n}`", src)
+        self.assertEqual(ballots.trend_text(t), "Fewer now: 4 of your first 4 ballots, 1 of your last 4")

@@ -195,10 +195,34 @@ def result_word(b):
     return {"yes": "Answered", "partly": "Partly", "no": "Missed"}.get(b.get("answered"), "")
 
 
+TREND_SPAN = 4
+
+
+def trend(bs, tag, span=TREND_SPAN):
+    """Which way a pattern is going, counted from every stored ballot of the event: how many of the first ``n``
+    and of the last ``n`` carry the tag, ``n`` up to ``span`` and never overlapping (four ballots or more).
+    {first, last, n, direction: fewer|more|same}, or None with too few ballots to compare."""
+    n = min(span, len(bs) // 2)
+    if n < 2:
+        return None
+    first = sum(tag in kept_tags(b) for b in bs[:n])
+    last = sum(tag in kept_tags(b) for b in bs[-n:])
+    return {"first": first, "last": last, "n": n, "direction": "fewer" if last < first else "more" if last > first else "same"}
+
+
+def trend_text(t):
+    """The trend as one plain line: "Fewer now: 4 of your first 4 ballots, 1 of your last 4"."""
+    if not t:
+        return ""
+    head = {"fewer": "Fewer now", "more": "More now", "same": "About the same"}[t["direction"]]
+    return f"{head}: {t['first']} of your first {t['n']} ballots, {t['last']} of your last {t['n']}"
+
+
 def patterns(items=None, window=WINDOW):
     """For each event, the tags written on two or more of the last ``window`` ballots.
 
-    Each pattern: {tag, text, count, of, rounds: [{label, hit, result, at}]} (``at`` opens that ballot), most frequent first.
+    Each pattern: {tag, text, count, of, trend, rounds: [{label, hit, result, at}]} (``at`` opens that ballot), most
+    frequent first. ``trend`` compares the first and last ballots ever kept for the event (see ``trend``).
     Extemp and the 60-second drill are counted together: the same skills."""
     items = history() if items is None else items
     groups = {"ld": [b for b in items if b.get("event", "ld") == "ld"],
@@ -215,6 +239,7 @@ def patterns(items=None, window=WINDOW):
             if n < 2:
                 continue
             rows.append({"tag": t, "text": tag_text(t), "count": n, "of": len(last), "measured": t in MEASURED_TAGS,
+                         "trend": trend(bs, t),
                          "rounds": [{"label": f"R{b.get('round_no') or i + 1}" if event == "ld" else f"#{i + 1}",
                                      "hit": t in kept_tags(b),
                                      "result": result_word(b), "at": b.get("at")} for i, b in enumerate(last)]})
@@ -295,7 +320,7 @@ def as_text(items=None, student=""):
         g = pats.get(key) or {}
         if g.get("patterns"):
             out.append(f"PATTERNS, {label}, across the last {g['of']} ballots (counted, not guessed)")
-            out += [f"- {p['text']}: {p['count']} of {p['of']}" for p in g["patterns"]]
+            out += [f"- {p['text']}: {p['count']} of {p['of']}" + (f". {trend_text(p['trend'])}" if p.get("trend") else "") for p in g["patterns"]]
             out.append("")
     for n, b in enumerate(reversed(items), 1):
         ev = EVENT_NAMES.get(b.get("event", "ld"), "Ballot")

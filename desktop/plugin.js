@@ -5699,19 +5699,35 @@ var EVENTS = { ld: "Lincoln-Douglas", extemp: "Extemp", drill: "60-second answer
 function day(t) {
   return t ? new Date(t * 1e3).toLocaleDateString(void 0, { month: "short", day: "numeric" }) : "";
 }
+var RESULT_WORDS = { W: "win", L: "loss", Answered: "answered the question", Partly: "partly answered", Missed: "did not answer" };
+function chipWords(r) {
+  const label = String(r.label || "");
+  const name = label.startsWith("R") ? `Round ${label.slice(1)}` : label.startsWith("#") ? `Speech ${label.slice(1)}` : label;
+  return RESULT_WORDS[r.result] ? `${name}: ${RESULT_WORDS[r.result]}` : name;
+}
+function trendLine(t) {
+  if (!t) return "";
+  const head = { fewer: "Fewer now", more: "More now", same: "About the same" }[t.direction];
+  return `${head}: ${t.first} of your first ${t.n} ballots, ${t.last} of your last ${t.n}`;
+}
 function PatternRows({ group, label, onOpen }) {
   if (!group || !group.of) return null;
   return jsxs12("section", { className: "ldw-patterns", "aria-label": `${label} patterns`, children: [
     jsx13("h3", { className: "ldw-h2", children: `${label}: across your last ${group.of} ${group.of === 1 ? "ballot" : "ballots"}` }),
     group.patterns.length ? jsx13("ul", { className: "ldw-patlist", children: group.patterns.map((p) => jsxs12("li", { className: "ldw-pat", children: [
-      jsxs12("div", { className: "ldw-pat-text", children: [jsx13("b", { children: p.text }), jsx13("span", { children: `${p.count} of ${p.of}${p.measured ? ", measured from your recordings" : ""}` })] }),
+      jsxs12("div", { className: "ldw-pat-text", children: [
+        jsx13("b", { children: p.text }),
+        jsx13("span", { children: `${p.count} of ${p.of}${p.measured ? ", measured from your recordings" : ""}` }),
+        p.trend ? jsx13("span", { className: "ldw-pat-trend", "data-dir": p.trend.direction, children: trendLine(p.trend) }) : null
+      ] }),
       jsx13("ol", { className: "ldw-rounds", "aria-label": "Rounds", children: p.rounds.map((r, i) => {
         const inner = [
           jsx13("span", { children: r.label }, "l"),
           r.result ? jsx13("b", { children: r.result }, "r") : null,
-          jsx13("span", { className: "hk-sr", children: `${r.hit ? ", written on this ballot" : ", not on this ballot"}${onOpen && r.at ? ". Open it" : ""}` }, "s")
+          jsx13("span", { className: "hk-sr", children: `, ${chipWords(r)}${r.hit ? ", the judge wrote this on that ballot" : ", not on that ballot"}${onOpen && r.at ? ". Open it" : ""}` }, "s")
         ];
-        return jsx13("li", { children: onOpen && r.at ? jsx13("button", { type: "button", className: "ldw-round ldw-round-btn", "data-hit": r.hit ? "" : void 0, title: r.hit ? "Written on this ballot. Open it" : "Not on this ballot. Open it", onClick: () => onOpen(r.at), children: inner }) : jsx13("span", { className: "ldw-round", "data-hit": r.hit ? "" : void 0, title: r.hit ? "Written on this ballot" : "Not on this ballot", children: inner }) }, i);
+        const tip = `${chipWords(r)}. ${r.hit ? "The judge wrote this on that ballot." : "Not on that ballot."}`;
+        return jsx13("li", { children: onOpen && r.at ? jsx13("button", { type: "button", className: "ldw-round ldw-round-btn", "data-hit": r.hit ? "" : void 0, title: `${tip} Open it`, onClick: () => onOpen(r.at), children: inner }) : jsx13("span", { className: "ldw-round", "data-hit": r.hit ? "" : void 0, title: tip, children: inner }) }, i);
       }) })
     ] }, p.tag)) }) : jsx13("p", { className: "ldw-meta", children: group.of < 2 ? "Patterns show once you have two ballots." : "Nothing has come up twice yet." })
   ] });
@@ -5719,9 +5735,9 @@ function PatternRows({ group, label, onOpen }) {
 function Legend() {
   const chip = (label, result, hit) => jsxs12("span", { className: "ldw-round", "data-hit": hit ? "" : void 0, "aria-hidden": "true", children: [jsx13("span", { children: label }), jsx13("b", { children: result })] });
   return jsxs12("p", { className: "ldw-legend", children: [
-    jsxs12("span", { className: "ldw-legend-item", children: [chip("R1", "L", true), "The judge wrote it on that ballot"] }),
-    jsxs12("span", { className: "ldw-legend-item", children: [chip("R2", "W", false), "Not on that ballot"] }),
-    jsx13("span", { children: "R is a Lincoln-Douglas round and # an extemp speech or 60-second answer; W and L are won and lost." })
+    jsxs12("span", { className: "ldw-legend-item", children: [chip("R1", "L", true), "Dark border: the judge wrote this on that ballot"] }),
+    jsxs12("span", { className: "ldw-legend-item", children: [chip("R2", "W", false), "Thin border: not on that ballot"] }),
+    jsx13("span", { children: "R1 L means Round 1, a loss, and R2 W means Round 2, a win. #1 is your first extemp speech or 60-second answer, marked Answered, Partly or Missed." })
   ] });
 }
 function resultOf(b) {
@@ -6244,7 +6260,9 @@ var FRAME_CSS = `
 .ldw-round-btn:hover{background:var(--hk-hover)}
 .ldw-round-btn:focus-visible{outline:2px solid var(--hk-accent);outline-offset:2px}
 .ldw-drill-check{width:24px;height:24px;margin:0;flex:none;accent-color:var(--hk-accent);cursor:pointer}
-.ldw-round[data-hit]{border-color:var(--hk-bad-fill);box-shadow:inset 0 -3px 0 var(--hk-bad-fill)}
+.ldw-round[data-hit]{border:2px solid var(--hk-ink);padding:1px 6px;background:color-mix(in srgb,var(--hk-ink) 12%,transparent)}
+.ldw-round-btn[data-hit]{padding:3px 6px}
+.ldw-pat-trend{font-weight:600}
 .ldw-blist{list-style:none;margin:0;padding:0;display:grid;gap:0}
 .ldw-brow{display:grid;grid-template-columns:minmax(0,1fr) 320px;gap:20px;padding:12px 0;border-top:1px solid var(--hk-stroke);align-items:start}
 .ldw-brow-main{display:grid;gap:3px}
@@ -6385,7 +6403,7 @@ button.ldw-brow-main:focus-visible{outline:2px solid var(--hk-accent);outline-of
 .ldw-brow-sheet .ldw-sheet{max-width:900px}
 .ldw-print-ballots{display:grid;gap:18px}
 .ldw-print-sheet{display:grid;gap:8px;break-inside:avoid}
-@media print{.ldw-print-ballots .ldw-noprint{display:none !important}.ldw-print-sheet{break-inside:avoid;page-break-inside:avoid}
+@media print{.ldw-print-ballots .ldw-noprint{display:none !important}.ldw-round[data-hit]{background:none;border-color:#000}.ldw-print-sheet{break-inside:avoid;page-break-inside:avoid}
   .ldw-print-ballots .ldw-sheet{animation:none;box-shadow:none}.ldw-print-ballots h2,.ldw-print-ballots h3{break-after:avoid}.ldw-print-ballots p,.ldw-print-ballots li{orphans:3;widows:3}}
 /* The coach: its own box for everything it writes, dashed like an insert pinned to the page, with a label that
    says whose words they are; the chat beside the floor. */
