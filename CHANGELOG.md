@@ -2,7 +2,7 @@
 
 ## 0.2.0 (November 2026)
 
-### Start here, and a pass against the release rubric (Nov 11, 2026)
+### Start here and a round of fixes (Nov 11, 2026)
 
 - **Start here.** The first open shows a panel naming the four rooms (Extemp, Lincoln-Douglas, Rhetoric, Ballots) in one line each, with a button into each; Lincoln-Douglas opens on Case. It says once that the judge and the coach are an AI on the model you chose in Hermes. Close it and it stays closed; **Start here** beside Coach, or the palette command Debate: Start here, opens it again.
 - **Readable on paper in dark mode.** On the dark-theme paper ballot, "The coach finds the weakest moment and redoes it." was nearly invisible (1.08:1). Every line on the paper now takes the paper's ink, and the DRILL stamps darken to stay readable.
@@ -15,7 +15,7 @@
 - **Settings** no longer says "with every citation, quote and number checked"; it says what is checked and that anything not found is flagged.
 - **Every Case tool in view.** Each section of the Case shows all its tools as buttons, the main one highlighted, then the coach's suggestions. The More menu is gone; Strengthen this card is a button under its section like the rest.
 - **The next step on a waiting take.** A recorded take waiting for your OK to send opens with "One step left: send it for a ballot" and the Transcribe now button above the recording. It used to sit small under the waveform, styled like a problem, and read as stuck.
-- **The speech model downloads inside Hermes.** The first Transcribe now downloads the workbench's small speech model (about 141 MB, once). Inside Hermes that download always failed and said to check the internet connection; it now works. Live check, Nov 11: a spoken 60-second answer was transcribed on the computer and judged. Tests added.
+- **The speech model downloads inside Hermes.** The first Transcribe now downloads the workbench's small speech model (about 145 MB, once). Inside Hermes that download always failed and said to check the internet connection; it now works.
 - **Why a take wasn't transcribed.** With Hermes set to Local speech-to-text but its Whisper add-on not installed, a take only said it was unavailable. It now gives the one install command, the cloud choice in Hermes Settings and typing what you said.
 - **Round page counts Lincoln-Douglas ballots only.** Extemp and drill ballots share the history, so one showed on the Round page as a Lincoln-Douglas ballot reading "Decided on undefined". The count and the last ballot card now cover Lincoln-Douglas rounds only, and the card no longer prints a missing speech name.
 - **Manual** in the top row, beside Coach, opens the manual on linchpin.studio in your browser.
@@ -30,7 +30,7 @@ Lincoln-Douglas now opens on Case, then Round, then Fallacies: you build the cas
 
 ### Filed sources named (Nov 10, 2026)
 
-A live run gave "Sources named 0" to a typed answer that named the Congressional Budget Office aloud. The count covers only sources in your extemp file, so the ballot now says **Filed sources named**, and the judge is told that a source you name that is not in your file still counts.
+A typed answer that named the Congressional Budget Office aloud was shown "Sources named 0". The count covers only sources in your extemp file, so the ballot now says **Filed sources named**, and the judge is told that a source you name that is not in your file still counts.
 
 ### Opens at once (Nov 10, 2026)
 
@@ -67,22 +67,22 @@ Debate Workbench now covers three events and listens to you speak.
 - **Lincoln-Douglas, spoken.** Speak any of your speeches in the practice round; the transcript replaces the typed draft (you can bring the draft back) and the real time replaces the estimate. Hear it: the opponent's speech read aloud by the voice you set up in Hermes.
 - **Settings.** Which speech-to-text makes your transcripts (and the workbench's own model, when it is used), Delete all recordings, Delete transcripts and ballots (each with a confirm), the outlet editor, and what leaves your computer, worded for the speech-to-text Hermes uses.
 
-### Security (audit, Nov 8, 2026; see docs/SECURITY-AUDIT.md)
+### Security (Nov 8, 2026)
 
 - A new recording never downloads the speech model. When the model is not on the computer yet, the take says how big it is and waits; Transcribe now is the only thing that downloads it.
 - Feeds and Word files with a DTD are refused wherever the DTD sits and in any encoding, so no entity can expand.
 - Web pages and headlines sent to the model can no longer close the block they are quoted in.
 
-### After the audit (Nov 8, 2026)
+### More fixes (Nov 8, 2026)
 
 - **Hermes's own transcription first.** The backend calls Hermes's `tools.voice_mode.transcribe_recording` (the function behind Hermes's voice input) with the take converted to 16 kHz mono WAV, in the requesting profile's scope, with Hermes's hallucination filter. It is a private Hermes import, guarded and disclosed; if a release moves it, transcripts fall back instead of breaking.
-- **Speech model location (must-fix before release).** The workbench's own model is found and saved in `plugin-data/ld-workbench/models/`, downloaded in a separate Python with its own Hugging Face home, so a shared cache that links to an unmounted drive no longer breaks the first transcript. The shared cache is only read. An unwritable folder or a failed download is said plainly; timing and pauses stay.
-- **Delete transcripts and ballots** in Settings (audit F-6), with a confirm.
-- **Figure definitions.** All 42 figures the workbench shares with The Clearing now carry The Clearing's definitions word for word (its figure list at main 0722112), including rhyme, versification, antithesis, paradox and personification. The examples stay the workbench's own public-domain lines.
+- **Speech model location.** The workbench's own model is found and saved in `plugin-data/ld-workbench/models/`, downloaded in a separate Python with its own Hugging Face home, so a shared cache that links to an unmounted drive no longer breaks the first transcript. The shared cache is only read. An unwritable folder or a failed download is said plainly; timing and pauses stay.
+- **Delete transcripts and ballots** in Settings, with a confirm.
+- **Figure definitions.** All 42 figures the workbench shares with The Clearing now carry The Clearing's definitions word for word, including rhyme, versification, antithesis, paradox and personification. The examples stay the workbench's own public-domain lines.
 
-### After the persona test (Nov 8, 2026)
+### Fixes for three kinds of user (Nov 8, 2026)
 
-Three personas (a first-year extemper, a volunteer coach, a varsity Lincoln-Douglas debater) used 0.2 and ranked 14 fixes. These are built:
+What got in the way for a first-year extemper, a volunteer coach and a varsity Lincoln-Douglas debater, each fixed:
 
 - **Write your own question, everywhere.** The 60-second answer and Openings have **Write your own** and a **Question list** under the question; the full round always offers **Or prep a question of your own**, not only when the draw fails. A coach can add this week's questions and turn on **Ask only my questions**.
 - **A bigger question pool that rotates.** 52 built-in 60-second questions, United States and International, across the economy, the courts, Congress, elections, foreign policy and every region, worded to be low-partisan. The floor opens on a different question each visit (a fresh profile opens on the Federal Reserve one). Any built-in question can be hidden and brought back. The chosen question stays when you switch between 60-second answer, Openings and the full round.
@@ -92,7 +92,7 @@ Three personas (a first-year extemper, a volunteer coach, a varsity Lincoln-Doug
 - **Ballots a coach can use.** A page heading; any ballot opens to its full sheet with the reason for decision; a key for the outlined round chips on the page; **Print ballots** (every sheet, open) and **Save as a file for your coach** (one text file of every ballot and the patterns).
 - **The flow beside the clock.** In your speeches after the opponent has spoken (the 1AR, the 2AR, the NC and the NR), the flow so far sits beside the clock. **Hide the flow** puts it away for the round.
 - **Pace by the judge you chose.** Over 175 words a minute is no longer marked as a problem in front of a flow judge or the new **Circuit judge** (fine with speed; evaluates theory, kritiks, plans and counterplans if they are run).
-- **On-topic headlines only.** A pull keeps only headlines that name the topic (or a known short name, like "Fed" for the Federal Reserve). The off-topic stories in the Nov 7 capture are gone; an outlet with nothing on the topic says so. Pulls cached before this are filtered the same way.
+- **On-topic headlines only.** A pull keeps only headlines that name the topic (or a known short name, like "Fed" for the Federal Reserve). Off-topic stories are gone; an outlet with nothing on the topic says so. Pulls cached before this are filtered the same way.
 - **Narrow windows.** At 1024 x 720 the Lincoln-Douglas strip stays on one row, drawn to scale, and **Speak your 1AR** sits beside the clock, above the fold.
 - **Choices you can see.** Every pick-one control (opponent, judge, area, prep rules, transcript model, extemp mode, side, speed) shows the picked option with an accent outline, a check and bold text.
 - The rail says which extemp mode you are in.

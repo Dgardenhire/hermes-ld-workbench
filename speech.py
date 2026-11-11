@@ -655,10 +655,35 @@ LOCAL_NOT_INSTALLED = ("Your Hermes is set to Local speech-to-text, but its Whis
                        "Speech to text. Or type what you said.")
 
 
+# Hermes has no public speech-to-text call for plugins: no ctx.* verb, no tool, nothing in
+# hermes_cli/data/plugin_api.json (agent.transcription_provider is public, but only for registering a provider).
+# When a Hermes release moves or reshapes tools.voice_mode.transcribe_recording, the student is told that plainly
+# instead of being sent to Settings to turn on something that is already on.
+HERMES_CHANGED = ("This version of Hermes doesn't let the workbench use its speech-to-text, so this take has timing "
+                  "only. Your recording is kept. An update to the workbench will bring transcripts back. Or type what you said.")
+
+
+def _inside_hermes():
+    """True when Hermes's public config module imports, so a missing transcription function means Hermes moved it."""
+    try:
+        import hermes_cli.config  # noqa: F401  (public plugin API)
+    except Exception:
+        return False
+    return True
+
+
+def hermes_moved_why():
+    """HERMES_CHANGED when this Hermes no longer has the transcription function the workbench calls, else None."""
+    return HERMES_CHANGED if _hermes_transcribe_fn() is None and _inside_hermes() else None
+
+
 def unavailable_why():
     """Plain words for a take Hermes could not transcribe, when the cause can be named; None otherwise (the page then
     says how to turn speech-to-text on). Nov 11 live check: Local was chosen in Hermes, the add-on was missing, and the
     take only said "unavailable"."""
+    moved = hermes_moved_why()
+    if moved:
+        return moved
     stt = _hermes_stt_config()
     provider = str(stt.get("provider") or "").strip().lower()
     if provider in ("", "local") and not whisper_installed():
@@ -1084,7 +1109,7 @@ class Transcriber:
         if not take.get("file"):
             raise ValueError("This take has no recording to transcribe.")
         if not self.available():
-            change_take(take_id, lambda t: t["transcript"].update(status="unavailable", error=None))
+            change_take(take_id, lambda t: t["transcript"].update(status="unavailable", error=hermes_moved_why()))
             return get_take(take_id)
         self._cancel.discard(take_id)
         if take_id in self._jobs:  # a second press while it is already queued or running
@@ -1100,7 +1125,7 @@ class Transcriber:
                 return get_take(take_id)
         if not plan["usable"] and self._engine is None and not model_cached(model_name):
             if not whisper_installed():
-                change_take(take_id, lambda t: t["transcript"].update(status="unavailable", error=None))
+                change_take(take_id, lambda t: t["transcript"].update(status="unavailable", error=hermes_moved_why()))
                 return get_take(take_id)
             if not allow_download:
                 change_take(take_id, lambda t: t["transcript"].update(status="failed", error=download_ask(model_name)))

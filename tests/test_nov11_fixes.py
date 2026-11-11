@@ -102,6 +102,8 @@ class SaysWhatTheCodeDoes(unittest.TestCase):
         import headlines
         self.assertEqual(len(headlines.DEFAULT_OUTLETS), 12)
         for rel in ("docs/STATUS.md", "docs/SECURITY-AUDIT.md", "README.md"):
+            if not (ROOT / rel).exists():
+                continue  # the two working notes are left out of the public package; the README is always checked
             self.assertNotIn("ten outlets", self.read(rel), rel)
 
     def test_quote_check_claims_name_the_unchecked_case(self):

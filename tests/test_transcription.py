@@ -241,6 +241,26 @@ class HermesFirst(WithHermes):
         speech.TRANSCRIBER.start(t["id"])
         self.assertEqual(self.wait(t["id"])["transcript"]["engine"], "workbench")
 
+    def test_a_moved_function_with_no_fallback_says_so_plainly(self):
+        self.use_hermes(stt={"provider": "groq"}, with_function=False)
+        self.use_engine(engine=False)
+        t = self.recorded()
+        speech.TRANSCRIBER.start(t["id"])
+        got = self.wait(t["id"])
+        if speech.TRANSCRIBER.fallback_ready():  # faster-whisper is installed on this computer: it ran instead
+            self.assertEqual(got["transcript"]["engine"], "workbench")
+            return
+        self.assertEqual(got["transcript"]["status"], "unavailable")
+        self.assertEqual(got["transcript"]["error"], speech.HERMES_CHANGED)
+        self.assertNotIn("Settings", speech.HERMES_CHANGED)
+        self.assertTrue(got["file"])  # the recording is kept
+
+    def test_a_hermes_release_that_changed_what_it_returns_degrades(self):
+        self.use_hermes(stt={"provider": "groq"}, result="a bare string, not the old dict")
+        self.fake_wav()
+        t = self.recorded()
+        self.assertEqual(self.press(t)["transcript"]["engine"], "workbench")
+
     def test_outside_hermes_the_workbench_engine_runs(self):
         self.assertEqual(speech.hermes_plan()["reason"], "missing")  # no stand-in installed
         self.use_engine()
