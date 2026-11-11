@@ -32,9 +32,15 @@ Upgrading from 0.1: install 0.2 the way you installed 0.1. Your 0.1 data folder 
 
 The manual, with screenshots and a troubleshooting list, is at [linchpin.studio/hermes/ld-workbench/manual](https://linchpin.studio/hermes/ld-workbench/manual/). What changed in 0.2: [CHANGELOG.md](CHANGELOG.md).
 
+## Uninstall
+
+Open Capabilities, then Plugins, and turn Debate Workbench off, or click **Uninstall** beside it. In a terminal: `hermes plugins remove ld-workbench`.
+
+Removing the plugin leaves your work where it is, in `plugin-data/ld-workbench` inside your Hermes folder (cases, rounds, ballots, recordings, transcripts, your extemp file and the speech model, if it was downloaded), so reinstalling picks up where you left off. To erase everything, delete that folder after removing the plugin. Files you exported to your own folders are not touched.
+
 ## What you can do
 
-One row runs across the top of the page: Lincoln-Douglas, Extemp, Rhetoric and Ballots on the left, **Coach** and a gear for Settings on the right. When Lincoln-Douglas is open, Case, Round and Fallacies sit beside it, in that order: build the case, then run a round with it. In any Hermes chat, `/debate` gives today's question and your top counted pattern.
+One row runs across the top of the page: Lincoln-Douglas, Extemp, Rhetoric and Ballots on the left, **Start here**, **Coach** and a gear for Settings on the right. When Lincoln-Douglas is open, Case, Round and Fallacies sit beside it, in that order: build the case, then run a round with it. In any Hermes chat, `/debate` gives today's question and your top counted pattern.
 
 **Speak, on the clock.** Every event shares one floor. A strip across the top draws the event to scale in time: each part is as wide as its minutes. The big clock starts at your first sound, not when you press the button. The time cards flip at each minute, at 30 seconds and at Time. While you speak, your voice is drawn as it comes in, with a mark over every pause longer than 2 seconds. A take stops by itself one minute after time runs out, or after two minutes with no sound. No microphone? Type your speech; the time is estimated at 140 words a minute, and it says so.
 
@@ -45,7 +51,7 @@ Each spoken take shows time, words a minute, fillers and pauses. Time and pauses
 **Extemp.** It opens on a 60-second answer, ready to speak: one question, one minute, a ballot in under a minute. The question changes each visit, from 52 built in (United States and International), or write your own. A coach can add this week's questions, and **Ask only my questions** makes the floor use only those.
 
 - **Get up to speed.** One press searches with your Hermes web search, reads up to 4 public pages, and shows three facts. Each fact is a sentence copied from a page, never retyped, with the page's own outlet and date (or "no date"), plus **Open the page** and **Save to my file**. The coach's read says what the question really asks and the best answer each way. If web search is off in Hermes, it says so and shows what your file has.
-- **The ballot.** Time, sources named and pace; Answered the question? as Yes, Partly or No; points from 20 to 30 with a key to what the numbers mean; three of your lines the judge quoted, each checked against your words; and one drill.
+- **The ballot.** Time, filed sources named (the sources from your extemp file you named aloud; the judge also credits a source you name that is not in your file) and pace; Answered the question? as Yes, Partly or No; points from 20 to 30 with a key to what the numbers mean; three of your lines the judge quoted, each checked against your words; and one drill.
 - **Show me a strong answer.** The coach's own answer to the same question, built on yours, with your take beside it. A label under each coach sentence says which of your lines it builds on, or that it is new. It cites only headlines saved in your own file. Below it, Why it works has a Yours half and a This version half, so you are not credited with the coach's move.
 - **Try it again.** Lists up to three moves to practice, from a fixed list: answer before 0:10, an outlet and its month in the first 30 seconds, 2 fillers or fewer, and 130 to 170 words a minute. After your second take, each move is marked Met or Not met, and a table sets Take 1 against Take 2. Every number comes from code, not from the model.
 - **Openings.** Three 45-second tries at opening the same question three different ways. The coach marks the strongest and says why; **Show me a strong opening** gives one of its own, built on yours.
@@ -65,13 +71,15 @@ A topic briefing maps each new resolution for both sides. Fallacies has a practi
 
 **Settings.** Turn coach examples on or off (one setting for the whole Hermes profile), see which speech-to-text makes your transcripts and, when the workbench uses its own, pick the model, delete your recordings, delete your transcripts and ballots, edit your news outlets and their lean labels, and read exactly what leaves your computer.
 
+**Start here.** The first time you open Debate, a Start here panel names the four rooms in one line each, with a button into each, and says that the judge and the coach are an AI: the model you chose in Hermes. Close it and it stays closed; **Start here** in the top row opens it again.
+
 **First open.** Until you have a take or a ballot of your own, a Sample ballot sits under the clock, read aloud by a sample voice (see the credit under Disclosures).
 
 ## Where your work is saved
 
 Your cases, coach notes, rounds, ballots, topic briefings, recordings, transcripts and extemp file are saved by Hermes on your own computer, in a folder named `plugin-data/ld-workbench` inside your Hermes folder. There are no accounts and no tracking.
 
-So the page opens at once, the Hermes app also keeps a copy of what the page last showed when it opened (your open case and round, your last take on each floor, the question list and your settings) in its own storage for this plugin, on the computer you run the app on. The copy is under 200 KB, never holds a key or password, is shown only for the same Hermes profile and plugin version, is replaced by your saved work a moment after the page opens, and is cleared by either delete in Settings.
+So the page opens at once, the Hermes app also keeps a copy of what the page last showed when it opened (your open case and round, your last take on each floor, the question list and your settings) in its own storage for this plugin, on the computer you run the app on. The copy is under 200 KB, never holds a key or password, is shown only for the same Hermes profile and plugin version, is replaced by your saved work a moment after the page opens, and is cleared by either delete in Settings. The same storage remembers that you closed Start here.
 
 ## What leaves your computer
 

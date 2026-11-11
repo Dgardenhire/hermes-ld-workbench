@@ -3,38 +3,21 @@ title: Debate Workbench
 repo: https://github.com/Dgardenhire/hermes-ld-workbench
 sha: SHA_PLACEHOLDER
 description: >-
-  Practice speech and debate out loud inside Hermes Desktop: extemp, Lincoln-Douglas and rhetoric. You speak on a
-  real clock, and a judge on your own Hermes model writes a ballot that quotes three of your lines, each checked
-  against what you said. A coach asks questions and critiques first; after you try, it can show a strong answer,
-  opening or case draft, each labeled as the coach's and checked in code against your own file and words, and
-  nothing enters your case until you press Add. A teacher can turn the examples off.
-  Debate Workbench is an independent community plugin. It is not made or endorsed by Nous Research, the National
-  Speech & Debate Association, AllSides or any news outlet.
-  Disclosure — microphone: opened only while you press Start speaking, and closed on stop, cancel, error or leaving
-  the page; recordings are saved only in $HERMES_HOME/plugin-data/ld-workbench/recordings/ (newest 20, at most
-  100 MB), with delete-all in Settings; transcripts: each take goes to Hermes's own speech-to-text through one
-  private core import, tools.voice_mode.transcribe_recording (guarded; if it is missing, the plugin's own
-  faster-whisper is used, and without either a take keeps its timing only); if that provider is a cloud service, a
-  take is sent only when you press Transcribe now on that take, after the take names the provider; the plugin's own
-  speech model (about 145 MB) is downloaded from huggingface.co only on that press, with no audio sent, by one
-  separate Python process with fixed arguments, into its own data folder; ffmpeg runs, with fixed arguments, only
-  when PyAV is missing; Hermes's speech-to-text returns no word times, so exact line playback and the
-  answer-before-0:10 measure work only with the plugin's own model; network calls of its own, each started by a
-  button: Pull headlines (a Google News RSS search per outlet on your list, then that outlet's own feed if Google
-  does not answer; https only, public addresses only, 8 seconds and 250 KB per outlet, 20 seconds in all; headlines,
-  dates and links only), Get up to speed (your question goes to your Hermes web search, then the plugin opens up to 4
-  of the public pages it returns, 12 seconds each, and sends numbered sentences from them to your model), and a link
-  you save or add as a topic source (one public page, every redirect re-checked, 20-second limit, first 30,000
-  characters kept); through the Hermes tool registry, each on a button: web_search (Get up to speed, and extemp
-  prep in a round started with the internet allowed) and text_to_speech (Hear it); model calls go to your own Hermes
-  model through the plugin LLM helper, with a 180-second limit, and with coach examples on, one is made in the
-  background after each 60-second answer, without a press, from your words and your extemp file (dropped if you
-  never open it); no credentials, telemetry, background jobs or self-updates; stores cases, rounds, ballots,
-  recordings, transcripts and your extemp file in $HERMES_HOME/plugin-data/ld-workbench/; reads a .docx, .txt or
-  backup file only when you pick one; writes an export only to a path you pick in the save dialog (never a hidden
-  folder or ~/Library) or to its own exports folder; registers a Desktop page, a dashboard API, the /debate command,
-  two read-only agent tools (debate_record and debate_today: counts, tags, dates and question text; both refuse in
-  scheduled jobs), three model rows and a bundled debate-coach skill; no hooks or middleware.
+  Practice speech and debate out loud: extemp, Lincoln-Douglas and rhetoric. You speak on a real clock, and a
+  practice judge on your own Hermes model writes a ballot that quotes your lines. A coach asks questions first and
+  writes nothing into your case until you press Add. Ballots are kept, and patterns are counted across them.
+  An independent community plugin, not made or endorsed by Nous Research, the National Speech & Debate
+  Association, AllSides or any news outlet. Registers a Desktop page, a dashboard API, the /debate command, two
+  read-only agent tools (debate_record, debate_today; both refuse in scheduled jobs), three model rows and a
+  debate-coach skill; no hooks, middleware or env vars.
+  Disclosure: the microphone opens only while you press Start speaking; recordings, transcripts, cases, ballots and
+  your extemp file stay in $HERMES_HOME/plugin-data/ld-workbench/, with delete buttons in Settings; takes go to
+  Hermes's speech-to-text (a cloud provider gets a take only when you press Transcribe now on it) or to the
+  plugin's own speech model, downloaded from huggingface.co (about 145 MB) only on a press; its own network calls
+  start on a button (Pull headlines from Google News RSS and outlet feeds, Get up to speed opening up to 4 public
+  pages from your Hermes web search, a link you save), https and public addresses only, with time and size caps;
+  model calls go to your own Hermes model, and with coach examples on, one runs in the background after each
+  60-second answer; no credentials, telemetry, background jobs or self-updates.
 maintainer: Dgardenhire
 tier: community
 category: desktop
@@ -51,6 +34,13 @@ screenshots:
   - "https://raw.githubusercontent.com/Dgardenhire/hermes-ld-workbench/SHA_PLACEHOLDER/docs/shots/catalog/ballots-patterns.jpg"
 readme: true
 platforms: []
+known_issues:
+  - "Tested on macOS. Windows and Linux are untested."
+  - "The judge and the coach are an AI on the model you chose in Hermes. Their points are practice feedback, not a real judge's."
+  - "Hermes's speech-to-text returns no word times, so exact line playback and the answer-in-the-first-10-seconds measure work only with the plugin's own speech model."
+  - "Transcription imports tools.voice_mode.transcribe_recording, which is not in Hermes's public plugin API. It is guarded and falls back to the plugin's own faster-whisper, so a Hermes release that moves it can turn off Hermes-backed transcription."
+  - "To open at once, the page keeps a copy of its last answers (each under 200,000 characters, with secret-looking values removed) in the plugin's own Hermes storage, and shows it until the backend answers."
+  - "Start or stop speaking has a keybind with no default key; set one in Keyboard settings."
 capabilities:
   provides_tools:
     - debate_record

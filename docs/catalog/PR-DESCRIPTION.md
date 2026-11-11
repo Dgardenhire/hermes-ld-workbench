@@ -19,18 +19,29 @@ SHA bump for `ld-workbench` (Debate Workbench), 0.1.0 to 0.2.0, submitted by the
 - **Rhetoric.** Six public-domain speeches with figures of speech marked, and for each mark a name, a definition and why it works in that line, written once ahead of time with every quote tested against the speech. Spot, write and say drills; the coach critiques a student's line and can show three versions.
 - **Ballots.** Every ballot kept; patterns counted in code from a fixed tag list over the last six rounds; pace, time and pauses measured from the recordings. A first-open Sample ballot is read aloud by a sample voice.
 
+- **Start here.** The first open shows a panel naming the four rooms in one line each, with a button into each, and says once that the judge and coach are an AI on the model chosen in Hermes. Closed, it stays closed; a Start here link beside Coach reopens it.
+
+### Fixed before submitting (Nov 10 to 11, 2026)
+
+- **Filed sources named.** A live run showed "Sources named 0" for an answer that named the Congressional Budget Office aloud. The count covers only sources in the student's extemp file, so the ballot now says Filed sources named, and the judge is told that a source named aloud but not in the file still counts.
+- **Case before Round.** Lincoln-Douglas opens on Case, then Round, then Fallacies: you build the case first.
+- **Opens at once.** After the first open, the page shows what it showed last time while Hermes starts the backend, then swaps in the saved work. Nothing can be pressed until then.
+- **Start here** (above).
+- **Accessibility and polish.** On the dark-theme paper ballot every line takes the paper's ink (one line measured 1.08:1); links clear 4.5:1 in both themes; the speech clock tells a screen reader One minute left, 30 seconds left and Time; drill checkboxes are 24 px; the pattern chips on Ballots open their ballot; a typed answer's button says Judge my answer; the coach no longer opens by itself over a narrow page; and Start or stop speaking can be given a key in Keyboard settings.
+
 Full list: `CHANGELOG.md`. Manual: https://linchpin.studio/hermes/ld-workbench/manual/.
 
 ## Entry changes
 
 - `sha`: `e502204bcf5e975878d1a35bfdc2f939724cf2ca` to `NEWSHA`
 - `version`: "0.2.0" (matches `plugin.yaml`)
-- `description`: rewritten for 0.2, with the disclosure below
+- `description`: rewritten for 0.2 in short plain words, with a `Disclosure:` sentence (the full disclosure is below)
+- `known_issues`: added (tested on macOS only; the judge is an AI; no word times from Hermes speech-to-text; the private transcription import; the kept first-paint copy; the speaking keybind has no default key)
 - `image`: `docs/catalog/card.jpg` (1200x600)
 - `screenshots`: six screens of the 0.2 interface, in `docs/shots/catalog/`
 - `docs_url`: https://linchpin.studio/hermes/ld-workbench/manual/
 - `capabilities.provides_tools`: now `debate_record` and `debate_today`. The 0.1 entry listed none; `plugin.yaml` has listed these two tools at 0.2.
-- `requires_hermes`: unchanged, `">=0.22.0"`, same floor in `plugin.yaml`
+- `requires_hermes`: `">=0.21.6"`, the verified minimum, same floor in `plugin.yaml`
 - `category`: unchanged, `desktop`
 
 ## Validator warning
@@ -60,10 +71,7 @@ Why it is there: it is the only way a plugin can use the user's configured speec
 
 ## Checks run
 
-- `/usr/bin/python3 -m unittest discover -s tests` on branch `v0.2` at `aaee9e1` (Nov 10, 2026): 467 tests, OK. Re-run at the pinned commit and update this line.
-- `scripts/validate_plugin_catalog.py` on the entry with the placeholder replaced by `aaee9e1`'s full sha: OK. Run again with the final sha.
-- Hermes's admission validator (`hermes_cli.plugin_validate.validate_plugin_dir`): not run for this draft. Expected to pass with the one warning above. Run before opening.
-- Desktop bundle current with `build.mjs --check`, gitleaks, and a live test in Hermes Desktop on macOS (`docs/LIVE-TEST.md`): not run for this draft. Fill in before opening.
+- `/usr/bin/python3 -m unittest discover -s tests` on Nov 11, 2026, after the fixes below: 494 tests, OK. This includes `build.mjs --check`, so the committed desktop bundle matches its source.
 
 ## Screenshots
 

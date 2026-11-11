@@ -2,6 +2,26 @@
 
 ## 0.2.0 (November 2026)
 
+### Start here, and a pass against the release rubric (Nov 11, 2026)
+
+- **Start here.** The first open shows a panel naming the four rooms (Extemp, Lincoln-Douglas, Rhetoric, Ballots) in one line each, with a button into each; Lincoln-Douglas opens on Case. It says once that the judge and the coach are an AI on the model you chose in Hermes. Close it and it stays closed; **Start here** beside Coach, or the palette command Debate: Start here, opens it again.
+- **Readable on paper in dark mode.** On the dark-theme paper ballot, "The coach finds the weakest moment and redoes it." was nearly invisible (1.08:1). Every line on the paper now takes the paper's ink, and the DRILL stamps darken to stay readable.
+- **Links clear 4.5:1** in both themes (they measured 4.34:1 in light).
+- **The clock speaks.** A screen reader hears One minute left, 30 seconds left and Time during a speech, and nothing in between.
+- **Ballots.** Drill checkboxes are 24 px. The round chips under each pattern open that ballot.
+- **Clearer buttons.** A typed 60-second answer or speech goes to the judge with **Judge my answer**; a typed LD speech goes in with **Add to my speech**.
+- **Keyboard.** Debate: start or stop speaking can be given a key in Keyboard settings (no default key).
+- **Narrow windows.** When the Debate page is narrower than 1,040 px, the coach waits for the Coach button instead of opening over the Case.
+- **Settings** no longer says "with every citation, quote and number checked"; it says what is checked and that anything not found is flagged.
+
+### Case before Round (Nov 10, 2026)
+
+Lincoln-Douglas now opens on Case, then Round, then Fallacies: you build the case first, then run a round with it.
+
+### Filed sources named (Nov 10, 2026)
+
+A live run gave "Sources named 0" to a typed answer that named the Congressional Budget Office aloud. The count covers only sources in your extemp file, so the ballot now says **Filed sources named**, and the judge is told that a source you name that is not in your file still counts.
+
 ### Opens at once (Nov 10, 2026)
 
 The page paints from what it showed last time, then replaces it with your saved work as soon as Hermes has started the plugin's backend (which took 2 to 3 seconds before the page showed anything). Until then nothing on the page can be pressed. The first open ever still shows Opening the workbench.
