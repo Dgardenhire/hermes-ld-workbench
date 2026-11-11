@@ -899,6 +899,11 @@ async def post_take_judge(take_id: str, body: dict):
             raise ValueError("Only extemp takes are judged here.")
         if take["transcript"]["status"] in ("waiting", "working"):
             raise ValueError("The transcript is still being made. The ballot follows it.")
+        # A take is judged once. Reopening Extemp reloads the last take and asked again, which re-judged it, cost a
+        # model call and filed a second ballot for the same answer (Nov 11 live check). Return the one already filed.
+        filed = [x for x in ballots.history() if x.get("take_id") == take_id]
+        if filed:
+            return filed[-1]
         question = extemp.clean_question(b.get("question") or take.get("prompt") or "")
         outline = extemp.clean_outline(b.get("outline"))
         items = extemp.file_items()

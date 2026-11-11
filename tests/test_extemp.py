@@ -158,6 +158,16 @@ class Ballot(unittest.TestCase):
             run(api.post_take_judge(t["id"], {}))
         self.assertIn("Ask for the ballot again", e.exception.detail)
 
+    def test_a_take_is_judged_once(self):
+        # Nov 11 live check: reopening Extemp asked again for the last take and filed a second ballot
+        t = self.typed_take("Um, my answer is partly, through the budget riders on tariff money.")
+        self.llm.queue.append(json.dumps(JUDGED))
+        first = run(api.post_take_judge(t["id"], {"outline": {"answer": "Partly"}}))
+        calls, filed = len(self.llm.calls), len(ballots.history())
+        again = run(api.post_take_judge(t["id"], {"outline": {"answer": "Partly"}}))
+        self.assertEqual(again["at"], first["at"])
+        self.assertEqual((len(self.llm.calls), len(ballots.history())), (calls, filed))
+
     def test_only_extemp_takes(self):
         t = speech.new_take({"event": "rhetoric", "typed": True, "text": "x"})
         with self.assertRaises(HTTPException):
