@@ -90,7 +90,9 @@ def _workbench():
 
 
 def _history_view(b):
-    hist = b.get("history") or []
+    # Lincoln-Douglas only: Extemp and drill ballots share this history, and the Round page's count and Last ballot
+    # card are about LD rounds (Nov 11 live check: an Extemp ballot showed there as "Decided on undefined").
+    hist = [x for x in (b.get("history") or []) if x.get("event", "ld") == "ld"]
     return {"rounds_started": b.get("rounds_started", 0), "count": len(hist), "last": hist[-1] if hist else None}
 
 

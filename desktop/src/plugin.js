@@ -422,7 +422,7 @@ function PaperBallot({ b, roundNo }) {
         jsx('span', { className: 'hk-sr', children: `Decision: ${sideName(b.decision)}` }),
       ] }),
       jsxs('div', { className: 'ldw-paper-line', children: [jsx('span', { children: `Speaker points · you (${sideShort(b.side)})` }), jsx('b', { children: pts.student ?? '' })] }),
-      first ? jsxs('div', { className: 'ldw-paper-line ldw-paper-decided', children: [jsx('span', { children: 'Decided on' }), jsx('b', { children: `${first.speech}: "${clip(first.line, 70)}"` })] }) : null,
+      first ? jsxs('div', { className: 'ldw-paper-line ldw-paper-decided', children: [jsx('span', { children: 'Decided on' }), jsx('b', { children: first.speech ? `${first.speech}: "${clip(first.line, 70)}"` : `"${clip(first.line, 70)}"` })] }) : null,
       jsx('p', { className: 'ldw-paper-rfd', children: reason }),
       jsx('div', { className: 'ldw-stamp', children: `${(b.drills || []).length} drills` }),
     ] }),
