@@ -242,4 +242,4 @@ class PreparedExample(unittest.TestCase):
         self.assertIn("c.run(() => prepareExample({ takeId: takeIds[0], question })", c)
         self.assertIn("if (!takeId || !$coachOn.get()) return null", c)  # off in Settings: nothing is prepared
         self.assertIn("is prepared in the background with the same model", d)
-        self.assertIn("prepared after each take", (src.parent.parent / "README.md").read_text(encoding="utf-8"))
+        self.assertIn("prepared after each 60-second answer", (src.parent.parent / "README.md").read_text(encoding="utf-8"))
