@@ -32,7 +32,7 @@ class PromptsFromMethod(unittest.TestCase):
         run(engine.run_cx(engine.clean({"resolution": "R", "mode": "ask", "level": "novice"}), api.MODEL))
         self.assertEqual(self.llm.calls[-1]["messages"][0]["content"], M.CX_STANCE + "\n\n" + M.LEVELS["novice"])
         run(engine.run_judge(engine.clean({"resolution": "R", "judge": "flow"}), api.MODEL))
-        self.assertEqual(self.llm.calls[-1]["system_prompt"], M.JUDGES["flow"]["prompt"] + "\n\n" + M.JUDGE_OUTPUT + engine.ld_tag_rule())
+        self.assertEqual(self.llm.calls[-1]["system_prompt"], M.JUDGES["flow"]["prompt"] + "\n\n" + M.JUDGE_OUTPUT + engine.ld_tag_rule() + engine.YOU_RULE)
         self.assertIn("dropped-2ar", engine.ld_tag_rule())  # 0.2: the fixed tag list rides after the mirrored method text
         run(engine.run_flow(engine.clean({"speech_id": "AC", "text": "x"}), api.MODEL))
         self.assertEqual(self.llm.calls[-1]["system_prompt"], "You flow Lincoln-Douglas debate rounds. " + M.FLOW_OUTPUT)

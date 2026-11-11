@@ -3,7 +3,7 @@ manifest_version: 2
 name: ld-workbench
 label: Debate Workbench
 version: 0.2.0
-description: Practice speech and debate out loud. Lincoln-Douglas rounds against an AI opponent, extemp from this week's headlines, and rhetoric drills, each timed and judged on a ballot that quotes what you said. You try first; then a coach on your own Hermes model can show a strong version. In any chat, /debate gives today's question and your top counted pattern.
+description: Practice speech and debate out loud. Lincoln-Douglas rounds against an AI opponent, extemp questions you answer out loud, and rhetoric drills, each timed and judged on a ballot that quotes what you said. You try first; then a coach on your own Hermes model can show a strong version. In any chat, /debate gives today's question and your top counted pattern.
 author: Damon Gardenhire
 license: MIT
 kind: standalone

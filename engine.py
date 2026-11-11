@@ -357,7 +357,7 @@ async def run_flow(p, model):
 
 async def run_judge(p, model):
     judge = judges()[p.get("judge", "traditional")]
-    system = judge["prompt"] + "\n\n" + M.JUDGE_OUTPUT + ld_tag_rule()
+    system = judge["prompt"] + "\n\n" + M.JUDGE_OUTPUT + ld_tag_rule() + YOU_RULE
     header = (f"Resolution: {p['resolution']}\nThe student debated {side_name(p['student_side'])}. "
               "The AI opponent debated the other side.\n")
     body = (f"FULL ROUND:\n{transcript_text(p.get('transcript'))}\n\n"
@@ -911,6 +911,13 @@ QUOTE_FORMAT = ("\n\nPut each quote on its own line, exactly like this: Exact wo
                 "against the text and marked when it is not there.")
 
 
+# The ballot is addressed to the student. ld_method.JUDGE_OUTPUT (the web app's words) asks for "you" only in the
+# reason; this plugin line asks for it everywhere, and keeps the quoted lines word for word (check_ld_lines reads them).
+YOU_RULE = ("\n\nWrite the whole ballot to the student, as \"you\" and \"your\": the reason, the framework note, the "
+            "strengths, each drill's why, each decisive line's effect, and ownership. Never call them \"the student\" or "
+            "\"the debater\". Only a quoted \"line\" stays the exact words said in the round.")
+
+
 def ld_tag_rule():
     B = _mod("ballots")
     return LD_TAGS_RULE.format(keys=", ".join(B.JUDGE_TAGS["ld"]))
@@ -976,7 +983,7 @@ def unsupported(note, words, outlets=()):
     return sorted(k for k in note_claims(note) if not have[k])
 
 
-FIX_NOTES = """You wrote a practice ballot for a high school extemp speech. Some of your notes say a line has something its quoted words do not have. Rewrite each listed note so it says only what the quoted words show, keeping the rest of your point. One sentence each, plain words. If the line names a source with no date, say it names the source without a date.
+FIX_NOTES = """You wrote a practice ballot for a high school extemp speech. Some of your notes say a line has something its quoted words do not have. Rewrite each listed note so it says only what the quoted words show, keeping the rest of your point. One sentence each, plain words. Speak to the student as "you". If the line names a source with no date, say it names the source without a date.
 
 Return JSON only: {"notes": [{"n": 1, "text": "..."}]}"""
 

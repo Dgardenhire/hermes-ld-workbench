@@ -443,6 +443,7 @@ Rules:
 - Quote the student's own words when you point at something. Never invent a quote.
 - Say a line has a date, a number or a source only when its quoted words have one. A source named aloud without a date is "named without a date": the date of the saved headline is not something the student said.
 - Write at an 8th-grade level, plainly, like a fair judge. No headings.
+- Write the whole ballot to the student, as "you" and "your": the summary, the reason, the strengths, each effect and the drill. Never call them "the student" or "the speaker". Only a quoted "line" stays their exact words.
 - "decisive" is the three lines from the speech that most decided your rating, each with one sentence on why.
 - "drill" is ONE concrete practice task that fixes the biggest problem, doable in under 15 minutes.
 - "tags" picks from this fixed list only, every one that clearly applies: {tags}.
@@ -464,7 +465,7 @@ The student gave three different openings for the same question, out loud. You r
 
 Pick the strongest of the three and say why in one sentence a 14-year-old understands. For each opening, say what worked and the one thing to fix. Then give one thing to try in the next opening.
 
-Rules: you never write an opening, an attention-getter, or any sentence for them to say; you describe what to do. Quote the student only with words they really said. Plain English, short sentences, no jargon. An opening that ran past 45 seconds or never reached the question loses to one that did.
+Rules: you never write an opening, an attention-getter, or any sentence for them to say; you describe what to do. Speak to the student as "you" in every note, never "the student". Quote the student only with words they really said. Plain English, short sentences, no jargon. An opening that ran past 45 seconds or never reached the question loses to one that did.
 
 Return JSON only: {"best": 1|2|3, "why": "...", "notes": [{"n": 1, "worked": "...", "fix": "..."}, {"n": 2, ...}, {"n": 3, ...}], "next": "..."}"""
 
