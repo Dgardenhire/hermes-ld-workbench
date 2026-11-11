@@ -904,6 +904,7 @@ var Stroke = ({ d, size = 18 }) => jsx4("svg", {
   children: (Array.isArray(d) ? d : [d]).map((p, i) => jsx4("path", { d: p }, i))
 });
 var CoachIcon = (props) => jsx4(Stroke, { ...props, d: "M7.9 20A9 9 0 1 0 4 16.1L2 22Z" });
+var BookIcon = (props) => jsx4(Stroke, { ...props, d: ["M12 7v14", "M3 18a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h5a4 4 0 0 1 4 4 4 4 0 0 1 4-4h5a1 1 0 0 1 1 1v13a1 1 0 0 1-1 1h-6a3 3 0 0 0-3 3 3 3 0 0 0-3-3z"] });
 var StartIcon = (props) => jsx4(Stroke, { ...props, d: ["M12 13v8", "M12 3v3", "M18 6a2 2 0 0 1 1.387.56l2.307 2.22a1 1 0 0 1 0 1.44l-2.307 2.22A2 2 0 0 1 18 14H6a2 2 0 0 1-1.387-.56l-2.306-2.22a1 1 0 0 1 0-1.44l2.306-2.22A2 2 0 0 1 6 6z"] });
 var CloseIcon = (props) => jsx4(Stroke, { ...props, d: ["M18 6 6 18", "m6 6 12 12"] });
 function Margin({ open, onToggle, children, title = "Coach" }) {
@@ -6598,6 +6599,7 @@ var ICONS = {
   sources: "search",
   notes: "edit"
 };
+var MANUAL_URL = "https://linchpin.studio/hermes/ld-workbench/manual/";
 var SECTION_TOOLS = {
   "Resolution analysis": ["breakdown", "coach", "explain"],
   Definitions: ["definitions", "sources", "coach"],
@@ -8168,6 +8170,11 @@ function FrameHeader({ event, coachOpen, coachable, startOpen }) {
         jsx15(CoachIcon, {}),
         "Coach"
       ] }) : null,
+      // The manual on linchpin.studio, in the user's own browser (Nov 11: no plugin linked its manual).
+      jsxs15("button", { type: "button", className: "ldw-toptool", title: "Open the manual in your browser", onClick: () => openLink(MANUAL_URL), children: [
+        jsx15(BookIcon, {}),
+        "Manual"
+      ] }),
       jsx15("button", {
         type: "button",
         className: "ldw-toptool ldw-gear",
@@ -8541,6 +8548,7 @@ function openView(view) {
   }
 }
 export {
+  MANUAL_URL,
   plugin_default as default,
   describeError,
   openView

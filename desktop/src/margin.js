@@ -35,6 +35,7 @@ const Stroke = ({ d, size = 18 }) => jsx('svg', { width: size, height: size, vie
   strokeWidth: 1.5, strokeLinecap: 'round', strokeLinejoin: 'round', 'aria-hidden': 'true', focusable: 'false',
   children: (Array.isArray(d) ? d : [d]).map((p, i) => jsx('path', { d: p }, i)) })
 export const CoachIcon = props => jsx(Stroke, { ...props, d: 'M7.9 20A9 9 0 1 0 4 16.1L2 22Z' }) // a speech bubble
+export const BookIcon = props => jsx(Stroke, { ...props, d: ['M12 7v14', 'M3 18a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h5a4 4 0 0 1 4 4 4 4 0 0 1 4-4h5a1 1 0 0 1 1 1v13a1 1 0 0 1-1 1h-6a3 3 0 0 0-3 3 3 3 0 0 0-3-3z'] }) // an open book
 export const StartIcon = props => jsx(Stroke, { ...props, d: ['M12 13v8', 'M12 3v3', 'M18 6a2 2 0 0 1 1.387.56l2.307 2.22a1 1 0 0 1 0 1.44l-2.307 2.22A2 2 0 0 1 18 14H6a2 2 0 0 1-1.387-.56l-2.306-2.22a1 1 0 0 1 0-1.44l2.306-2.22A2 2 0 0 1 6 6z'] }) // a signpost
 export const CloseIcon = props => jsx(Stroke, { ...props, d: ['M18 6 6 18', 'm6 6 12 12'] })
 

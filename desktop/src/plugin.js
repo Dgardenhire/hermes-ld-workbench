@@ -21,8 +21,8 @@ import { Fragment, jsx, jsxs } from 'react/jsx-runtime'
 import { Button, Codicon, Input, Textarea, atom, host, useValue } from '@hermes/plugin-sdk'
 import { Empty, Failure, Notice, describeError, installStyles, registerPage } from 'hermes-ui-kit'
 import { Clock, LastTake, LdSheet, LiveWave, SpeakControls, Strip, sendTake, toggleSpeaking, useRecorder, useTakePoll } from './floor.js'
-import { $compareOpen, $marginSpot, CoachIcon, StartIcon, MARGIN_DEFAULT, Margin, marginState, useMarginSpot } from './margin.js'
-import { $extempMode, $home, ExtempView, loadHome, showHome } from './extemp.js'
+import { $compareOpen, $marginSpot, BookIcon, CoachIcon, StartIcon, MARGIN_DEFAULT, Margin, marginState, useMarginSpot } from './margin.js'
+import { $extempMode, $home, ExtempView, loadHome, openLink, showHome } from './extemp.js'
 import { RhetoricView } from './rhetoric.js'
 import { StartHere, closeStartHere, startHereOnOpen } from './firstrun.js'
 import { BallotsView } from './ballotsview.js'
@@ -50,6 +50,7 @@ const SECTION_HINTS = {
 const READ_SECTIONS = ['Resolution analysis', 'Definitions', 'Value', 'Criterion', 'Contention 1', 'Contention 2', 'Contention 3']
 const ICONS = { breakdown: 'search', definitions: 'book', values: 'law', criteria: 'law', arguments: 'type-hierarchy', review: 'checklist',
   fallacies: 'warning', coach: 'question', explain: 'book', stress: 'law', attack: 'shield', logic: 'type-hierarchy', sources: 'search', notes: 'edit' }
+export const MANUAL_URL = 'https://linchpin.studio/hermes/ld-workbench/manual/'
 const SECTION_TOOLS = {
   'Resolution analysis': ['breakdown', 'coach', 'explain'], Definitions: ['definitions', 'sources', 'coach'],
   Value: ['values', 'stress', 'explain', 'coach'], Criterion: ['criteria', 'stress', 'explain', 'coach'],
@@ -1247,6 +1248,9 @@ function FrameHeader({ event, coachOpen, coachable, startOpen }) {
         jsx(StartIcon, {}), 'Start here'] }),
       coachable ? jsxs('button', { type: 'button', className: 'ldw-toptool', 'aria-pressed': coachOpen, onClick: () => $chatOpen.set(!coachOpen), children: [
         jsx(CoachIcon, {}), 'Coach'] }) : null,
+      // The manual on linchpin.studio, in the user's own browser (Nov 11: no plugin linked its manual).
+      jsxs('button', { type: 'button', className: 'ldw-toptool', title: 'Open the manual in your browser', onClick: () => openLink(MANUAL_URL), children: [
+        jsx(BookIcon, {}), 'Manual'] }),
       jsx('button', { type: 'button', className: 'ldw-toptool ldw-gear', 'aria-label': 'Settings', title: 'Settings',
         'aria-current': event === 'settings' ? 'page' : undefined, onClick: () => chooseEvent('settings'), children: jsx(GearIcon, {}) }),
     ] }),
