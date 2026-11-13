@@ -592,7 +592,7 @@ class IsolatedDownloadFindsItsPackages(__import__("unittest").TestCase):
     def test_the_child_is_told_where_the_packages_are(self):
         import pathlib
         src = (pathlib.Path(__file__).resolve().parents[1] / "speech.py").read_text()
-        self.assertIn('"sys.path[:0] = [p for p in sys.argv[3:] if p]\\n"', src)
+        self.assertIn('"sys.path[:0] = [p for p in sys.argv[4:] if p]\\n"', src)
         self.assertIn('*_package_roots("huggingface_hub")', src)
 
     def test_the_child_imports_a_package_found_only_through_pythonpath(self):

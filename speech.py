@@ -49,6 +49,10 @@ AUDIO_TYPES = ("audio/webm", "audio/ogg", "audio/mp4", "audio/wav", "audio/x-wav
 DEFAULT_MODEL = "base.en"
 MODELS = ("base.en", "small.en")
 MODEL_MB = {"base.en": 145, "small.en": 485}  # model.bin in Systran/faster-whisper-<name>, downloaded once
+# The exact Hugging Face commit each model is downloaded at, so everyone gets the files that were tested
+# (base.en is the copy on the maintainer's computer; small.en is the repository's head on Nov 12, 2026).
+MODEL_REVISIONS = {"base.en": "3d3d5dee26484f91867d81cb899cfcf72b96be6c",
+                   "small.en": "d1d751a5f8271d482d14ca55d9e2deeebbae577f"}
 IDLE_UNLOAD = 300
 EVENTS = ("ld", "extemp", "drill", "rhetoric", "opening")
 
@@ -810,13 +814,48 @@ def _wav_with_av(src, dest):
     return dest
 
 
+# Outside programs the plugin starts get only the settings they need, never the whole environment, which holds
+# the user's Hermes provider keys. Names are matched exactly (case-insensitively on Windows, where the system
+# upper-cases them).
+_PROXY_AND_CA_VARS = ("HTTPS_PROXY", "HTTP_PROXY", "ALL_PROXY", "NO_PROXY", "https_proxy", "http_proxy", "all_proxy",
+                      "no_proxy", "SSL_CERT_FILE", "SSL_CERT_DIR", "REQUESTS_CA_BUNDLE", "CURL_CA_BUNDLE")
+_DOWNLOAD_ENV_VARS = ("PATH", "HOME", "LANG", "TMPDIR") + _PROXY_AND_CA_VARS
+# Windows: SYSTEMROOT (Python will not start its random numbers and sockets without it), USERPROFILE (Windows'
+# HOME), TEMP and TMP (Windows' TMPDIR). APPDATA and LOCALAPPDATA are left out: the download's own HF_* folders
+# replace every place huggingface_hub would otherwise look for them.
+_WINDOWS_DOWNLOAD_ENV_VARS = ("SYSTEMROOT", "USERPROFILE", "TEMP", "TMP")
+_FFMPEG_ENV_VARS = ("PATH", "LANG")
+_WINDOWS_FFMPEG_ENV_VARS = ("SYSTEMROOT",)  # many Windows programs fail to start without it
+
+
+def child_env(names, windows_names=(), prefixes=()):
+    """An explicit environment for a program the plugin starts: only these variables from this process, plus
+    any whose name starts with one of ``prefixes``. Nothing else (no provider keys, tokens or passwords)."""
+    nt = os.name == "nt"
+    keep = {n.upper() for n in (*names, *windows_names)} if nt else set(names)
+    out = {}
+    for k, v in os.environ.items():
+        key = k.upper() if nt else k
+        if key in keep or (prefixes and key.startswith(prefixes)):
+            out[k] = v
+    return out
+
+
+def ffmpeg_env():
+    return child_env(_FFMPEG_ENV_VARS, _WINDOWS_FFMPEG_ENV_VARS)
+
+
+def download_env():
+    return child_env(_DOWNLOAD_ENV_VARS, _WINDOWS_DOWNLOAD_ENV_VARS, prefixes=("LC_",))
+
+
 def _wav_with_ffmpeg(src, dest):
     exe = shutil.which("ffmpeg")
     if not exe:
         raise FileNotFoundError("ffmpeg")
     subprocess.run([exe, "-nostdin", "-hide_banner", "-loglevel", "error", "-y", "-i", str(src), "-vn", "-ac", "1",
                     "-ar", str(WAV_RATE), "-sample_fmt", "s16", "-t", str(MAX_TAKE_SECONDS), str(dest)],
-                   stdin=subprocess.DEVNULL, capture_output=True, timeout=120, check=True)
+                   env=ffmpeg_env(), stdin=subprocess.DEVNULL, capture_output=True, timeout=120, check=True)
     return dest
 
 
@@ -919,9 +958,9 @@ DOWNLOAD_FAILED = "The speech model could not be downloaded. Check the internet 
 # token are never touched. Fixed arguments, no shell.
 _DOWNLOAD_SCRIPT = (
     "import sys\n"
-    "sys.path[:0] = [p for p in sys.argv[3:] if p]\n"
+    "sys.path[:0] = [p for p in sys.argv[4:] if p]\n"
     "from huggingface_hub import snapshot_download\n"
-    "snapshot_download(sys.argv[1], local_dir=sys.argv[2], token=False, allow_patterns=[\n"
+    "snapshot_download(sys.argv[1], revision=sys.argv[3], local_dir=sys.argv[2], token=False, allow_patterns=[\n"
     "    'config.json', 'preprocessor_config.json', 'model.bin', 'tokenizer.json', 'vocabulary.*'])\n")
 
 
@@ -961,11 +1000,12 @@ def download_model(name):
         raise ModelFolderError(root)
     part, dest, hf = root / f".{name}.part", own_model_dir(name), root / ".hf"
     shutil.rmtree(part, ignore_errors=True)
-    env = {k: v for k, v in os.environ.items() if not k.upper().startswith(("HF_", "HUGGINGFACE"))}
+    env = download_env()
     env.update(HF_HOME=str(hf), HF_HUB_CACHE=str(hf / "hub"), HF_XET_CACHE=str(hf / "xet"),
                HF_HUB_DISABLE_TELEMETRY="1", HF_HUB_DISABLE_PROGRESS_BARS="1", HF_HUB_DISABLE_IMPLICIT_TOKEN="1")
     try:
-        r = subprocess.run([sys.executable, "-I", "-c", _DOWNLOAD_SCRIPT, repo, str(part), *_package_roots("huggingface_hub")],
+        r = subprocess.run([sys.executable, "-I", "-c", _DOWNLOAD_SCRIPT, repo, str(part), MODEL_REVISIONS[name],
+                            *_package_roots("huggingface_hub")],
                            env=env, cwd=str(root),
                            stdin=subprocess.DEVNULL, capture_output=True, text=True, timeout=DOWNLOAD_TIMEOUT)
         failed = r.returncode != 0

@@ -426,8 +426,11 @@ class SpeechModelLocation(unittest.TestCase):
         self.assertEqual(seen["argv"][3], speech._DOWNLOAD_SCRIPT)
         self.assertIn("token=False", seen["argv"][3])
         self.assertEqual(seen["argv"][4:6], ["Systran/faster-whisper-base.en", str(models / ".base.en.part")])
+        # The model is fetched at the exact commit that was tested, never "whatever is newest".
+        self.assertEqual(seen["argv"][6], speech.MODEL_REVISIONS["base.en"])
+        self.assertIn("revision=sys.argv[3]", seen["argv"][3])
         # After those, only the folders this process imports huggingface_hub from (the child runs -I).
-        self.assertTrue(all(Path(p).is_dir() for p in seen["argv"][6:]))
+        self.assertTrue(all(Path(p).is_dir() for p in seen["argv"][7:]))
         self.assertNotIn("shell", seen)
         env = seen["env"]
         for k in ("HF_HOME", "HF_HUB_CACHE", "HF_XET_CACHE"):
@@ -463,8 +466,8 @@ class SpeechModelLocation(unittest.TestCase):
         from pathlib import Path
 
         def fake_run(argv, **kw):
-            Path(argv[-1]).mkdir(parents=True)
-            (Path(argv[-1]) / "model.bin").write_bytes(b"half")
+            Path(argv[5]).mkdir(parents=True)
+            (Path(argv[5]) / "model.bin").write_bytes(b"half")
             return sp.CompletedProcess(argv, 1, "", "ConnectionError: offline")
         old = speech.subprocess.run
         speech.subprocess.run = fake_run

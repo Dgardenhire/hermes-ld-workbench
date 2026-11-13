@@ -2,6 +2,10 @@
 
 ## 0.2.0 (November 2026)
 
+### Keys stay with Hermes (Nov 12, 2026)
+
+- Outside programs the plugin starts no longer receive your Hermes keys.
+
 ### Start here and a round of fixes (Nov 11, 2026)
 
 - **Start here.** The first open shows a panel naming the four rooms (Extemp, Lincoln-Douglas, Rhetoric, Ballots) in one line each, with a button into each; Lincoln-Douglas opens on Case. It says once that the judge and the coach are an AI on the model you chose in Hermes. Close it and it stays closed; **Start here** beside Coach, or the palette command Debate: Start here, opens it again.
