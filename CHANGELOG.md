@@ -1,5 +1,23 @@
 # Changelog
 
+## 0.2.1 (November 2026)
+
+Housekeeping after the catalog review. Nothing on the page changes.
+
+- **The speech model is checked file by file.** Each model was already fixed to one Hugging Face commit. Now every file
+  in the download is also checked against its recorded SHA-256 or git id, and a download that differs in any byte, or
+  brings a file nobody listed, is thrown away. The hashes were read from Hugging Face's file list at the pinned commits.
+- **The page file can be rebuilt from this repository.** The shared interface code that `desktop/plugin.js` is built
+  from now lives in `vendor/hermes-ui-kit`, with esbuild pinned. `node scripts/verify-bundle.mjs` rebuilds the file and
+  checks it byte for byte. The rebuild takes in one small fix from the shared code: a palette entry's description may
+  be plain text.
+- **Developer screenshot scripts keep keys out.** The scripts under `harness/` now start the browser, `say` and ffmpeg
+  on a short list of settings, never the whole environment, and give each headless browser its own profile folder,
+  removed afterwards. `CHROME=<browser>` picks the browser. A new test fails if any launch in the repository inherits
+  the environment.
+- **SECURITY.md and issue forms.** How to report a problem privately, and what the plugin holds itself to.
+- **The public package leaves out the draft catalog pull request text.**
+
 ## 0.2.0 (November 2026)
 
 ### Keys stay with Hermes (Nov 12, 2026)

@@ -132,7 +132,18 @@ A teacher can turn **Coach examples** off in Settings for a room where students 
 - The backend is `dashboard/plugin_api.py`; all model calls go through Hermes's plugin model access.
 - It registers a desktop page, a dashboard API, the `/debate` command, two read-only agent tools (`debate_record` and `debate_today`, which give counts, tags, dates and question text, never what a student said, and refuse to run in scheduled jobs), three model settings (Debate judge, Debate opponent, Debate coach) and a `debate-coach` skill. No hooks or middleware.
 - `speech.py` imports `tools.voice_mode.transcribe_recording`, which is not in Hermes's public plugin API, so `hermes plugins validate` warns about it. The import is guarded; if it fails, transcripts fall back to the workbench's own speech model.
-- Page build: `node <path-to>/hermes-ui-kit/scripts/build.mjs .`
 - Tests: `/usr/bin/python3 -m unittest discover -s tests`
+- Security problems: see `SECURITY.md`.
+
+### Build the page file
+
+```
+node vendor/hermes-ui-kit/scripts/build.mjs .
+node scripts/verify-bundle.mjs
+```
+
+Use Node 24, and run `npm ci --ignore-scripts --prefix vendor/hermes-ui-kit` once first to install the pinned esbuild.
+The first command writes `desktop/plugin.js`; the second rebuilds it in a temporary folder and exits 0 only if it is
+byte-identical to the committed file. The shared interface code in `desktop/plugin.js` lives in `vendor/hermes-ui-kit`.
 
 License: MIT. By Damon Gardenhire.

@@ -1,5 +1,5 @@
 // Debate Workbench, desktop half ("Tournament Room"). SOURCE: desktop/plugin.js is built from this file and the
-// shared hermes-ui-kit by `node ../../../products/hermes-ui-kit/scripts/build.mjs .` (esbuild). Edit here, then build.
+// shared hermes-ui-kit in vendor/ by `node vendor/hermes-ui-kit/scripts/build.mjs .` (esbuild). Edit here, then build.
 //
 // The built file is one ES module that imports only '@hermes/plugin-sdk', 'react' and 'react/jsx-runtime'.
 // No JSX: jsx() calls. No innerHTML: the coach's answers are turned into React elements by renderText().

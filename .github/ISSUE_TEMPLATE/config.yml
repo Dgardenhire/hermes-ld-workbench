@@ -1,0 +1,8 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Report a security problem privately
+    url: https://github.com/Dgardenhire/hermes-ld-workbench/security/advisories/new
+    about: For anything that should not be public first.
+  - name: Manual
+    url: https://linchpin.studio/hermes/ld-workbench/manual/
+    about: How to use Debate Workbench.

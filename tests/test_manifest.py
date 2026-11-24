@@ -19,7 +19,7 @@ class Manifest(unittest.TestCase):
         m = manifest()
         self.assertEqual(m["manifest_version"], "2")
         self.assertEqual(m["name"], "ld-workbench")
-        self.assertEqual(m["version"], "0.2.0")
+        self.assertEqual(m["version"], "0.2.1")
         self.assertEqual(m["requires_hermes"], ">=0.21.6")  # verified minimum, see HERMES-FLOORS.md
         self.assertEqual((m["provides_tools"], m["provides_hooks"]), ("[debate_record, debate_today]", "[]"))
         self.assertNotIn("capabilities", m)  # no LLM overrides, no tool overrides: nothing to consent to

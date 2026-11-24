@@ -12,10 +12,12 @@
 #    1280x800, light and dark, red and green accents, plus the deleted, failed and text-only states; clicks
 #    line 2's play mark and a word, and logs DOM checks to run-log.md.
 # Craft-only: no person's voice, no model. Needs network for React (esm.sh) and codicons (jsdelivr).
+# Run on a short list of settings, never the caller's whole environment, so no key reaches the browser or the tools.
+[ -n "$LDW_HARNESS_CLEAN" ] || exec env -i LDW_HARNESS_CLEAN=1 PATH="$PATH" HOME="$HOME" TMPDIR="${TMPDIR:-/tmp}" LANG="${LANG:-en_US.UTF-8}" ${PORT:+PORT="$PORT"} ${CHROME:+CHROME="$CHROME"} ${KIT:+KIT="$KIT"} ${OUT:+OUT="$OUT"} /bin/sh "$0" "$@"
 set -e
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-OUT="${1:-$HOME/Desktop/claude-test/.planning/hackathon-2026-11/premium-plan/debate/lanes/player-shots}"
-KIT="${KIT:-$HOME/products/hermes-ui-kit}"
+OUT="${1:-${TMPDIR:-/tmp}/ldw-player-shots}"  # shots go outside the repo unless you name a folder
+KIT="${KIT:-$ROOT/vendor/hermes-ui-kit}"
 # A port for this run: from the process id, so two lanes shooting at once do not collide (no helper process to find a free port).
 PORT="${PORT:-$((20000 + $$ % 20000))}"
 DBG="$((PORT + 1))"
@@ -32,6 +34,7 @@ cp -R "$ROOT/harness" "$BUILD/harness"
 node -e "import('$ROOT/harness/fixtures02.js').then(m => console.log(JSON.stringify({ take: m.TAKE, ballot: m.BALLOT })))" > "$BUILD/voice/fixtures.json"
 LDW_DATA_DIR="$BUILD/data" /usr/bin/python3 - "$ROOT" "$BUILD" "$VOICE" <<'PY'
 import array, base64, json, math, os, subprocess, sys, wave
+CLEAN = {k: os.environ[k] for k in ("PATH", "HOME", "TMPDIR", "LANG") if k in os.environ}  # no keys for say or ffmpeg
 root, build, voice = sys.argv[1], sys.argv[2], sys.argv[3]
 sys.path.insert(0, root)
 import speech, player  # loose modules, the backend's own code
@@ -45,7 +48,7 @@ def word_wav(w):
     if key not in cache:
         path = f"{voice}/{key.replace(chr(39), '_')}.wav"
         if not os.path.exists(path):
-          subprocess.run(["say", "-v", "Samantha", "-r", "200", "--file-format=WAVE", "--data-format=LEI16@22050", "-o", path, key], check=True)
+          subprocess.run(["say", "-v", "Samantha", "-r", "200", "--file-format=WAVE", "--data-format=LEI16@22050", "-o", path, key], check=True, env=CLEAN)
         with wave.open(path) as f:
             a = array.array("h", f.readframes(f.getnframes()))
         loud = [i for i, v in enumerate(a) if abs(v) > 600]
@@ -72,7 +75,7 @@ for i in range(0, len(out), win):
     rms = math.sqrt(sum((v / 32768) ** 2 for v in seg) / max(1, len(seg)))
     lv20.append(min(1.0, rms * 4))
 levels = [round(max(lv20[i:i + 2]), 3) for i in range(0, len(lv20), 2)]
-subprocess.run(["ffmpeg", "-loglevel", "error", "-y", "-i", f"{build}/voice/take.wav", "-c:a", "libopus", "-b:a", "32k", f"{build}/voice/take.webm"], check=True)
+subprocess.run(["ffmpeg", "-loglevel", "error", "-y", "-i", f"{build}/voice/take.wav", "-c:a", "libopus", "-b:a", "32k", f"{build}/voice/take.webm"], check=True, env=CLEAN)
 audio = base64.b64encode(open(f"{build}/voice/take.webm", "rb").read()).decode()
 
 def make(with_words):
@@ -132,11 +135,13 @@ OUT="$OUT" PORT="$PORT" DBG="$DBG" node --input-type=module <<'JS'
 import { spawn } from 'node:child_process'
 import { writeFileSync, mkdtempSync } from 'node:fs'
 import { join } from 'node:path'
-const CHROME = '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'
+const CHROME = process.env.CHROME || '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'
+// The browser gets a short list of settings, never this shell's whole environment (keys stay out of it).
+const browserEnv = () => Object.fromEntries(['PATH', 'HOME', 'TMPDIR', 'LANG', 'LC_ALL', 'LC_CTYPE'].filter(k => process.env[k]).map(k => [k, process.env[k]]))
 const OUT = process.env.OUT, PORT = process.env.PORT, DBG = Number(process.env.DBG)
 const pause = ms => new Promise(r => setTimeout(r, ms))
 const chrome = spawn(CHROME, ['--headless=new', '--disable-gpu', '--mute-audio', '--hide-scrollbars', `--remote-debugging-port=${DBG}`, '--autoplay-policy=user-gesture-required',
-  `--user-data-dir=${mkdtempSync(join(process.env.TMPDIR || '/private/tmp', 'ldw-player-chrome-'))}`, 'about:blank'], { stdio: 'ignore' })
+  `--user-data-dir=${mkdtempSync(join(process.env.TMPDIR || '/private/tmp', 'ldw-player-chrome-'))}`, 'about:blank'], { stdio: 'ignore', env: browserEnv() })
 const log = []
 try {
   let target

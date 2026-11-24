@@ -238,12 +238,20 @@ class HostileTextForTheModel(unittest.TestCase):
         self.assertEqual(len(library.list_cases()), n)
 
 
-def complete_model(folder):
+def complete_model(folder, body=b"x"):
     """Write the files faster-whisper needs to load a model folder (stand-ins, not a real model)."""
     folder.mkdir(parents=True, exist_ok=True)
     for name in ("model.bin", "config.json", "tokenizer.json", "vocabulary.txt"):
-        (folder / name).write_bytes(b"x")
+        (folder / name).write_bytes(body)
     return folder
+
+
+def standin_hashes(body=b"x"):
+    """The pinned-file table as it would read if the stand-in files above were the real model."""
+    import hashlib
+    blob = hashlib.sha1(b"blob %d\0" % len(body) + body).hexdigest()
+    return {"model.bin": ("sha256", hashlib.sha256(body).hexdigest()), "config.json": ("blob", blob),
+            "tokenizer.json": ("blob", blob), "vocabulary.txt": ("blob", blob)}
 
 
 class SpeechModelDownload(unittest.TestCase):
@@ -412,12 +420,13 @@ class SpeechModelLocation(unittest.TestCase):
             complete_model(Path(argv[5]))
             (Path(argv[5]) / ".cache" / "huggingface").mkdir(parents=True)
             return sp.CompletedProcess(argv, 0, "", "")
-        old = speech.subprocess.run
+        old, old_hashes = speech.subprocess.run, speech.MODEL_HASHES
         speech.subprocess.run = fake_run
+        speech.MODEL_HASHES = {**old_hashes, "base.en": standin_hashes()}
         try:
             where = speech.download_model("base.en")
         finally:
-            speech.subprocess.run = old
+            speech.subprocess.run, speech.MODEL_HASHES = old, old_hashes
         models = speech.models_dir()
         self.assertEqual(where, models / "base.en")
         self.assertTrue(speech._complete(where))
@@ -478,6 +487,66 @@ class SpeechModelLocation(unittest.TestCase):
             speech.subprocess.run = old
         self.assertFalse((speech.models_dir() / ".small.en.part").exists())
         self.assertIsNone(speech.find_model("small.en"))
+
+
+class PinnedModelFiles(unittest.TestCase):
+    """The speech model is pinned to exact files, not only to a commit: a download whose bytes differ from the
+    recorded hashes, or that brings a file nobody listed, is thrown away and nothing is left behind."""
+
+    def setUp(self):
+        reset()
+
+    def _download(self, write, name="base.en"):
+        import subprocess as sp
+        from pathlib import Path
+
+        def fake_run(argv, **kw):
+            write(Path(argv[5]))
+            return sp.CompletedProcess(argv, 0, "", "")
+        old, old_hashes = speech.subprocess.run, speech.MODEL_HASHES
+        speech.subprocess.run = fake_run
+        speech.MODEL_HASHES = {**old_hashes, name: standin_hashes()}
+        try:
+            return speech.download_model(name)
+        finally:
+            speech.subprocess.run, speech.MODEL_HASHES = old, old_hashes
+
+    def test_matching_files_are_kept(self):
+        where = self._download(complete_model)
+        self.assertTrue(speech._complete(where))
+
+    def test_a_changed_byte_is_thrown_away(self):
+        with self.assertRaises(speech.DownloadFailed) as e:
+            self._download(lambda d: complete_model(d, body=b"y"))
+        self.assertIn("do not match", str(e.exception))
+        self.assertFalse((speech.models_dir() / ".base.en.part").exists())
+        self.assertIsNone(speech.find_model("base.en"))
+
+    def test_an_extra_file_is_thrown_away(self):
+        def write(d):
+            complete_model(d)
+            (d / "extra.py").write_bytes(b"print('hi')")
+        with self.assertRaises(speech.DownloadFailed):
+            self._download(write)
+        self.assertIsNone(speech.find_model("base.en"))
+
+    def test_every_model_has_a_hash_for_every_file_it_needs(self):
+        for name in speech.MODELS:
+            table = speech.MODEL_HASHES[name]
+            self.assertEqual(set(table), {"model.bin", "config.json", "tokenizer.json", "vocabulary.txt"}, name)
+            self.assertEqual(table["model.bin"][0], "sha256")
+            self.assertEqual(len(table["model.bin"][1]), 64)
+            for f in ("config.json", "tokenizer.json", "vocabulary.txt"):
+                self.assertEqual(table[f][0], "blob")
+                self.assertEqual(len(table[f][1]), 40)
+
+    def test_a_git_blob_id_is_computed_the_way_git_does(self):
+        import tempfile
+        from pathlib import Path
+        with tempfile.TemporaryDirectory() as d:
+            p = Path(d) / "f"
+            p.write_bytes(b"hello\n")  # `printf 'hello\n' | git hash-object --stdin`
+            self.assertEqual(speech._file_digest(p, "blob"), "ce013625030ba8dba906f756967f9e9ca394464a")
 
 
 class PathsAndDisclosure(unittest.TestCase):

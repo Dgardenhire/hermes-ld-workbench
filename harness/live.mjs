@@ -6,7 +6,9 @@ import { spawn } from 'node:child_process'
 import { mkdirSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 
-const CHROME = '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'
+const CHROME = process.env.CHROME || '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'  // CHROME=<browser> to use another one
+// The browser gets a short list of settings, never this shell's whole environment (keys stay out of it).
+const browserEnv = () => Object.fromEntries(['PATH', 'HOME', 'TMPDIR', 'LANG', 'LC_ALL', 'LC_CTYPE'].filter(k => process.env[k]).map(k => [k, process.env[k]]))
 const OUT = process.argv[2] || 'docs/shots/v02'
 const PORT = 9333
 const pause = ms => new Promise(r => setTimeout(r, ms))
@@ -15,7 +17,7 @@ mkdirSync(OUT, { recursive: true })
 // so the waveform shows a speaking voice and a pause mark instead of a steady tone.
 const WAV = process.env.SPEECH_WAV ? [`--use-file-for-fake-audio-capture=${process.env.SPEECH_WAV}`, "--disable-features=AudioServiceOutOfProcess,AudioServiceSandbox"] : []
 const chrome = spawn(CHROME, ['--headless=new', '--disable-gpu', '--mute-audio', `--remote-debugging-port=${PORT}`, '--use-fake-device-for-media-stream', ...WAV,
-  '--use-fake-ui-for-media-stream', '--hide-scrollbars', '--window-size=1440,900', `--user-data-dir=${join(process.env.TMPDIR || '/tmp', 'ldw-live-chrome')}`, 'about:blank'], { stdio: 'ignore' })
+  '--use-fake-ui-for-media-stream', '--hide-scrollbars', '--window-size=1440,900', `--user-data-dir=${join(process.env.TMPDIR || '/tmp', 'ldw-live-chrome')}`, 'about:blank'], { stdio: 'ignore', env: browserEnv() })
 let ws
 try {
   let target

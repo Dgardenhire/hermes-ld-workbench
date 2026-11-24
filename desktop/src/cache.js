@@ -10,7 +10,7 @@
 // Rules: never keep a secret (scrub), never keep much (MAX_ENTRY_CHARS each), never keep another Hermes
 // profile's or connection's data (scope), never keep it long (MAX_AGE_MS), never across a plugin version.
 
-export const CACHE_VERSION = '0.2.0' // the plugin's version (plugin.yaml); a test keeps them equal
+export const CACHE_VERSION = '0.2.1' // the plugin's version (plugin.yaml); a test keeps them equal
 export const NAMES = ['config', 'state', 'home']
 export const MAX_ENTRY_CHARS = 200000 // per read, as JSON; a bigger answer is not kept (the next open waits)
 export const MAX_AGE_MS = 30 * 86400000

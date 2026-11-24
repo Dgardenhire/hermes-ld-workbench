@@ -28,7 +28,7 @@ tier: community
 category: desktop
 requires_hermes: ">=0.21.6"
 docs_url: https://linchpin.studio/hermes/ld-workbench/manual/
-version: "0.2.0"
+version: "0.2.1"
 image: "https://raw.githubusercontent.com/Dgardenhire/hermes-ld-workbench/SHA_PLACEHOLDER/docs/catalog/card.jpg"
 screenshots:
   - "https://raw.githubusercontent.com/Dgardenhire/hermes-ld-workbench/SHA_PLACEHOLDER/docs/shots/live/ballot.jpg"
@@ -41,7 +41,7 @@ readme: true
 platforms: []
 known_issues:
   - "Tested on macOS. Windows and Linux are untested."
-  - "plugin.yaml declares Hermes 0.21.6 or newer, but 0.2.0 was run live only on Hermes 0.23.1 (Nov 11, 2026)."
+  - "plugin.yaml declares Hermes 0.21.6 or newer, but it was run live only on Hermes 0.23.1 (0.2.0, Nov 11, 2026; 0.2.1 changes no screen)."
   - "The judge and the coach are an AI on the model you chose in Hermes. Their points are practice feedback, not a real judge's."
   - "Hermes's speech-to-text returns no word times, so exact line playback and the answer-in-the-first-10-seconds measure work only with the plugin's own speech model."
   - "Transcription imports tools.voice_mode.transcribe_recording, which is not in Hermes's public plugin API. It is guarded and falls back to the plugin's own faster-whisper, so a Hermes release that moves it can turn off Hermes-backed transcription."

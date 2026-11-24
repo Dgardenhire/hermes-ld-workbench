@@ -5,12 +5,14 @@ import { spawn } from 'node:child_process'
 import { writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 
-const CHROME = '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'
+const CHROME = process.env.CHROME || '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'  // CHROME=<browser> to use another one
+// The browser gets a short list of settings, never this shell's whole environment (keys stay out of it).
+const browserEnv = () => Object.fromEntries(['PATH', 'HOME', 'TMPDIR', 'LANG', 'LC_ALL', 'LC_CTYPE'].filter(k => process.env[k]).map(k => [k, process.env[k]]))
 const [query, out, ...labels] = process.argv.slice(2)
 const W = Number(process.env.W || 1440), H = Number(process.env.H || 1200), DBG = 9334
 const pause = ms => new Promise(r => setTimeout(r, ms))
 const chrome = spawn(CHROME, ['--headless=new', '--disable-gpu', '--mute-audio', `--remote-debugging-port=${DBG}`, '--hide-scrollbars', `--window-size=${W},${H}`,
-  `--user-data-dir=${join(process.env.TMPDIR || '/tmp', 'ldw-click-chrome')}`, 'about:blank'], { stdio: 'ignore' })
+  `--user-data-dir=${join(process.env.TMPDIR || '/tmp', 'ldw-click-chrome')}`, 'about:blank'], { stdio: 'ignore', env: browserEnv() })
 try {
   let target
   for (let i = 0; i < 40 && !target; i++) {

@@ -16,6 +16,7 @@ model, when the plugin needs its own, is in ``models/<name>``.
 from __future__ import annotations
 
 import base64
+import hashlib
 import contextvars
 import importlib.util
 import logging
@@ -53,6 +54,23 @@ MODEL_MB = {"base.en": 145, "small.en": 485}  # model.bin in Systran/faster-whis
 # (base.en is the copy on the maintainer's computer; small.en is the repository's head on Nov 12, 2026).
 MODEL_REVISIONS = {"base.en": "3d3d5dee26484f91867d81cb899cfcf72b96be6c",
                    "small.en": "d1d751a5f8271d482d14ca55d9e2deeebbae577f"}
+# The exact files at those commits, read from Hugging Face's file list (Nov 23, 2026). model.bin is checked by its
+# SHA-256; the small text files by their git blob id (SHA-1 of "blob <size>\0" and the bytes), which is what the
+# repository records for them. A download whose files differ in any byte is thrown away.
+MODEL_HASHES = {
+    "base.en": {
+        "model.bin": ("sha256", "2a166925539a16005f14ff328359f9b9adb9dc4fb631bb3b227526862e93e2ef"),
+        "config.json": ("blob", "594369787efe617005d199b03739ee0ead7e3ab7"),
+        "tokenizer.json": ("blob", "15d7bdf9ba25718ca2504eec6a8f02bc55af0a6a"),
+        "vocabulary.txt": ("blob", "ee695b8d3e3c10d488304e04468efec4ca27554a"),
+    },
+    "small.en": {
+        "model.bin": ("sha256", "62b2a45b05ee59acb4a5341b33ee35e041395d378d418a18acfe4c9e768ee37a"),
+        "config.json": ("blob", "ced3fd5bbb3e9f7664658065d2d36164712cf1d5"),
+        "tokenizer.json": ("blob", "15d7bdf9ba25718ca2504eec6a8f02bc55af0a6a"),
+        "vocabulary.txt": ("blob", "ee695b8d3e3c10d488304e04468efec4ca27554a"),
+    },
+}
 IDLE_UNLOAD = 300
 EVENTS = ("ld", "extemp", "drill", "rhetoric", "opening")
 
@@ -989,6 +1007,27 @@ def _package_roots(*names):
     return roots
 
 
+def _file_digest(path, kind):
+    """The file's SHA-256, or its git blob id, read in 1 MB pieces."""
+    h = hashlib.sha256() if kind == "sha256" else hashlib.sha1(f"blob {path.stat().st_size}\0".encode())
+    with open(path, "rb") as f:
+        for piece in iter(lambda: f.read(1 << 20), b""):
+            h.update(piece)
+    return h.hexdigest()
+
+
+def _hashes_match(d, name):
+    """Every file the pinned commit lists is in ``d`` with exactly its recorded bytes, and nothing else was fetched."""
+    want = MODEL_HASHES.get(name) or {}
+    try:
+        got = {p.name for p in d.iterdir() if p.is_file() and not p.name.startswith(".")}
+        if not want or got != set(want):
+            return False
+        return all(_file_digest(d / f, kind) == digest for f, (kind, digest) in want.items())
+    except OSError:
+        return False
+
+
 def download_model(name):
     """Download a speech model into plugin-data/ld-workbench/models/<name>. Called only after the student
     pressed Transcribe now. Returns the folder."""
@@ -1014,6 +1053,8 @@ def download_model(name):
         failed, detail = True, repr(e)
     shutil.rmtree(part / ".cache", ignore_errors=True)  # huggingface_hub's own bookkeeping
     shutil.rmtree(hf, ignore_errors=True)
+    if not failed and _complete(part) and not _hashes_match(part, name):
+        failed, detail = True, "the downloaded files do not match the pinned model files"
     if failed or not _complete(part):
         shutil.rmtree(part, ignore_errors=True)
         _log.warning("ld-workbench: speech model download failed: %s", detail)

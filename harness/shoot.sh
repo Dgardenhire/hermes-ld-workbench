@@ -4,12 +4,16 @@
 # Needs network for React (esm.sh) and codicons (jsdelivr).
 #   docs/shots/v02/    the 0.2 screens (the speaking state is the catalog image)
 #   docs/shots/after/  0.1's screens, kept for comparison
-CHROME="/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
+# Run on a short list of settings, never the caller's whole environment, so no key reaches the browser or the tools.
+[ -n "$LDW_HARNESS_CLEAN" ] || exec env -i LDW_HARNESS_CLEAN=1 PATH="$PATH" HOME="$HOME" TMPDIR="${TMPDIR:-/tmp}" LANG="${LANG:-en_US.UTF-8}" ${PORT:+PORT="$PORT"} ${CHROME:+CHROME="$CHROME"} ${KIT:+KIT="$KIT"} ${OUT:+OUT="$OUT"} /bin/sh "$0" "$@"
+CHROME="${CHROME:-/Applications/Google Chrome.app/Contents/MacOS/Google Chrome}"  # CHROME=<browser> to use another one
+PROFILE="$(mktemp -d "${TMPDIR:-/tmp}/ldw-shoot-chrome.XXXXXX")"  # its own profile, removed at the end
+trap 'rm -rf "$PROFILE"' EXIT
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 OUT="$ROOT/docs/shots/v02"
 mkdir -p "$OUT"
 BASE="http://127.0.0.1:${PORT:-8793}/harness/"
-shot() { "$CHROME" --headless=new --disable-gpu --mute-audio --hide-scrollbars --window-size="$3" --virtual-time-budget=9000 --screenshot="$OUT/$1.png" "$BASE?$2" 2>/dev/null; echo "$OUT/$1.png"; }
+shot() { "$CHROME" --headless=new --disable-gpu --mute-audio --hide-scrollbars --window-size="$3" --user-data-dir="$PROFILE" --virtual-time-budget=9000 --screenshot="$OUT/$1.png" "$BASE?$2" 2>/dev/null; echo "$OUT/$1.png"; }
 shot extemp-ready-dark "view=extemp" 1440,900
 shot extemp-ready-light "view=extemp&theme=light" 1440,900
 shot extemp-ready-red-accent "view=extemp&accent=red" 1440,900

@@ -13,7 +13,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 SRC = ROOT / "desktop" / "src"
 NODE = shutil.which("node")
-KIT = ROOT.parent / "hermes-ui-kit"
+KIT = ROOT / "vendor" / "hermes-ui-kit"
 
 STUBS = {
     "react": "export const useEffect=()=>{};export const useLayoutEffect=()=>{};export const useRef=x=>({current:x});export const useState=x=>[x,()=>{}];export const useMemo=f=>f();export const useCallback=f=>f;export const useSyncExternalStore=()=>null;",
@@ -269,7 +269,7 @@ out([...mem.keys()])
         for needle in ("firstpaint.", "startFirstPaint", "SEND_WHILE_STALE", ".inert = paint.stale"):
             self.assertIn(needle, bundle)
 
-    @unittest.skipUnless(NODE and (KIT / "scripts" / "build.mjs").is_file() and (KIT / "node_modules" / "esbuild").is_dir(), "the UI kit is not beside this folder")
+    @unittest.skipUnless(NODE and (KIT / "scripts" / "build.mjs").is_file() and (KIT / "node_modules" / "esbuild").is_dir(), "the pinned esbuild is not installed; run: npm ci --ignore-scripts --prefix vendor/hermes-ui-kit")
     def test_the_bundle_is_built_from_the_source(self):
         r = subprocess.run([NODE, str(KIT / "scripts" / "build.mjs"), ".", "--check"], cwd=ROOT, capture_output=True, text=True, timeout=120)
         self.assertEqual(r.returncode, 0, r.stdout + r.stderr)

@@ -7,6 +7,8 @@
 #   03-primer-progress  under 1 s after the press: a staged line, the seconds, no lone spinner
 #   04-primer-cards     the coach's read and three fact cards with outlet, date or "no date", link, Save to my file
 #   14-states-*         web search not set up; the model too slow (Retry); offline
+# Run on a short list of settings, never the caller's whole environment, so no key reaches the browser or the tools.
+[ -n "$LDW_HARNESS_CLEAN" ] || exec env -i LDW_HARNESS_CLEAN=1 PATH="$PATH" HOME="$HOME" TMPDIR="${TMPDIR:-/tmp}" LANG="${LANG:-en_US.UTF-8}" ${PORT:+PORT="$PORT"} ${CHROME:+CHROME="$CHROME"} ${KIT:+KIT="$KIT"} ${OUT:+OUT="$OUT"} /bin/sh "$0" "$@"
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 : "${OUT:?set OUT to a folder outside the repo}"
 mkdir -p "$OUT"
