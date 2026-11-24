@@ -15,7 +15,7 @@ labels: bug
 
 **Versions**
 
-- Debate Workbench version (Settings, or `plugin.yaml`):
+- Debate Workbench version (from Hermes's plugin list, or `plugin.yaml`):
 - Hermes version:
 - Computer (macOS, Windows or Linux, and its version):
 
